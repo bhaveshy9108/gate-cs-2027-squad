@@ -109,21 +109,19 @@ export default function SubjectChecklist({ section, sectionLabel, state, member,
                         >
                           {topic.name}
                         </span>
-                        {topic.isCustom && (
+                      {topic.isCustom && (
                           <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium">
                             Custom
                           </span>
                         )}
                       </label>
-                      {topic.isCustom && (
-                        <button
-                          onClick={() => handleDeleteTopic(subject.id, topic.id)}
-                          className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive/80 transition-opacity"
-                          title="Delete topic"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
+                      <button
+                        onClick={() => handleDeleteTopic(subject.id, topic.id)}
+                        className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive/80 transition-opacity"
+                        title="Delete topic"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   );
                 })}

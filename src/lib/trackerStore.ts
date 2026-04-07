@@ -14,6 +14,7 @@ export type ChecklistData = Record<string, ChecklistEntry>;
 export interface TrackerState {
   checklist: ChecklistData;
   customTopics: Record<string, Topic[]>; // subjectId -> extra topics
+  deletedTopics: Record<string, string[]>; // subjectId -> deleted topicIds (built-in)
   mockTests: MockTest[];
   currentMember: Member;
 }
@@ -35,6 +36,7 @@ function defaultState(): TrackerState {
   return {
     checklist: {},
     customTopics: {},
+    deletedTopics: {},
     mockTests: [],
     currentMember: "Bhavesh",
   };
@@ -111,8 +113,10 @@ export function addCustomTopic(state: TrackerState, subjectId: string, topicName
 export function getAllTopics(state: TrackerState, subjectId: string): Topic[] {
   const subject = SUBJECTS.find((s) => s.id === subjectId);
   const base = subject?.topics || [];
+  const deleted = state.deletedTopics?.[subjectId] || [];
+  const filteredBase = base.filter((t) => !deleted.includes(t.id));
   const custom = state.customTopics[subjectId] || [];
-  return [...base, ...custom];
+  return [...filteredBase, ...custom];
 }
 
 export function getSubjectProgress(
@@ -192,6 +196,8 @@ export function getWeekDateRange(week: number): string {
 
 export function deleteCustomTopic(state: TrackerState, subjectId: string, topicId: string): TrackerState {
   const existing = state.customTopics[subjectId] || [];
+  const isCustom = existing.some((t) => t.id === topicId);
+
   const newChecklist = { ...state.checklist };
   // Remove all checklist entries for this topic across all members/sections
   for (const key of Object.keys(newChecklist)) {
@@ -199,9 +205,20 @@ export function deleteCustomTopic(state: TrackerState, subjectId: string, topicI
       delete newChecklist[key];
     }
   }
+
+  if (isCustom) {
+    return {
+      ...state,
+      checklist: newChecklist,
+      customTopics: { ...state.customTopics, [subjectId]: existing.filter((t) => t.id !== topicId) },
+    };
+  }
+
+  // Built-in topic: track as deleted
+  const deletedList = state.deletedTopics?.[subjectId] || [];
   return {
     ...state,
     checklist: newChecklist,
-    customTopics: { ...state.customTopics, [subjectId]: existing.filter((t) => t.id !== topicId) },
+    deletedTopics: { ...state.deletedTopics, [subjectId]: [...deletedList, topicId] },
   };
 }

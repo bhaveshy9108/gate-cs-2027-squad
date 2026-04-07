@@ -10,6 +10,7 @@ export interface Topic {
 export interface Subject {
   id: string;
   name: string;
+  weightage: number; // approximate marks in GATE CS
   topics: Topic[];
 }
 
@@ -17,6 +18,7 @@ export const SUBJECTS: Subject[] = [
   {
     id: "engg-math",
     name: "Engineering Mathematics",
+    weightage: 13,
     topics: [
       { id: "em-1", name: "Linear Algebra" },
       { id: "em-2", name: "Calculus" },
@@ -32,6 +34,7 @@ export const SUBJECTS: Subject[] = [
   {
     id: "discrete-math",
     name: "Discrete Mathematics",
+    weightage: 5,
     topics: [
       { id: "dm-1", name: "Propositional & First Order Logic" },
       { id: "dm-2", name: "Sets, Relations, Functions" },
@@ -44,6 +47,7 @@ export const SUBJECTS: Subject[] = [
   {
     id: "dsa",
     name: "Data Structures & Algorithms",
+    weightage: 15,
     topics: [
       { id: "dsa-1", name: "Arrays & Strings" },
       { id: "dsa-2", name: "Linked Lists" },
@@ -63,6 +67,7 @@ export const SUBJECTS: Subject[] = [
   {
     id: "prog",
     name: "Programming in C",
+    weightage: 5,
     topics: [
       { id: "prog-1", name: "Data Types & Variables" },
       { id: "prog-2", name: "Control Flow" },
@@ -76,6 +81,7 @@ export const SUBJECTS: Subject[] = [
   {
     id: "toc",
     name: "Theory of Computation",
+    weightage: 8,
     topics: [
       { id: "toc-1", name: "Regular Languages & Finite Automata" },
       { id: "toc-2", name: "Regular Expressions" },
@@ -89,6 +95,7 @@ export const SUBJECTS: Subject[] = [
   {
     id: "compiler",
     name: "Compiler Design",
+    weightage: 6,
     topics: [
       { id: "cd-1", name: "Lexical Analysis" },
       { id: "cd-2", name: "Syntax Analysis (Parsing)" },
@@ -101,6 +108,7 @@ export const SUBJECTS: Subject[] = [
   {
     id: "os",
     name: "Operating Systems",
+    weightage: 8,
     topics: [
       { id: "os-1", name: "Process Management" },
       { id: "os-2", name: "Threads & Concurrency" },
@@ -116,6 +124,7 @@ export const SUBJECTS: Subject[] = [
   {
     id: "dbms",
     name: "Database Management Systems",
+    weightage: 5,
     topics: [
       { id: "db-1", name: "ER Model" },
       { id: "db-2", name: "Relational Model" },
@@ -130,6 +139,7 @@ export const SUBJECTS: Subject[] = [
   {
     id: "cn",
     name: "Computer Networks",
+    weightage: 9,
     topics: [
       { id: "cn-1", name: "OSI & TCP/IP Models" },
       { id: "cn-2", name: "Data Link Layer (Framing, Error/Flow Control)" },
@@ -145,6 +155,7 @@ export const SUBJECTS: Subject[] = [
   {
     id: "digital-logic",
     name: "Digital Logic",
+    weightage: 7,
     topics: [
       { id: "dl-1", name: "Boolean Algebra & K-Maps" },
       { id: "dl-2", name: "Combinational Circuits" },
@@ -156,6 +167,7 @@ export const SUBJECTS: Subject[] = [
   {
     id: "coa",
     name: "Computer Organization & Architecture",
+    weightage: 9,
     topics: [
       { id: "coa-1", name: "Machine Instructions & Addressing Modes" },
       { id: "coa-2", name: "ALU & Data Path Design" },
@@ -168,6 +180,7 @@ export const SUBJECTS: Subject[] = [
   {
     id: "aptitude",
     name: "General Aptitude",
+    weightage: 15,
     topics: [
       { id: "apt-1", name: "Verbal Ability" },
       { id: "apt-2", name: "Numerical Ability" },
