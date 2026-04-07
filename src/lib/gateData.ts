@@ -167,6 +167,7 @@ export const SUBJECTS: Subject[] = [
   {
     id: "coa",
     name: "Computer Organization & Architecture",
+    weightage: 9,
     topics: [
       { id: "coa-1", name: "Machine Instructions & Addressing Modes" },
       { id: "coa-2", name: "ALU & Data Path Design" },
