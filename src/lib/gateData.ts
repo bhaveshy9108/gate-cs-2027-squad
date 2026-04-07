@@ -95,6 +95,7 @@ export const SUBJECTS: Subject[] = [
   {
     id: "compiler",
     name: "Compiler Design",
+    weightage: 6,
     topics: [
       { id: "cd-1", name: "Lexical Analysis" },
       { id: "cd-2", name: "Syntax Analysis (Parsing)" },
