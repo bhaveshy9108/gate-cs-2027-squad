@@ -196,6 +196,8 @@ export function getWeekDateRange(week: number): string {
 
 export function deleteCustomTopic(state: TrackerState, subjectId: string, topicId: string): TrackerState {
   const existing = state.customTopics[subjectId] || [];
+  const isCustom = existing.some((t) => t.id === topicId);
+
   const newChecklist = { ...state.checklist };
   // Remove all checklist entries for this topic across all members/sections
   for (const key of Object.keys(newChecklist)) {
@@ -203,9 +205,20 @@ export function deleteCustomTopic(state: TrackerState, subjectId: string, topicI
       delete newChecklist[key];
     }
   }
+
+  if (isCustom) {
+    return {
+      ...state,
+      checklist: newChecklist,
+      customTopics: { ...state.customTopics, [subjectId]: existing.filter((t) => t.id !== topicId) },
+    };
+  }
+
+  // Built-in topic: track as deleted
+  const deletedList = state.deletedTopics?.[subjectId] || [];
   return {
     ...state,
     checklist: newChecklist,
-    customTopics: { ...state.customTopics, [subjectId]: existing.filter((t) => t.id !== topicId) },
+    deletedTopics: { ...state.deletedTopics, [subjectId]: [...deletedList, topicId] },
   };
 }
