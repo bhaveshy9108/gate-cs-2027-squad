@@ -53,6 +53,7 @@ export default function OverallDashboard({ state }: Props) {
           <thead>
             <tr className="border-b border-border">
               <th className="text-left py-2 px-3 text-muted-foreground font-medium">Subject</th>
+              <th className="text-center py-2 px-2 text-muted-foreground font-medium">Weightage</th>
               {MEMBERS.map((m) => (
                 <th key={m} className="text-center py-2 px-2 text-muted-foreground font-medium" colSpan={3}>
                   {m}
@@ -60,6 +61,7 @@ export default function OverallDashboard({ state }: Props) {
               ))}
             </tr>
             <tr className="border-b border-border">
+              <th />
               <th />
               {MEMBERS.map((m) =>
                 SECTIONS.map((s) => (
@@ -74,6 +76,11 @@ export default function OverallDashboard({ state }: Props) {
             {SUBJECTS.map((sub) => (
               <tr key={sub.id} className="border-b border-border/50 hover:bg-muted/30">
                 <td className="py-2 px-3 font-medium text-foreground text-xs">{sub.name}</td>
+                <td className="text-center py-2 px-2">
+                  <span className="inline-block bg-primary/10 text-primary text-xs font-bold px-2 py-0.5 rounded-full">
+                    ~{sub.weightage}m
+                  </span>
+                </td>
                 {MEMBERS.map((m) =>
                   SECTIONS.map((sec) => {
                     const p = getSubjectProgress(state, m, sec.key, sub.id);
