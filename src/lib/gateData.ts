@@ -180,6 +180,7 @@ export const SUBJECTS: Subject[] = [
   {
     id: "aptitude",
     name: "General Aptitude",
+    weightage: 15,
     topics: [
       { id: "apt-1", name: "Verbal Ability" },
       { id: "apt-2", name: "Numerical Ability" },
