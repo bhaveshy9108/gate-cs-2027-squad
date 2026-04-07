@@ -172,7 +172,7 @@ export function getWeeklyProgress(state: TrackerState): WeekProgress[] {
   }
 
   return Array.from(weekMap.entries())
-    .sort((a, b) => b[0] - a[0])
+    .sort((a, b) => a[0] - b[0])
     .map(([week, items]) => ({ week, items }));
 }
 
