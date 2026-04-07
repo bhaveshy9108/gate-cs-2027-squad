@@ -36,6 +36,7 @@ function defaultState(): TrackerState {
   return {
     checklist: {},
     customTopics: {},
+    deletedTopics: {},
     mockTests: [],
     currentMember: "Bhavesh",
   };
