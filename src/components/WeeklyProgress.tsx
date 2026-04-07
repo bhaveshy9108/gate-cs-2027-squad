@@ -24,7 +24,7 @@ export default function WeeklyProgress({ state }: Props) {
       </div>
 
       <p className="text-xs text-muted-foreground mb-3">
-        Starting from Monday, 7th April 2025. Auto-syncs with your checklists across all sections.
+        Starting from Sunday, 6th April 2026. Auto-syncs with your checklists across all sections.
       </p>
 
       {weeks.length === 0 && (
