@@ -1,5 +1,5 @@
 import { MEMBERS, type Member } from "@/lib/gateData";
-import { type TrackerState, getWeeklyProgress } from "@/lib/trackerStore";
+import { type TrackerState, getWeeklyProgress, getWeekDateRange } from "@/lib/trackerStore";
 import { CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 
