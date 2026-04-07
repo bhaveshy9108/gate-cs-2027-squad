@@ -155,6 +155,7 @@ export const SUBJECTS: Subject[] = [
   {
     id: "digital-logic",
     name: "Digital Logic",
+    weightage: 7,
     topics: [
       { id: "dl-1", name: "Boolean Algebra & K-Maps" },
       { id: "dl-2", name: "Combinational Circuits" },
