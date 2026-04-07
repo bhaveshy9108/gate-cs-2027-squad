@@ -113,8 +113,10 @@ export function addCustomTopic(state: TrackerState, subjectId: string, topicName
 export function getAllTopics(state: TrackerState, subjectId: string): Topic[] {
   const subject = SUBJECTS.find((s) => s.id === subjectId);
   const base = subject?.topics || [];
+  const deleted = state.deletedTopics?.[subjectId] || [];
+  const filteredBase = base.filter((t) => !deleted.includes(t.id));
   const custom = state.customTopics[subjectId] || [];
-  return [...base, ...custom];
+  return [...filteredBase, ...custom];
 }
 
 export function getSubjectProgress(
