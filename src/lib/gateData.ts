@@ -124,6 +124,7 @@ export const SUBJECTS: Subject[] = [
   {
     id: "dbms",
     name: "Database Management Systems",
+    weightage: 5,
     topics: [
       { id: "db-1", name: "ER Model" },
       { id: "db-2", name: "Relational Model" },
