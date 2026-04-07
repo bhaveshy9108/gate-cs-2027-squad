@@ -22,6 +22,8 @@ export interface MockTest {
   id: string;
   name: string;
   date: string;
+  totalMarks: number;
+  notes: string;
   scores: Record<Member, number | null>;
 }
 
