@@ -18,6 +18,7 @@ export const SUBJECTS: Subject[] = [
   {
     id: "engg-math",
     name: "Engineering Mathematics",
+    weightage: 13,
     topics: [
       { id: "em-1", name: "Linear Algebra" },
       { id: "em-2", name: "Calculus" },
