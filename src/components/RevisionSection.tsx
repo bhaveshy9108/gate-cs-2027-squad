@@ -1,8 +1,22 @@
-import { SUBJECTS, type Member } from "@/lib/gateData";
-import { type TrackerState, toggleTopic, isCompleted, getAllTopics, getSubjectProgress, addCustomTopic, deleteCustomTopic } from "@/lib/trackerStore";
-import { cn } from "@/lib/utils";
-import { BookMarked, ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { SUBJECTS, type Member } from "@/lib/gateData";
+import {
+  type TrackerState,
+  toggleTopic,
+  isCompleted,
+  getAllTopics,
+  getSubjectProgress,
+  addCustomTopic,
+  deleteCustomTopic,
+} from "@/lib/trackerStore";
+import { cn } from "@/lib/utils";
+import { ChevronDown, ChevronRight, Plus, RefreshCw, Trash2 } from "lucide-react";
+
+const ROUNDS = [
+  { id: "revision1", label: "Round 1" },
+  { id: "revision2", label: "Round 2" },
+  { id: "revision3", label: "Round 3" },
+] as const;
 
 interface Props {
   state: TrackerState;
@@ -10,15 +24,14 @@ interface Props {
   onUpdate: (s: TrackerState) => void;
 }
 
-const SECTION = "pyq";
-
-export default function PYQSection({ state, member, onUpdate }: Props) {
+export default function RevisionSection({ state, member, onUpdate }: Props) {
+  const [activeRound, setActiveRound] = useState<string>("revision1");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [addingTopic, setAddingTopic] = useState<string | null>(null);
   const [newTopicName, setNewTopicName] = useState("");
 
   const handleToggle = (subjectId: string, topicId: string) => {
-    onUpdate(toggleTopic(state, member, SECTION, subjectId, topicId));
+    onUpdate(toggleTopic(state, member, activeRound, subjectId, topicId));
   };
 
   const handleAddTopic = (subjectId: string) => {
@@ -35,24 +48,32 @@ export default function PYQSection({ state, member, onUpdate }: Props) {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 mb-2">
-        <BookMarked className="w-5 h-5 text-primary" />
-        <h2 className="text-lg font-bold text-foreground">PYQs — Topic Wise</h2>
+        <RefreshCw className="w-5 h-5 text-primary" />
+        <h2 className="text-lg font-bold text-foreground">Revision</h2>
         <span className="text-xs text-muted-foreground ml-1">— {member}</span>
       </div>
 
-      <div className="bg-card border border-border rounded-xl p-4 mb-4">
-        <p className="text-sm text-muted-foreground">
-          📚 <span className="font-semibold text-foreground">Reference Book:</span>{" "}
-          GATE Overflow — Previous Years Questions (All Past Years, Topic-wise)
-        </p>
-        <p className="text-xs text-muted-foreground mt-1">
-          Go through each topic's PYQs from GateOverflow. Mark them done as you solve topic-wise questions.
-        </p>
+      {/* Round sub-tabs */}
+      <div className="flex gap-2 mb-4">
+        {ROUNDS.map((r) => (
+          <button
+            key={r.id}
+            onClick={() => { setActiveRound(r.id); setExpanded(null); }}
+            className={cn(
+              "px-4 py-2 text-sm font-medium rounded-lg transition-colors",
+              activeRound === r.id
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
+            )}
+          >
+            {r.label}
+          </button>
+        ))}
       </div>
 
       {SUBJECTS.map((subject) => {
         const topics = getAllTopics(state, subject.id);
-        const { done, total } = getSubjectProgress(state, member, SECTION, subject.id);
+        const { done, total } = getSubjectProgress(state, member, activeRound, subject.id);
         const pct = total > 0 ? Math.round((done / total) * 100) : 0;
         const isOpen = expanded === subject.id;
 
@@ -74,10 +95,11 @@ export default function PYQSection({ state, member, onUpdate }: Props) {
                 <span className="text-xs font-mono text-muted-foreground w-10 text-right">{pct}%</span>
               </div>
             </button>
+
             {isOpen && (
               <div className="px-4 pb-4 space-y-1">
                 {topics.map((topic) => {
-                  const checked = isCompleted(state, member, SECTION, subject.id, topic.id);
+                  const checked = isCompleted(state, member, activeRound, subject.id, topic.id);
                   return (
                     <div
                       key={topic.id}
@@ -94,7 +116,7 @@ export default function PYQSection({ state, member, onUpdate }: Props) {
                           className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
                         />
                         <span className={cn("text-sm", checked ? "line-through text-muted-foreground" : "text-foreground")}>
-                          {topic.name} — PYQs
+                          {topic.name}
                         </span>
                         {topic.isCustom && (
                           <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium">Custom</span>

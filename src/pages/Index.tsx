@@ -7,15 +7,14 @@ import PYQSection from "@/components/PYQSection";
 import MockTestSection from "@/components/MockTestSection";
 import WeeklyProgress from "@/components/WeeklyProgress";
 import OverallDashboard from "@/components/OverallDashboard";
-import { BookOpen, RefreshCw, BookMarked, ClipboardList, CalendarDays, BarChart3, GraduationCap } from "lucide-react";
+import RevisionSection from "@/components/RevisionSection";
+import { BookOpen, BookMarked, ClipboardList, CalendarDays, BarChart3, GraduationCap, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TABS = [
   { id: "dashboard", label: "Dashboard", icon: BarChart3 },
   { id: "study", label: "Study", icon: BookOpen },
-  { id: "revision1", label: "Revision R1", icon: RefreshCw },
-  { id: "revision2", label: "Revision R2", icon: RefreshCw },
-  { id: "revision3", label: "Revision R3", icon: RefreshCw },
+  { id: "revision", label: "Revision", icon: RefreshCw },
   { id: "pyq", label: "PYQs", icon: BookMarked },
   { id: "mock", label: "Mock Tests", icon: ClipboardList },
   { id: "weekly", label: "Weekly Progress", icon: CalendarDays },
@@ -36,7 +35,6 @@ export default function Index() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="sticky top-0 z-50 bg-card/80 backdrop-blur-lg border-b border-border">
         <div className="max-w-5xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between mb-3">
@@ -46,7 +44,6 @@ export default function Index() {
             </div>
             <MemberSelector current={member} onChange={setMember} />
           </div>
-          {/* Tabs */}
           <div className="flex gap-1 overflow-x-auto pb-1 -mb-3">
             {TABS.map((t) => {
               const Icon = t.icon;
@@ -70,21 +67,12 @@ export default function Index() {
         </div>
       </header>
 
-      {/* Content */}
       <main className="max-w-5xl mx-auto px-4 py-6">
         {tab === "dashboard" && <OverallDashboard state={state} />}
         {tab === "study" && (
           <SubjectChecklist section="study" sectionLabel="Study Checklist" state={state} member={member} onUpdate={setState} />
         )}
-        {tab === "revision1" && (
-          <SubjectChecklist section="revision1" sectionLabel="Revision — Round 1" state={state} member={member} onUpdate={setState} />
-        )}
-        {tab === "revision2" && (
-          <SubjectChecklist section="revision2" sectionLabel="Revision — Round 2" state={state} member={member} onUpdate={setState} />
-        )}
-        {tab === "revision3" && (
-          <SubjectChecklist section="revision3" sectionLabel="Revision — Round 3" state={state} member={member} onUpdate={setState} />
-        )}
+        {tab === "revision" && <RevisionSection state={state} member={member} onUpdate={setState} />}
         {tab === "pyq" && <PYQSection state={state} member={member} onUpdate={setState} />}
         {tab === "mock" && <MockTestSection state={state} member={member} onUpdate={setState} />}
         {tab === "weekly" && <WeeklyProgress state={state} />}

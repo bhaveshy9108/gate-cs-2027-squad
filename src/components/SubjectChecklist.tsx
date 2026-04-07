@@ -7,9 +7,10 @@ import {
   getAllTopics,
   getSubjectProgress,
   addCustomTopic,
+  deleteCustomTopic,
 } from "@/lib/trackerStore";
 import { cn } from "@/lib/utils";
-import { ChevronDown, ChevronRight, Plus, BookOpen } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, BookOpen, Trash2 } from "lucide-react";
 
 interface Props {
   section: string;
@@ -33,6 +34,10 @@ export default function SubjectChecklist({ section, sectionLabel, state, member,
     onUpdate(addCustomTopic(state, subjectId, newTopicName.trim()));
     setNewTopicName("");
     setAddingTopic(null);
+  };
+
+  const handleDeleteTopic = (subjectId: string, topicId: string) => {
+    onUpdate(deleteCustomTopic(state, subjectId, topicId));
   };
 
   return (
@@ -82,33 +87,44 @@ export default function SubjectChecklist({ section, sectionLabel, state, member,
                 {topics.map((topic) => {
                   const checked = isCompleted(state, member, section, subject.id, topic.id);
                   return (
-                    <label
+                    <div
                       key={topic.id}
                       className={cn(
-                        "flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors",
+                        "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group",
                         checked ? "bg-accent/10" : "hover:bg-muted/50"
                       )}
                     >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => handleToggle(subject.id, topic.id)}
-                        className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
-                      />
-                      <span
-                        className={cn(
-                          "text-sm",
-                          checked ? "line-through text-muted-foreground" : "text-foreground"
-                        )}
-                      >
-                        {topic.name}
-                      </span>
-                      {topic.isCustom && (
-                        <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium">
-                          Custom
+                      <label className="flex items-center gap-3 cursor-pointer flex-1">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => handleToggle(subject.id, topic.id)}
+                          className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                        />
+                        <span
+                          className={cn(
+                            "text-sm",
+                            checked ? "line-through text-muted-foreground" : "text-foreground"
+                          )}
+                        >
+                          {topic.name}
                         </span>
+                        {topic.isCustom && (
+                          <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium">
+                            Custom
+                          </span>
+                        )}
+                      </label>
+                      {topic.isCustom && (
+                        <button
+                          onClick={() => handleDeleteTopic(subject.id, topic.id)}
+                          className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive/80 transition-opacity"
+                          title="Delete topic"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       )}
-                    </label>
+                    </div>
                   );
                 })}
 
