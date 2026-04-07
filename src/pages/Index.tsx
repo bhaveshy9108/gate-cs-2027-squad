@@ -13,7 +13,9 @@ import { cn } from "@/lib/utils";
 const TABS = [
   { id: "dashboard", label: "Dashboard", icon: BarChart3 },
   { id: "study", label: "Study", icon: BookOpen },
-  { id: "revision", label: "Revision", icon: RefreshCw },
+  { id: "revision1", label: "Revision R1", icon: RefreshCw },
+  { id: "revision2", label: "Revision R2", icon: RefreshCw },
+  { id: "revision3", label: "Revision R3", icon: RefreshCw },
   { id: "pyq", label: "PYQs", icon: BookMarked },
   { id: "mock", label: "Mock Tests", icon: ClipboardList },
   { id: "weekly", label: "Weekly Progress", icon: CalendarDays },
