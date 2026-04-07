@@ -108,6 +108,7 @@ export const SUBJECTS: Subject[] = [
   {
     id: "os",
     name: "Operating Systems",
+    weightage: 8,
     topics: [
       { id: "os-1", name: "Process Management" },
       { id: "os-2", name: "Threads & Concurrency" },
