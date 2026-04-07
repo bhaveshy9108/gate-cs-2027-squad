@@ -34,6 +34,7 @@ export const SUBJECTS: Subject[] = [
   {
     id: "discrete-math",
     name: "Discrete Mathematics",
+    weightage: 5,
     topics: [
       { id: "dm-1", name: "Propositional & First Order Logic" },
       { id: "dm-2", name: "Sets, Relations, Functions" },
