@@ -139,6 +139,7 @@ export const SUBJECTS: Subject[] = [
   {
     id: "cn",
     name: "Computer Networks",
+    weightage: 9,
     topics: [
       { id: "cn-1", name: "OSI & TCP/IP Models" },
       { id: "cn-2", name: "Data Link Layer (Framing, Error/Flow Control)" },
