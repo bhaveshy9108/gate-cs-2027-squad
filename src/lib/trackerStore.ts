@@ -187,7 +187,7 @@ function getWeekNumber(date: Date): number {
 }
 
 export function getWeekDateRange(week: number): string {
-  const start = new Date(2025, 3, 6); // Sunday, April 6, 2025
+  const start = new Date(2026, 3, 6); // Sunday, April 6, 2026
   const weekStart = new Date(start.getTime() + (week - 1) * 7 * 24 * 60 * 60 * 1000);
   const weekEnd = new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000);
   const fmt = (d: Date) => d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
