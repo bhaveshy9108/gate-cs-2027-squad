@@ -81,6 +81,7 @@ export const SUBJECTS: Subject[] = [
   {
     id: "toc",
     name: "Theory of Computation",
+    weightage: 8,
     topics: [
       { id: "toc-1", name: "Regular Languages & Finite Automata" },
       { id: "toc-2", name: "Regular Expressions" },
