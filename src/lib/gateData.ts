@@ -47,6 +47,7 @@ export const SUBJECTS: Subject[] = [
   {
     id: "dsa",
     name: "Data Structures & Algorithms",
+    weightage: 15,
     topics: [
       { id: "dsa-1", name: "Arrays & Strings" },
       { id: "dsa-2", name: "Linked Lists" },
