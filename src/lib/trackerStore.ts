@@ -8,8 +8,8 @@ export interface ChecklistEntry {
   week?: number;
 }
 
-export type ChecklistData = Record<string, Record<string, ChecklistEntry>>;
-// key: `${member}-${section}-${subjectId}-${topicId}`
+export type ChecklistData = Record<string, ChecklistEntry>;
+// key: `${member}|${section}|${subjectId}|${topicId}`
 
 export interface TrackerState {
   checklist: ChecklistData;
