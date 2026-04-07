@@ -37,7 +37,7 @@ export default function WeeklyProgress({ state }: Props) {
         <div key={wp.week} className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="p-4 border-b border-border bg-muted/30">
             <h3 className="font-semibold text-foreground">Week {wp.week}</h3>
-            <p className="text-xs text-muted-foreground">{wp.items.length} topics completed</p>
+            <p className="text-xs text-muted-foreground">{getWeekDateRange(wp.week)} · {wp.items.length} topics completed</p>
           </div>
           <div className="p-4 space-y-2">
             {MEMBERS.map((m) => {

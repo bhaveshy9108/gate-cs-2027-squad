@@ -12,19 +12,25 @@ interface Props {
 export default function MockTestSection({ state, onUpdate }: Props) {
   const [showAdd, setShowAdd] = useState(false);
   const [testName, setTestName] = useState("");
+  const [totalMarks, setTotalMarks] = useState("");
+  const [notes, setNotes] = useState("");
   const [editingScore, setEditingScore] = useState<{ testId: string; member: Member } | null>(null);
   const [scoreInput, setScoreInput] = useState("");
 
   const handleAddTest = () => {
-    if (!testName.trim()) return;
+    if (!testName.trim() || !totalMarks.trim()) return;
     const test: MockTest = {
       id: `mock-${Date.now()}`,
       name: testName.trim(),
       date: new Date().toISOString().split("T")[0],
+      totalMarks: parseFloat(totalMarks) || 100,
+      notes: notes.trim(),
       scores: { Bhavesh: null, Avani: null, Akshita: null },
     };
     onUpdate(addMockTest(state, test));
     setTestName("");
+    setTotalMarks("");
+    setNotes("");
     setShowAdd(false);
   };
 
@@ -52,21 +58,36 @@ export default function MockTestSection({ state, onUpdate }: Props) {
       </div>
 
       {showAdd && (
-        <div className="bg-card border border-border rounded-xl p-4 flex gap-2">
+        <div className="bg-card border border-border rounded-xl p-4 space-y-3">
           <input
             autoFocus
             value={testName}
             onChange={(e) => setTestName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleAddTest()}
             placeholder="Test name (e.g., Mock Test 1 - Made Easy)"
-            className="flex-1 px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
           />
-          <button onClick={handleAddTest} className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg font-medium">
-            Add
-          </button>
-          <button onClick={() => setShowAdd(false)} className="px-3 py-2 text-sm text-muted-foreground">
-            Cancel
-          </button>
+          <input
+            value={totalMarks}
+            onChange={(e) => setTotalMarks(e.target.value)}
+            placeholder="Total marks (e.g., 100)"
+            type="number"
+            className="w-full px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Additional notes (optional)"
+            rows={2}
+            className="w-full px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+          />
+          <div className="flex gap-2">
+            <button onClick={handleAddTest} className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg font-medium">
+              Add
+            </button>
+            <button onClick={() => { setShowAdd(false); setTestName(""); setTotalMarks(""); setNotes(""); }} className="px-3 py-2 text-sm text-muted-foreground">
+              Cancel
+            </button>
+          </div>
         </div>
       )}
 
@@ -78,10 +99,14 @@ export default function MockTestSection({ state, onUpdate }: Props) {
 
       {state.mockTests.map((test) => (
         <div key={test.id} className="bg-card border border-border rounded-xl p-4">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-1">
             <h3 className="font-semibold text-foreground">{test.name}</h3>
             <span className="text-xs text-muted-foreground">{test.date}</span>
           </div>
+          <p className="text-xs text-muted-foreground mb-3">
+            Out of: <span className="font-semibold text-foreground">{test.totalMarks}</span>
+            {test.notes && <> · {test.notes}</>}
+          </p>
           <div className="grid grid-cols-3 gap-3">
             {MEMBERS.map((m) => {
               const score = test.scores[m];
@@ -107,7 +132,7 @@ export default function MockTestSection({ state, onUpdate }: Props) {
                       onClick={() => { setEditingScore({ testId: test.id, member: m }); setScoreInput(score !== null ? String(score) : ""); }}
                       className="text-lg font-bold text-foreground hover:text-primary transition-colors"
                     >
-                      {score !== null ? score : "—"}
+                      {score !== null ? `${score}/${test.totalMarks}` : "—"}
                     </button>
                   )}
                 </div>
