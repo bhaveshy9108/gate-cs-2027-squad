@@ -14,6 +14,7 @@ export type ChecklistData = Record<string, ChecklistEntry>;
 export interface TrackerState {
   checklist: ChecklistData;
   customTopics: Record<string, Topic[]>; // subjectId -> extra topics
+  deletedTopics: Record<string, string[]>; // subjectId -> deleted topicIds (built-in)
   mockTests: MockTest[];
   currentMember: Member;
 }
