@@ -67,6 +67,7 @@ export const SUBJECTS: Subject[] = [
   {
     id: "prog",
     name: "Programming in C",
+    weightage: 5,
     topics: [
       { id: "prog-1", name: "Data Types & Variables" },
       { id: "prog-2", name: "Control Flow" },
