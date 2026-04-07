@@ -10,6 +10,7 @@ export interface Topic {
 export interface Subject {
   id: string;
   name: string;
+  weightage: number; // approximate marks in GATE CS
   topics: Topic[];
 }
 
