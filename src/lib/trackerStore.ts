@@ -181,7 +181,7 @@ export function getWeeklyProgress(state: TrackerState): WeekProgress[] {
 }
 
 function getWeekNumber(date: Date): number {
-  const start = new Date(2025, 3, 6); // Sunday, April 6, 2025
+  const start = new Date(2026, 3, 6); // Sunday, April 6, 2026
   const diff = date.getTime() - start.getTime();
   return Math.max(1, Math.floor(diff / (7 * 24 * 60 * 60 * 1000)) + 1);
 }
