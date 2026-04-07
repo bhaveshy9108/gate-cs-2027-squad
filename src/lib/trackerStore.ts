@@ -22,6 +22,8 @@ export interface MockTest {
   id: string;
   name: string;
   date: string;
+  totalMarks: number;
+  notes: string;
   scores: Record<Member, number | null>;
 }
 
@@ -175,7 +177,15 @@ export function getWeeklyProgress(state: TrackerState): WeekProgress[] {
 }
 
 function getWeekNumber(date: Date): number {
-  const start = new Date(2025, 0, 1);
+  const start = new Date(2025, 3, 6); // April 6, 2025
   const diff = date.getTime() - start.getTime();
-  return Math.floor(diff / (7 * 24 * 60 * 60 * 1000)) + 1;
+  return Math.max(1, Math.floor(diff / (7 * 24 * 60 * 60 * 1000)) + 1);
+}
+
+export function getWeekDateRange(week: number): string {
+  const start = new Date(2025, 3, 6); // April 6, 2025
+  const weekStart = new Date(start.getTime() + (week - 1) * 7 * 24 * 60 * 60 * 1000);
+  const weekEnd = new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000);
+  const fmt = (d: Date) => d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+  return `${fmt(weekStart)} – ${fmt(weekEnd)}`;
 }

@@ -13,7 +13,9 @@ import { cn } from "@/lib/utils";
 const TABS = [
   { id: "dashboard", label: "Dashboard", icon: BarChart3 },
   { id: "study", label: "Study", icon: BookOpen },
-  { id: "revision", label: "Revision", icon: RefreshCw },
+  { id: "revision1", label: "Revision R1", icon: RefreshCw },
+  { id: "revision2", label: "Revision R2", icon: RefreshCw },
+  { id: "revision3", label: "Revision R3", icon: RefreshCw },
   { id: "pyq", label: "PYQs", icon: BookMarked },
   { id: "mock", label: "Mock Tests", icon: ClipboardList },
   { id: "weekly", label: "Weekly Progress", icon: CalendarDays },
@@ -74,8 +76,14 @@ export default function Index() {
         {tab === "study" && (
           <SubjectChecklist section="study" sectionLabel="Study Checklist" state={state} member={member} onUpdate={setState} />
         )}
-        {tab === "revision" && (
-          <SubjectChecklist section="revision" sectionLabel="Revision Checklist" state={state} member={member} onUpdate={setState} />
+        {tab === "revision1" && (
+          <SubjectChecklist section="revision1" sectionLabel="Revision — Round 1" state={state} member={member} onUpdate={setState} />
+        )}
+        {tab === "revision2" && (
+          <SubjectChecklist section="revision2" sectionLabel="Revision — Round 2" state={state} member={member} onUpdate={setState} />
+        )}
+        {tab === "revision3" && (
+          <SubjectChecklist section="revision3" sectionLabel="Revision — Round 3" state={state} member={member} onUpdate={setState} />
         )}
         {tab === "pyq" && <PYQSection state={state} member={member} onUpdate={setState} />}
         {tab === "mock" && <MockTestSection state={state} member={member} onUpdate={setState} />}
