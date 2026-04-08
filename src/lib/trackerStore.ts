@@ -137,6 +137,10 @@ export function addMockTest(state: TrackerState, test: MockTest): TrackerState {
   return { ...state, mockTests: [...state.mockTests, test] };
 }
 
+export function deleteMockTest(state: TrackerState, testId: string): TrackerState {
+  return { ...state, mockTests: state.mockTests.filter((t) => t.id !== testId) };
+}
+
 export function updateMockScore(
   state: TrackerState,
   testId: string,
@@ -149,6 +153,23 @@ export function updateMockScore(
       t.id === testId ? { ...t, scores: { ...t.scores, [member]: score } } : t
     ),
   };
+}
+
+export function getHighestScorer(test: MockTest): { member: Member; score: number } | null {
+  let best: { member: Member; score: number } | null = null;
+  for (const m of MEMBERS) {
+    const s = test.scores[m];
+    if (s !== null && (best === null || s > best.score)) {
+      best = { member: m, score: s };
+    }
+  }
+  return best;
+}
+
+export function getWeekNumber(date: Date): number {
+  const start = new Date(2026, 3, 6);
+  const diff = date.getTime() - start.getTime();
+  return Math.max(1, Math.floor(diff / (7 * 24 * 60 * 60 * 1000)) + 1);
 }
 
 // Week-wise progress
