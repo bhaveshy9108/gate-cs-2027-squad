@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { MEMBERS, type Member } from "@/lib/gateData";
-import { type TrackerState, addMockTest, updateMockScore, type MockTest } from "@/lib/trackerStore";
+import { type TrackerState, addMockTest, updateMockScore, type MockTest, type MockTestType } from "@/lib/trackerStore";
 import { ClipboardList, Plus } from "lucide-react";
 
 interface Props {
@@ -14,6 +14,7 @@ export default function MockTestSection({ state, onUpdate }: Props) {
   const [testName, setTestName] = useState("");
   const [totalMarks, setTotalMarks] = useState("");
   const [notes, setNotes] = useState("");
+  const [testType, setTestType] = useState<MockTestType>("full");
   const [editingScore, setEditingScore] = useState<{ testId: string; member: Member } | null>(null);
   const [scoreInput, setScoreInput] = useState("");
 
