@@ -1,6 +1,6 @@
 import { MEMBERS, type Member } from "@/lib/gateData";
-import { type TrackerState, getWeeklyProgress, getWeekDateRange } from "@/lib/trackerStore";
-import { CalendarDays, Trophy } from "lucide-react";
+import { type TrackerState, getWeeklyProgress, getWeekDateRange, getHighestScorer } from "@/lib/trackerStore";
+import { CalendarDays, Trophy, ClipboardList } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const memberBadge: Record<Member, string> = {
@@ -34,20 +34,19 @@ export default function WeeklyProgress({ state }: Props) {
       )}
 
       {weeks.map((wp) => {
-        // Compute per-member counts for leaderboard
         const memberCounts = MEMBERS.map((m) => ({
           member: m,
           count: wp.items.filter((i) => i.member === m).length,
         })).filter((mc) => mc.count > 0).sort((a, b) => b.count - a.count);
 
-        const topCount = memberCounts.length > 0 ? memberCounts[0].count : 0;
-
         return (
           <div key={wp.week} className="bg-card border border-border rounded-xl overflow-hidden">
             <div className="p-4 border-b border-border bg-muted/30">
               <h3 className="font-semibold text-foreground">Week {wp.week}</h3>
-              <p className="text-xs text-muted-foreground">{getWeekDateRange(wp.week)} · {wp.items.length} topics completed</p>
-              {/* Leaderboard */}
+              <p className="text-xs text-muted-foreground">
+                {getWeekDateRange(wp.week)} · {wp.items.length} topics completed
+                {wp.mockTests.length > 0 && ` · ${wp.mockTests.length} mock test${wp.mockTests.length > 1 ? "s" : ""}`}
+              </p>
               {memberCounts.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-2">
                   {memberCounts.map((mc, idx) => (
@@ -65,7 +64,7 @@ export default function WeeklyProgress({ state }: Props) {
                 </div>
               )}
             </div>
-            <div className="p-4 space-y-2">
+            <div className="p-4 space-y-3">
               {MEMBERS.map((m) => {
                 const memberItems = wp.items.filter((i) => i.member === m);
                 if (memberItems.length === 0) return null;
@@ -85,6 +84,52 @@ export default function WeeklyProgress({ state }: Props) {
                   </div>
                 );
               })}
+
+              {/* Mock tests this week */}
+              {wp.mockTests.length > 0 && (
+                <div className="border-t border-border pt-3 space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <ClipboardList className="w-3.5 h-3.5 text-primary" />
+                    <span className="text-xs font-semibold text-foreground">Mock Tests This Week</span>
+                  </div>
+                  {wp.mockTests.map((mt, idx) => {
+                    const scoredMembers = MEMBERS.filter((m) => mt.scores[m] !== null);
+                    const best = scoredMembers.length > 0
+                      ? scoredMembers.reduce((a, b) => ((mt.scores[a] ?? 0) >= (mt.scores[b] ?? 0) ? a : b))
+                      : null;
+
+                    return (
+                      <div key={idx} className="bg-muted/40 rounded-lg px-3 py-2">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-semibold text-foreground">{mt.name}</span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${mt.type === "subject" ? "bg-accent text-accent-foreground" : "bg-primary/10 text-primary"}`}>
+                            {mt.type === "subject" ? "Subject Wise" : "Full Length"}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {MEMBERS.map((m) => {
+                            const s = mt.scores[m];
+                            const isBest = best === m && scoredMembers.length > 1;
+                            return (
+                              <span
+                                key={m}
+                                className={cn(
+                                  "text-[11px] px-2 py-0.5 rounded-md font-medium",
+                                  memberBadge[m],
+                                  isBest && "ring-1 ring-yellow-400"
+                                )}
+                              >
+                                {isBest && <Trophy className="w-3 h-3 inline mr-0.5 text-yellow-500" />}
+                                {m}: {s !== null ? `${s}/${mt.totalMarks}` : "—"}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         );

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { MEMBERS, type Member } from "@/lib/gateData";
-import { type TrackerState, addMockTest, updateMockScore, type MockTest, type MockTestType } from "@/lib/trackerStore";
-import { ClipboardList, Plus } from "lucide-react";
+import { type TrackerState, addMockTest, updateMockScore, deleteMockTest, getHighestScorer, type MockTest, type MockTestType } from "@/lib/trackerStore";
+import { ClipboardList, Plus, Trash2, Trophy } from "lucide-react";
 
 interface Props {
   state: TrackerState;
@@ -114,55 +114,81 @@ export default function MockTestSection({ state, onUpdate }: Props) {
         </div>
       )}
 
-      {state.mockTests.map((test) => (
-        <div key={test.id} className="bg-card border border-border rounded-xl p-4">
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-foreground">{test.name}</h3>
-              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${test.type === "subject" ? "bg-accent text-accent-foreground" : "bg-primary/10 text-primary"}`}>
-                {test.type === "subject" ? "Subject Wise" : "Full Length"}
-              </span>
-            </div>
-            <span className="text-xs text-muted-foreground">{test.date}</span>
-          </div>
-          <p className="text-xs text-muted-foreground mb-3">
-            Out of: <span className="font-semibold text-foreground">{test.totalMarks}</span>
-            {test.notes && <> · {test.notes}</>}
-          </p>
-          <div className="grid grid-cols-3 gap-3">
-            {MEMBERS.map((m) => {
-              const score = test.scores[m];
-              const isEditing = editingScore?.testId === test.id && editingScore.member === m;
-              const colors = m === "Bhavesh" ? "border-person1" : m === "Avani" ? "border-person2" : "border-person3";
+      {state.mockTests.map((test) => {
+        const highest = getHighestScorer(test);
+        const allScored = MEMBERS.every((m) => test.scores[m] !== null);
 
-              return (
-                <div key={m} className={`border-2 ${colors} rounded-lg p-3 text-center`}>
-                  <p className="text-xs font-semibold text-muted-foreground mb-1">{m}</p>
-                  {isEditing ? (
-                    <div className="flex gap-1">
-                      <input
-                        autoFocus
-                        value={scoreInput}
-                        onChange={(e) => setScoreInput(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleScoreSubmit(test.id, m)}
-                        placeholder="Score"
-                        className="w-full px-2 py-1 text-sm text-center bg-muted rounded border border-border focus:outline-none focus:ring-1 focus:ring-primary"
-                      />
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => { setEditingScore({ testId: test.id, member: m }); setScoreInput(score !== null ? String(score) : ""); }}
-                      className="text-lg font-bold text-foreground hover:text-primary transition-colors"
-                    >
-                      {score !== null ? `${score}/${test.totalMarks}` : "—"}
-                    </button>
-                  )}
-                </div>
-              );
-            })}
+        return (
+          <div key={test.id} className="bg-card border border-border rounded-xl p-4">
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-foreground">{test.name}</h3>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${test.type === "subject" ? "bg-accent text-accent-foreground" : "bg-primary/10 text-primary"}`}>
+                  {test.type === "subject" ? "Subject Wise" : "Full Length"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">{test.date}</span>
+                <button
+                  onClick={() => onUpdate(deleteMockTest(state, test.id))}
+                  className="p-1 text-muted-foreground hover:text-destructive transition-colors rounded"
+                  title="Delete test"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mb-1">
+              Out of: <span className="font-semibold text-foreground">{test.totalMarks}</span>
+              {test.notes && <> · {test.notes}</>}
+            </p>
+            {highest && allScored && (
+              <div className="flex items-center gap-1 mb-2">
+                <Trophy className="w-3.5 h-3.5 text-yellow-500" />
+                <span className="text-xs font-semibold text-yellow-600">
+                  {highest.member} topped with {highest.score}/{test.totalMarks}
+                </span>
+              </div>
+            )}
+            <div className="grid grid-cols-3 gap-3">
+              {MEMBERS.map((m) => {
+                const score = test.scores[m];
+                const isEditing = editingScore?.testId === test.id && editingScore.member === m;
+                const colors = m === "Bhavesh" ? "border-person1" : m === "Avani" ? "border-person2" : "border-person3";
+                const isTop = highest && allScored && highest.member === m;
+
+                return (
+                  <div key={m} className={`border-2 ${colors} rounded-lg p-3 text-center ${isTop ? "bg-yellow-50/50 dark:bg-yellow-900/10" : ""}`}>
+                    <p className="text-xs font-semibold text-muted-foreground mb-1">
+                      {m} {isTop && <Trophy className="w-3 h-3 inline text-yellow-500" />}
+                    </p>
+                    {isEditing ? (
+                      <div className="flex gap-1">
+                        <input
+                          autoFocus
+                          value={scoreInput}
+                          onChange={(e) => setScoreInput(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleScoreSubmit(test.id, m)}
+                          onBlur={() => { setEditingScore(null); setScoreInput(""); }}
+                          placeholder="Score"
+                          className="w-full px-2 py-1 text-sm text-center bg-muted rounded border border-border focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => { setEditingScore({ testId: test.id, member: m }); setScoreInput(score !== null ? String(score) : ""); }}
+                        className="text-lg font-bold text-foreground hover:text-primary transition-colors"
+                      >
+                        {score !== null ? `${score}/${test.totalMarks}` : "—"}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
