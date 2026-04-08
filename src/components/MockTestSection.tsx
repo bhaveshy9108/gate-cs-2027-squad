@@ -101,7 +101,7 @@ export default function MockTestSection({ state, onUpdate }: Props) {
             <button onClick={handleAddTest} className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg font-medium">
               Add
             </button>
-            <button onClick={() => { setShowAdd(false); setTestName(""); setTotalMarks(""); setNotes(""); }} className="px-3 py-2 text-sm text-muted-foreground">
+            <button onClick={() => { setShowAdd(false); setTestName(""); setTestType("full-length"); setTotalMarks(""); setNotes(""); }} className="px-3 py-2 text-sm text-muted-foreground">
               Cancel
             </button>
           </div>
