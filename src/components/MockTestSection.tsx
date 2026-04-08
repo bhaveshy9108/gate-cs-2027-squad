@@ -62,6 +62,20 @@ export default function MockTestSection({ state, onUpdate }: Props) {
 
       {showAdd && (
         <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+          <div className="flex gap-2">
+            <button
+              onClick={() => setTestType("full")}
+              className={`flex-1 px-3 py-2 text-sm rounded-lg font-medium border transition-colors ${testType === "full" ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground border-border"}`}
+            >
+              Full Length
+            </button>
+            <button
+              onClick={() => setTestType("subject")}
+              className={`flex-1 px-3 py-2 text-sm rounded-lg font-medium border transition-colors ${testType === "subject" ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground border-border"}`}
+            >
+              Subject Wise
+            </button>
+          </div>
           <input
             autoFocus
             value={testName}
@@ -87,7 +101,7 @@ export default function MockTestSection({ state, onUpdate }: Props) {
             <button onClick={handleAddTest} className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg font-medium">
               Add
             </button>
-            <button onClick={() => { setShowAdd(false); setTestName(""); setTotalMarks(""); setNotes(""); }} className="px-3 py-2 text-sm text-muted-foreground">
+            <button onClick={() => { setShowAdd(false); setTestName(""); setTotalMarks(""); setNotes(""); setTestType("full"); }} className="px-3 py-2 text-sm text-muted-foreground">
               Cancel
             </button>
           </div>
