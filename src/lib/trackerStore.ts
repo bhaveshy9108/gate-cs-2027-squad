@@ -19,13 +19,10 @@ export interface TrackerState {
   currentMember: Member;
 }
 
-export type MockTestType = "topic-wise" | "full-length";
-
 export interface MockTest {
   id: string;
   name: string;
   date: string;
-  type: MockTestType;
   totalMarks: number;
   notes: string;
   scores: Record<Member, number | null>;

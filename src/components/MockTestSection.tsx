@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { MEMBERS, type Member } from "@/lib/gateData";
-import { type TrackerState, addMockTest, updateMockScore, type MockTest, type MockTestType } from "@/lib/trackerStore";
+import { type TrackerState, addMockTest, updateMockScore, type MockTest } from "@/lib/trackerStore";
 import { ClipboardList, Plus } from "lucide-react";
 
 interface Props {
@@ -12,7 +12,6 @@ interface Props {
 export default function MockTestSection({ state, onUpdate }: Props) {
   const [showAdd, setShowAdd] = useState(false);
   const [testName, setTestName] = useState("");
-  const [testType, setTestType] = useState<MockTestType>("full-length");
   const [totalMarks, setTotalMarks] = useState("");
   const [notes, setNotes] = useState("");
   const [editingScore, setEditingScore] = useState<{ testId: string; member: Member } | null>(null);
@@ -24,14 +23,12 @@ export default function MockTestSection({ state, onUpdate }: Props) {
       id: `mock-${Date.now()}`,
       name: testName.trim(),
       date: new Date().toISOString().split("T")[0],
-      type: testType,
       totalMarks: parseFloat(totalMarks) || 100,
       notes: notes.trim(),
       scores: { Bhavesh: null, Avani: null, Akshita: null },
     };
     onUpdate(addMockTest(state, test));
     setTestName("");
-    setTestType("full-length");
     setTotalMarks("");
     setNotes("");
     setShowAdd(false);
@@ -69,24 +66,10 @@ export default function MockTestSection({ state, onUpdate }: Props) {
             placeholder="Test name (e.g., Mock Test 1 - Made Easy)"
             className="w-full px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
           />
-          <div className="flex gap-2">
-            <button
-              onClick={() => setTestType("full-length")}
-              className={`flex-1 px-3 py-2 text-sm rounded-lg border font-medium transition-colors ${testType === "full-length" ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground border-border hover:border-primary/50"}`}
-            >
-              Full Length
-            </button>
-            <button
-              onClick={() => setTestType("topic-wise")}
-              className={`flex-1 px-3 py-2 text-sm rounded-lg border font-medium transition-colors ${testType === "topic-wise" ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground border-border hover:border-primary/50"}`}
-            >
-              Topic Wise
-            </button>
-          </div>
           <input
             value={totalMarks}
             onChange={(e) => setTotalMarks(e.target.value)}
-            placeholder="Out of marks (e.g., 100)"
+            placeholder="Total marks (e.g., 100)"
             type="number"
             className="w-full px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
           />
@@ -101,7 +84,7 @@ export default function MockTestSection({ state, onUpdate }: Props) {
             <button onClick={handleAddTest} className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg font-medium">
               Add
             </button>
-            <button onClick={() => { setShowAdd(false); setTestName(""); setTestType("full-length"); setTotalMarks(""); setNotes(""); }} className="px-3 py-2 text-sm text-muted-foreground">
+            <button onClick={() => { setShowAdd(false); setTestName(""); setTotalMarks(""); setNotes(""); }} className="px-3 py-2 text-sm text-muted-foreground">
               Cancel
             </button>
           </div>
@@ -117,12 +100,7 @@ export default function MockTestSection({ state, onUpdate }: Props) {
       {state.mockTests.map((test) => (
         <div key={test.id} className="bg-card border border-border rounded-xl p-4">
           <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-foreground">{test.name}</h3>
-              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${test.type === "full-length" ? "bg-primary/15 text-primary" : "bg-accent text-accent-foreground"}`}>
-                {test.type === "full-length" ? "Full Length" : "Topic Wise"}
-              </span>
-            </div>
+            <h3 className="font-semibold text-foreground">{test.name}</h3>
             <span className="text-xs text-muted-foreground">{test.date}</span>
           </div>
           <p className="text-xs text-muted-foreground mb-3">
