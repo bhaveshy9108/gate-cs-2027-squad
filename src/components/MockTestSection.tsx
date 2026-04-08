@@ -117,7 +117,12 @@ export default function MockTestSection({ state, onUpdate }: Props) {
       {state.mockTests.map((test) => (
         <div key={test.id} className="bg-card border border-border rounded-xl p-4">
           <div className="flex items-center justify-between mb-1">
-            <h3 className="font-semibold text-foreground">{test.name}</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-foreground">{test.name}</h3>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${test.type === "subject" ? "bg-accent text-accent-foreground" : "bg-primary/10 text-primary"}`}>
+                {test.type === "subject" ? "Subject Wise" : "Full Length"}
+              </span>
+            </div>
             <span className="text-xs text-muted-foreground">{test.date}</span>
           </div>
           <p className="text-xs text-muted-foreground mb-3">
