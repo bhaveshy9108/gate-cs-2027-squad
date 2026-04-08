@@ -1,4 +1,4 @@
-import { SUBJECTS, type Member, type Topic } from "./gateData";
+import { SUBJECTS, MEMBERS, type Member, type Topic } from "./gateData";
 
 const STORAGE_KEY = "gate-cs-2027-tracker";
 
