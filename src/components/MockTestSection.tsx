@@ -69,10 +69,24 @@ export default function MockTestSection({ state, onUpdate }: Props) {
             placeholder="Test name (e.g., Mock Test 1 - Made Easy)"
             className="w-full px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
           />
+          <div className="flex gap-2">
+            <button
+              onClick={() => setTestType("full-length")}
+              className={`flex-1 px-3 py-2 text-sm rounded-lg border font-medium transition-colors ${testType === "full-length" ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground border-border hover:border-primary/50"}`}
+            >
+              Full Length
+            </button>
+            <button
+              onClick={() => setTestType("topic-wise")}
+              className={`flex-1 px-3 py-2 text-sm rounded-lg border font-medium transition-colors ${testType === "topic-wise" ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground border-border hover:border-primary/50"}`}
+            >
+              Topic Wise
+            </button>
+          </div>
           <input
             value={totalMarks}
             onChange={(e) => setTotalMarks(e.target.value)}
-            placeholder="Total marks (e.g., 100)"
+            placeholder="Out of marks (e.g., 100)"
             type="number"
             className="w-full px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
           />
