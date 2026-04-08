@@ -173,13 +173,21 @@ export function getWeekNumber(date: Date): number {
 }
 
 // Week-wise progress
+export interface WeekProgressMockTest {
+  name: string;
+  type: MockTestType;
+  totalMarks: number;
+  scores: Record<Member, number | null>;
+}
+
 export interface WeekProgress {
   week: number;
   items: { member: Member; section: string; subjectName: string; topicName: string; completedAt: string }[];
+  mockTests: WeekProgressMockTest[];
 }
 
 export function getWeeklyProgress(state: TrackerState): WeekProgress[] {
-  const weekMap = new Map<number, WeekProgress["items"]>();
+  const weekMap = new Map<number, { items: WeekProgress["items"]; mockTests: WeekProgressMockTest[] }>();
 
   for (const [key, entry] of Object.entries(state.checklist)) {
     if (!entry.completed || !entry.week) continue;
@@ -188,26 +196,33 @@ export function getWeeklyProgress(state: TrackerState): WeekProgress[] {
     const allTopics = getAllTopics(state, subjectId);
     const topic = allTopics.find((t) => t.id === topicId);
 
-    const items = weekMap.get(entry.week) || [];
-    items.push({
+    const data = weekMap.get(entry.week) || { items: [], mockTests: [] };
+    data.items.push({
       member: member as Member,
       section,
       subjectName: subject?.name || subjectId,
       topicName: topic?.name || topicId,
       completedAt: entry.completedAt || "",
     });
-    weekMap.set(entry.week, items);
+    weekMap.set(entry.week, data);
+  }
+
+  // Add mock tests to their respective weeks
+  for (const test of state.mockTests) {
+    const week = getWeekNumber(new Date(test.date));
+    const data = weekMap.get(week) || { items: [], mockTests: [] };
+    data.mockTests.push({
+      name: test.name,
+      type: test.type || "full",
+      totalMarks: test.totalMarks,
+      scores: test.scores,
+    });
+    weekMap.set(week, data);
   }
 
   return Array.from(weekMap.entries())
     .sort((a, b) => a[0] - b[0])
-    .map(([week, items]) => ({ week, items }));
-}
-
-function getWeekNumber(date: Date): number {
-  const start = new Date(2026, 3, 6); // Sunday, April 6, 2026
-  const diff = date.getTime() - start.getTime();
-  return Math.max(1, Math.floor(diff / (7 * 24 * 60 * 60 * 1000)) + 1);
+    .map(([week, data]) => ({ week, items: data.items, mockTests: data.mockTests }));
 }
 
 export function getWeekDateRange(week: number): string {
