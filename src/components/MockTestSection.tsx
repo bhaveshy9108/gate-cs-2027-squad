@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { MEMBERS, type Member } from "@/lib/gateData";
-import { type TrackerState, addMockTest, updateMockScore, type MockTest } from "@/lib/trackerStore";
+import { type TrackerState, addMockTest, updateMockScore, type MockTest, type MockTestType } from "@/lib/trackerStore";
 import { ClipboardList, Plus } from "lucide-react";
 
 interface Props {
@@ -12,6 +12,7 @@ interface Props {
 export default function MockTestSection({ state, onUpdate }: Props) {
   const [showAdd, setShowAdd] = useState(false);
   const [testName, setTestName] = useState("");
+  const [testType, setTestType] = useState<MockTestType>("full-length");
   const [totalMarks, setTotalMarks] = useState("");
   const [notes, setNotes] = useState("");
   const [editingScore, setEditingScore] = useState<{ testId: string; member: Member } | null>(null);
@@ -23,12 +24,14 @@ export default function MockTestSection({ state, onUpdate }: Props) {
       id: `mock-${Date.now()}`,
       name: testName.trim(),
       date: new Date().toISOString().split("T")[0],
+      type: testType,
       totalMarks: parseFloat(totalMarks) || 100,
       notes: notes.trim(),
       scores: { Bhavesh: null, Avani: null, Akshita: null },
     };
     onUpdate(addMockTest(state, test));
     setTestName("");
+    setTestType("full-length");
     setTotalMarks("");
     setNotes("");
     setShowAdd(false);
