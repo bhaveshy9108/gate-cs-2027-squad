@@ -24,6 +24,7 @@ export default function MockTestSection({ state, onUpdate }: Props) {
       id: `mock-${Date.now()}`,
       name: testName.trim(),
       date: new Date().toISOString().split("T")[0],
+      type: testType,
       totalMarks: parseFloat(totalMarks) || 100,
       notes: notes.trim(),
       scores: { Bhavesh: null, Avani: null, Akshita: null },
@@ -32,6 +33,7 @@ export default function MockTestSection({ state, onUpdate }: Props) {
     setTestName("");
     setTotalMarks("");
     setNotes("");
+    setTestType("full");
     setShowAdd(false);
   };
 
