@@ -11,12 +11,21 @@ export interface ChecklistEntry {
 export type ChecklistData = Record<string, ChecklistEntry>;
 // key: `${member}|${section}|${subjectId}|${topicId}`
 
+export interface TopicNote {
+  text: string;
+  links: string[];
+}
+
+export type Difficulty = "easy" | "medium" | "hard";
+
 export interface TrackerState {
   checklist: ChecklistData;
-  customTopics: Record<string, Topic[]>; // subjectId -> extra topics
-  deletedTopics: Record<string, string[]>; // subjectId -> deleted topicIds (built-in)
+  customTopics: Record<string, Topic[]>;
+  deletedTopics: Record<string, string[]>;
   mockTests: MockTest[];
   currentMember: Member;
+  topicNotes: Record<string, TopicNote>; // key: `${subjectId}|${topicId}`
+  topicDifficulty: Record<string, Difficulty>; // key: `${subjectId}|${topicId}`
 }
 
 export type MockTestType = "subject" | "full";
@@ -42,7 +51,48 @@ function defaultState(): TrackerState {
     deletedTopics: {},
     mockTests: [],
     currentMember: "Bhavesh",
+    topicNotes: {},
+    topicDifficulty: {},
   };
+}
+
+// Notes helpers
+export function getTopicNote(state: TrackerState, subjectId: string, topicId: string): TopicNote {
+  return state.topicNotes[`${subjectId}|${topicId}`] || { text: "", links: [] };
+}
+
+export function setTopicNote(state: TrackerState, subjectId: string, topicId: string, note: TopicNote): TrackerState {
+  const key = `${subjectId}|${topicId}`;
+  return { ...state, topicNotes: { ...state.topicNotes, [key]: note } };
+}
+
+// Difficulty helpers
+const DIFFICULTY_CYCLE: (Difficulty | undefined)[] = [undefined, "easy", "medium", "hard"];
+
+export function cycleDifficulty(state: TrackerState, subjectId: string, topicId: string): TrackerState {
+  const key = `${subjectId}|${topicId}`;
+  const current = state.topicDifficulty[key];
+  const idx = DIFFICULTY_CYCLE.indexOf(current);
+  const next = DIFFICULTY_CYCLE[(idx + 1) % DIFFICULTY_CYCLE.length];
+  const newDiff = { ...state.topicDifficulty };
+  if (next) {
+    newDiff[key] = next;
+  } else {
+    delete newDiff[key];
+  }
+  return { ...state, topicDifficulty: newDiff };
+}
+
+export function getTopicDifficulty(state: TrackerState, subjectId: string, topicId: string): Difficulty | undefined {
+  return state.topicDifficulty[`${subjectId}|${topicId}`];
+}
+
+export function getDifficultyStats(state: TrackerState): Record<Difficulty, number> {
+  const stats: Record<Difficulty, number> = { easy: 0, medium: 0, hard: 0 };
+  for (const d of Object.values(state.topicDifficulty)) {
+    stats[d]++;
+  }
+  return stats;
 }
 
 export function loadState(): TrackerState {
