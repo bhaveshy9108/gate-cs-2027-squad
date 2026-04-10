@@ -1,5 +1,5 @@
 import { SUBJECTS, MEMBERS, type Member } from "@/lib/gateData";
-import { type TrackerState, getSubjectProgress } from "@/lib/trackerStore";
+import { type TrackerState, getSubjectProgress, getDifficultyStats } from "@/lib/trackerStore";
 import { BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +20,9 @@ interface Props {
 }
 
 export default function OverallDashboard({ state }: Props) {
+  const diffStats = getDifficultyStats(state);
+  const totalTagged = diffStats.easy + diffStats.medium + diffStats.hard;
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 mb-2">
@@ -47,6 +50,32 @@ export default function OverallDashboard({ state }: Props) {
           );
         })}
       </div>
+
+      {/* Difficulty distribution */}
+      {totalTagged > 0 && (
+        <div className="bg-card border border-border rounded-xl p-4">
+          <p className="text-sm font-semibold text-foreground mb-2">Difficulty Distribution</p>
+          <div className="flex gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-accent" />
+              <span className="text-xs text-muted-foreground">Easy: {diffStats.easy}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-yellow-500" />
+              <span className="text-xs text-muted-foreground">Medium: {diffStats.medium}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-destructive" />
+              <span className="text-xs text-muted-foreground">Hard: {diffStats.hard}</span>
+            </div>
+          </div>
+          <div className="w-full h-2 bg-muted rounded-full overflow-hidden mt-2 flex">
+            <div className="h-full bg-accent" style={{ width: `${(diffStats.easy / totalTagged) * 100}%` }} />
+            <div className="h-full bg-yellow-500" style={{ width: `${(diffStats.medium / totalTagged) * 100}%` }} />
+            <div className="h-full bg-destructive" style={{ width: `${(diffStats.hard / totalTagged) * 100}%` }} />
+          </div>
+        </div>
+      )}
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
