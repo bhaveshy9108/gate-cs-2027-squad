@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { type Member } from "@/lib/gateData";
 import { loadState, saveState, type TrackerState } from "@/lib/trackerStore";
-import { loadCloudState, saveCloudState, getSavedRoomCode, saveRoomCode, clearRoomCode, generateRoomCode } from "@/lib/cloudSync";
+import { loadCloudState, saveCloudState, getSavedRoomCode, saveRoomCode, clearRoomCode, generateRoomCode, subscribeToRoom } from "@/lib/cloudSync";
 import MemberSelector from "@/components/MemberSelector";
 import RoomCodeDialog from "@/components/RoomCodeDialog";
 import SubjectChecklist from "@/components/SubjectChecklist";
@@ -33,7 +33,7 @@ export default function Index() {
   const [cloudReady, setCloudReady] = useState(false);
   const member = state.currentMember;
 
-  // Load cloud state on mount if room code exists
+  // Load cloud state and subscribe to real-time updates
   useEffect(() => {
     if (!roomCode) { setCloudReady(true); return; }
     loadCloudState(roomCode).then((cloud) => {
@@ -47,6 +47,16 @@ export default function Index() {
       }
       setCloudReady(true);
     });
+
+    // Subscribe to real-time changes from other devices
+    const channel = subscribeToRoom(roomCode, (newState) => {
+      setState(newState);
+      saveState(newState);
+    });
+
+    return () => {
+      channel.unsubscribe();
+    };
   }, [roomCode]);
 
   // Save to cloud + localStorage on state change
