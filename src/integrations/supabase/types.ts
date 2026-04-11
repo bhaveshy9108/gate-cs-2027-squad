@@ -39,20 +39,23 @@ export type Database = {
         Row: {
           data: Json
           id: string
+          room_code: string | null
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           data?: Json
           id?: string
+          room_code?: string | null
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           data?: Json
           id?: string
+          room_code?: string | null
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }

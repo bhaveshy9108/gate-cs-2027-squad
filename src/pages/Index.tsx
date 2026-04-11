@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { type Member } from "@/lib/gateData";
 import { loadState, saveState, type TrackerState } from "@/lib/trackerStore";
+import { loadCloudState, saveCloudState, getSavedRoomCode, saveRoomCode, clearRoomCode, generateRoomCode } from "@/lib/cloudSync";
 import MemberSelector from "@/components/MemberSelector";
+import RoomCodeDialog from "@/components/RoomCodeDialog";
 import SubjectChecklist from "@/components/SubjectChecklist";
 import PYQSection from "@/components/PYQSection";
 import MockTestSection from "@/components/MockTestSection";
@@ -11,6 +13,7 @@ import RevisionSection from "@/components/RevisionSection";
 import StreakCalendar from "@/components/StreakCalendar";
 import { BookOpen, BookMarked, ClipboardList, CalendarDays, BarChart3, GraduationCap, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const TABS = [
   { id: "dashboard", label: "Dashboard", icon: BarChart3 },
@@ -26,11 +29,56 @@ type TabId = (typeof TABS)[number]["id"];
 export default function Index() {
   const [state, setState] = useState<TrackerState>(loadState);
   const [tab, setTab] = useState<TabId>("dashboard");
+  const [roomCode, setRoomCode] = useState<string | null>(getSavedRoomCode);
+  const [cloudReady, setCloudReady] = useState(false);
   const member = state.currentMember;
 
+  // Load cloud state on mount if room code exists
+  useEffect(() => {
+    if (!roomCode) { setCloudReady(true); return; }
+    loadCloudState(roomCode).then((cloud) => {
+      if (cloud) {
+        setState((local) => {
+          const localHasData = Object.keys(local.checklist).length > 0;
+          const cloudHasData = Object.keys(cloud.checklist || {}).length > 0;
+          if (localHasData && !cloudHasData) return local;
+          return { ...local, ...cloud };
+        });
+      }
+      setCloudReady(true);
+    });
+  }, [roomCode]);
+
+  // Save to cloud + localStorage on state change
   useEffect(() => {
     saveState(state);
-  }, [state]);
+    if (roomCode && cloudReady) {
+      saveCloudState(roomCode, state);
+    }
+  }, [state, roomCode, cloudReady]);
+
+  const handleJoinRoom = (code: string) => {
+    saveRoomCode(code);
+    setRoomCode(code);
+    setCloudReady(false);
+    toast.success(`Joined room ${code}`);
+  };
+
+  const handleCreateRoom = () => {
+    const code = generateRoomCode();
+    saveRoomCode(code);
+    setRoomCode(code);
+    setCloudReady(true);
+    // Immediately save current state to cloud
+    saveCloudState(code, state);
+    toast.success(`Created room ${code}`);
+  };
+
+  const handleDisconnect = () => {
+    clearRoomCode();
+    setRoomCode(null);
+    toast.info("Disconnected from cloud sync");
+  };
 
   const setMember = (m: Member) => setState((s) => ({ ...s, currentMember: m }));
 
@@ -43,7 +91,15 @@ export default function Index() {
               <GraduationCap className="w-6 h-6 text-primary" />
               <h1 className="text-xl font-bold text-foreground">GATE CS 2027</h1>
             </div>
-            <MemberSelector current={member} onChange={setMember} />
+            <div className="flex items-center gap-2">
+              <RoomCodeDialog
+                roomCode={roomCode}
+                onJoin={handleJoinRoom}
+                onCreate={handleCreateRoom}
+                onDisconnect={handleDisconnect}
+              />
+              <MemberSelector current={member} onChange={setMember} />
+            </div>
           </div>
           <div className="flex gap-1 overflow-x-auto pb-1 -mb-3">
             {TABS.map((t) => {
