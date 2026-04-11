@@ -1,8 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { type Member } from "@/lib/gateData";
 import { loadState, saveState, type TrackerState } from "@/lib/trackerStore";
-import { loadCloudState, saveCloudState } from "@/lib/cloudSync";
-import { useAuth } from "@/components/AuthProvider";
 import MemberSelector from "@/components/MemberSelector";
 import SubjectChecklist from "@/components/SubjectChecklist";
 import PYQSection from "@/components/PYQSection";
@@ -11,7 +9,7 @@ import WeeklyProgress from "@/components/WeeklyProgress";
 import OverallDashboard from "@/components/OverallDashboard";
 import RevisionSection from "@/components/RevisionSection";
 import StreakCalendar from "@/components/StreakCalendar";
-import { BookOpen, BookMarked, ClipboardList, CalendarDays, BarChart3, GraduationCap, RefreshCw, LogOut } from "lucide-react";
+import { BookOpen, BookMarked, ClipboardList, CalendarDays, BarChart3, GraduationCap, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TABS = [
@@ -26,36 +24,13 @@ const TABS = [
 type TabId = (typeof TABS)[number]["id"];
 
 export default function Index() {
-  const { user, signOut } = useAuth();
   const [state, setState] = useState<TrackerState>(loadState);
   const [tab, setTab] = useState<TabId>("dashboard");
-  const [cloudLoaded, setCloudLoaded] = useState(false);
   const member = state.currentMember;
 
-  // Load cloud state on mount
-  useEffect(() => {
-    if (!user) return;
-    loadCloudState(user.id).then((cloud) => {
-      if (cloud) {
-        setState((local) => {
-          // If local has data and cloud is empty, keep local
-          const localHasData = Object.keys(local.checklist).length > 0;
-          const cloudHasData = Object.keys(cloud.checklist || {}).length > 0;
-          if (localHasData && !cloudHasData) return local;
-          return { ...local, ...cloud };
-        });
-      }
-      setCloudLoaded(true);
-    });
-  }, [user]);
-
-  // Save to cloud + localStorage on state change
   useEffect(() => {
     saveState(state);
-    if (user && cloudLoaded) {
-      saveCloudState(user.id, state);
-    }
-  }, [state, user, cloudLoaded]);
+  }, [state]);
 
   const setMember = (m: Member) => setState((s) => ({ ...s, currentMember: m }));
 
@@ -68,12 +43,7 @@ export default function Index() {
               <GraduationCap className="w-6 h-6 text-primary" />
               <h1 className="text-xl font-bold text-foreground">GATE CS 2027</h1>
             </div>
-            <div className="flex items-center gap-3">
-              <MemberSelector current={member} onChange={setMember} />
-              <button onClick={signOut} className="text-muted-foreground hover:text-foreground transition-colors" title="Sign out">
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
+            <MemberSelector current={member} onChange={setMember} />
           </div>
           <div className="flex gap-1 overflow-x-auto pb-1 -mb-3">
             {TABS.map((t) => {
