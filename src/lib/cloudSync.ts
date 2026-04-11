@@ -1,7 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { TrackerState } from "./trackerStore";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 
 let saveTimeout: ReturnType<typeof setTimeout> | null = null;
+let isSaving = false;
 
 const ROOM_CODE_KEY = "gate-tracker-room-code";
 
@@ -40,6 +42,7 @@ export async function loadCloudState(roomCode: string): Promise<TrackerState | n
 export function saveCloudState(roomCode: string, state: TrackerState) {
   if (saveTimeout) clearTimeout(saveTimeout);
   saveTimeout = setTimeout(async () => {
+    isSaving = true;
     const payload = JSON.parse(JSON.stringify(state));
     const { error } = await supabase
       .from("tracker_data")
@@ -48,5 +51,34 @@ export function saveCloudState(roomCode: string, state: TrackerState) {
         { onConflict: "room_code" }
       );
     if (error) console.error("Cloud save failed:", error.message);
+    setTimeout(() => { isSaving = false; }, 300);
   }, 1500);
+}
+
+export function subscribeToRoom(
+  roomCode: string,
+  onUpdate: (state: TrackerState) => void
+): RealtimeChannel {
+  const channel = supabase
+    .channel(`room-${roomCode}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "UPDATE",
+        schema: "public",
+        table: "tracker_data",
+        filter: `room_code=eq.${roomCode}`,
+      },
+      (payload) => {
+        // Skip updates triggered by our own saves
+        if (isSaving) return;
+        const newData = payload.new?.data as unknown as TrackerState;
+        if (newData) {
+          onUpdate(newData);
+        }
+      }
+    )
+    .subscribe();
+
+  return channel;
 }
