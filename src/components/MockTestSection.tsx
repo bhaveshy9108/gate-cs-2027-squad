@@ -63,18 +63,15 @@ export default function MockTestSection({ state, onUpdate }: Props) {
       {showAdd && (
         <div className="bg-card border border-border rounded-xl p-4 space-y-3">
           <div className="flex gap-2">
-            <button
-              onClick={() => setTestType("full")}
-              className={`flex-1 px-3 py-2 text-sm rounded-lg font-medium border transition-colors ${testType === "full" ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground border-border"}`}
-            >
-              Full Length
-            </button>
-            <button
-              onClick={() => setTestType("subject")}
-              className={`flex-1 px-3 py-2 text-sm rounded-lg font-medium border transition-colors ${testType === "subject" ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground border-border"}`}
-            >
-              Subject Wise
-            </button>
+            {(["full", "subject", "weekly"] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTestType(t)}
+                className={`flex-1 px-3 py-2 text-sm rounded-lg font-medium border transition-colors ${testType === t ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground border-border"}`}
+              >
+                {t === "full" ? "Full Length" : t === "subject" ? "Subject Wise" : "Weekly Quiz"}
+              </button>
+            ))}
           </div>
           <input
             autoFocus
@@ -123,8 +120,8 @@ export default function MockTestSection({ state, onUpdate }: Props) {
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2">
                 <h3 className="font-semibold text-foreground">{test.name}</h3>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${test.type === "subject" ? "bg-accent text-accent-foreground" : "bg-primary/10 text-primary"}`}>
-                  {test.type === "subject" ? "Subject Wise" : "Full Length"}
+                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${test.type === "subject" ? "bg-accent text-accent-foreground" : test.type === "weekly" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-primary/10 text-primary"}`}>
+                  {test.type === "subject" ? "Subject Wise" : test.type === "weekly" ? "Weekly Quiz" : "Full Length"}
                 </span>
               </div>
               <div className="flex items-center gap-2">
