@@ -28,7 +28,7 @@ export interface TrackerState {
   topicDifficulty: Record<string, Difficulty>; // key: `${subjectId}|${topicId}`
 }
 
-export type MockTestType = "subject" | "full";
+export type MockTestType = "subject" | "full" | "weekly";
 
 export interface MockTest {
   id: string;
