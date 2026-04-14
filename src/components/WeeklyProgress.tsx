@@ -66,7 +66,7 @@ export default function WeeklyProgress({ state }: Props) {
             </div>
             <div className="p-4 space-y-3">
               {MEMBERS.map((m) => {
-                const memberItems = wp.items.filter((i) => i.member === m);
+                const memberItems = wp.items.filter((i) => i.member === m).sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime());
                 if (memberItems.length === 0) return null;
                 return (
                   <div key={m} className="space-y-1">
