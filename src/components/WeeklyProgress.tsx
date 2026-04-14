@@ -74,11 +74,18 @@ export default function WeeklyProgress({ state }: Props) {
                       {m} — {memberItems.length} topics
                     </span>
                     <div className="pl-3 space-y-0.5">
-                      {memberItems.map((item, idx) => (
+                      {memberItems.map((item, idx) => {
+                        const dateStr = item.completedAt
+                          ? new Date(item.completedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) +
+                            " · " +
+                            new Date(item.completedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })
+                          : "";
+                        return (
                         <p key={idx} className="text-xs text-muted-foreground">
                           <span className="text-foreground font-medium">{item.subjectName}</span> → {item.topicName}{" "}
                           <span className="text-[10px]">({item.section})</span>
-                        </p>
+                          {dateStr && <span className="text-[10px] ml-1 text-muted-foreground/70">— {dateStr}</span>}
+                        </p>);})
                       ))}
                     </div>
                   </div>
