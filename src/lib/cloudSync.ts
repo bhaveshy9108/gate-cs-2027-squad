@@ -169,9 +169,11 @@ async function persistCloudState(roomCode: string, state: TrackerState) {
 export function saveCloudState(
   roomCode: string,
   state: TrackerState,
-  options?: { immediate?: boolean }
+  options?: { immediate?: boolean; localAlreadyPublished?: boolean }
 ) {
-  publishRoomState(roomCode, state);
+  if (!options?.localAlreadyPublished) {
+    publishRoomState(roomCode, state);
+  }
 
   if (supabase) {
     if (options?.immediate) {

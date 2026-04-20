@@ -44,14 +44,12 @@ export default function Index() {
   const cloudEnabled = hasCloudSync();
   const member = state.currentMember;
   const canPersistRoomRef = useRef(false);
-  const hasLocalChangesRef = useRef(false);
   const suppressNextRoomSaveRef = useRef(false);
 
   // Load shared local state and subscribe to updates from other tabs/windows.
   useEffect(() => {
     if (!roomCode) {
       canPersistRoomRef.current = false;
-      hasLocalChangesRef.current = false;
       suppressNextRoomSaveRef.current = false;
       setCloudReady(true);
       return;
@@ -59,7 +57,6 @@ export default function Index() {
 
     setCloudReady(false);
     canPersistRoomRef.current = false;
-    hasLocalChangesRef.current = false;
     suppressNextRoomSaveRef.current = false;
 
     loadCloudState(roomCode).then((cloud) => {
@@ -90,17 +87,6 @@ export default function Index() {
   // Save to the default local store and the active shared workspace.
   useEffect(() => {
     saveState(state);
-    if (!roomCode || !cloudReady) return;
-
-    if (suppressNextRoomSaveRef.current) {
-      suppressNextRoomSaveRef.current = false;
-      return;
-    }
-
-    if (canPersistRoomRef.current && hasLocalChangesRef.current) {
-      hasLocalChangesRef.current = false;
-      saveCloudState(roomCode, state);
-    }
   }, [state, roomCode, cloudReady]);
 
   const handleJoinRoom = (code: string) => {
@@ -115,7 +101,6 @@ export default function Index() {
     saveRoomCode(code);
     setRoomCode(code);
     canPersistRoomRef.current = true;
-    hasLocalChangesRef.current = false;
     setCloudReady(true);
     saveCloudState(code, state, { immediate: true });
     toast.success(`Created room ${code}`);
@@ -128,7 +113,6 @@ export default function Index() {
   };
 
   const updateState = (updater: SetStateAction<TrackerState>) => {
-    hasLocalChangesRef.current = true;
     canPersistRoomRef.current = Boolean(roomCode) || canPersistRoomRef.current;
     setState((previous) => {
       const nextState =
@@ -138,6 +122,9 @@ export default function Index() {
 
       if (roomCode) {
         publishRoomState(roomCode, nextState);
+        if (cloudReady && canPersistRoomRef.current) {
+          saveCloudState(roomCode, nextState, { localAlreadyPublished: true });
+        }
       }
 
       return nextState;
