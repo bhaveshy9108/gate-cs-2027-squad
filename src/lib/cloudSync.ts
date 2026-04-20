@@ -92,6 +92,20 @@ export function getSavedRoomState(roomCode: string): TrackerState | null {
   return getLocalRoomSnapshot(roomCode)?.state ?? null;
 }
 
+export function publishRoomState(roomCode: string, state: TrackerState) {
+  const updatedAt = new Date().toISOString();
+  saveRoomStateLocally(roomCode, state, updatedAt);
+
+  const channel = createRoomChannel(roomCode);
+  channel?.postMessage({
+    type: "room-state",
+    roomCode,
+    updatedAt,
+    state: cloneState(state),
+  } satisfies BroadcastRoomMessage);
+  channel?.close();
+}
+
 export function saveRoomCode(code: string) {
   localStorage.setItem(ROOM_CODE_KEY, code);
 }
@@ -152,17 +166,7 @@ export function saveCloudState(
   state: TrackerState,
   options?: { immediate?: boolean }
 ) {
-  const updatedAt = new Date().toISOString();
-  saveRoomStateLocally(roomCode, state, updatedAt);
-
-  const channel = createRoomChannel(roomCode);
-  channel?.postMessage({
-    type: "room-state",
-    roomCode,
-    updatedAt,
-    state: cloneState(state),
-  } satisfies BroadcastRoomMessage);
-  channel?.close();
+  publishRoomState(roomCode, state);
 
   if (supabase) {
     if (options?.immediate) {

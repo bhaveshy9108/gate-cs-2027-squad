@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, type SetStateAction } from "react";
 import { type Member } from "@/lib/gateData";
 import { createDefaultState, loadState, saveState, type TrackerState } from "@/lib/trackerStore";
-import { loadCloudState, saveCloudState, getSavedRoomCode, getSavedRoomState, saveRoomCode, clearRoomCode, generateRoomCode, subscribeToRoom, hasCloudSync } from "@/lib/cloudSync";
+import { loadCloudState, saveCloudState, getSavedRoomCode, getSavedRoomState, saveRoomCode, clearRoomCode, generateRoomCode, subscribeToRoom, hasCloudSync, publishRoomState } from "@/lib/cloudSync";
 import MemberSelector from "@/components/MemberSelector";
 import RoomCodeDialog from "@/components/RoomCodeDialog";
 import SubjectChecklist from "@/components/SubjectChecklist";
@@ -130,7 +130,18 @@ export default function Index() {
   const updateState = (updater: SetStateAction<TrackerState>) => {
     hasLocalChangesRef.current = true;
     canPersistRoomRef.current = Boolean(roomCode) || canPersistRoomRef.current;
-    setState(updater);
+    setState((previous) => {
+      const nextState =
+        typeof updater === "function"
+          ? (updater as (prevState: TrackerState) => TrackerState)(previous)
+          : updater;
+
+      if (roomCode) {
+        publishRoomState(roomCode, nextState);
+      }
+
+      return nextState;
+    });
   };
 
   const setMember = (m: Member) => updateState((s) => ({ ...s, currentMember: m }));
