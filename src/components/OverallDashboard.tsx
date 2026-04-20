@@ -7,6 +7,7 @@ const memberColor: Record<Member, string> = {
   Bhavesh: "bg-person1",
   Avani: "bg-person2",
   Akshita: "bg-person3",
+  Aryan: "bg-amber-500",
 };
 
 const SECTIONS = [

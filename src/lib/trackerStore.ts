@@ -23,6 +23,7 @@ export interface TrackerState {
   customTopics: Record<string, Topic[]>;
   deletedTopics: Record<string, string[]>;
   mockTests: MockTest[];
+  weeklyTests: WeeklyTest[];
   currentMember: Member;
   topicNotes: Record<string, TopicNote>; // key: `${subjectId}|${topicId}`
   topicDifficulty: Record<string, Difficulty>; // key: `${subjectId}|${topicId}`
@@ -40,6 +41,24 @@ export interface MockTest {
   scores: Record<Member, number | null>;
 }
 
+export type WeeklyTestSource = "GO Classes" | "GateOverflow";
+export type WeeklyTestKind = "mock" | "subject" | "quiz";
+
+export interface WeeklyTestMemberStatus {
+  taken: boolean;
+  takenAt?: string;
+}
+
+export interface WeeklyTest {
+  id: string;
+  name: string;
+  source: WeeklyTestSource;
+  kind: WeeklyTestKind;
+  scheduledWeek: number;
+  notes: string;
+  statusByMember: Record<Member, WeeklyTestMemberStatus>;
+}
+
 function getKey(member: string, section: string, subjectId: string, topicId: string) {
   return `${member}|${section}|${subjectId}|${topicId}`;
 }
@@ -50,6 +69,7 @@ function defaultState(): TrackerState {
     customTopics: {},
     deletedTopics: {},
     mockTests: [],
+    weeklyTests: [],
     currentMember: "Bhavesh",
     topicNotes: {},
     topicDifficulty: {},
@@ -191,6 +211,42 @@ export function addMockTest(state: TrackerState, test: MockTest): TrackerState {
   return { ...state, mockTests: [...state.mockTests, test] };
 }
 
+export function addWeeklyTest(state: TrackerState, test: WeeklyTest): TrackerState {
+  return {
+    ...state,
+    weeklyTests: [...state.weeklyTests, test].sort((a, b) => a.scheduledWeek - b.scheduledWeek),
+  };
+}
+
+export function deleteWeeklyTest(state: TrackerState, testId: string): TrackerState {
+  return {
+    ...state,
+    weeklyTests: state.weeklyTests.filter((test) => test.id !== testId),
+  };
+}
+
+export function updateWeeklyTestTaken(
+  state: TrackerState,
+  testId: string,
+  member: Member,
+  taken: boolean
+): TrackerState {
+  return {
+    ...state,
+    weeklyTests: state.weeklyTests.map((test) =>
+      test.id === testId
+        ? {
+            ...test,
+            statusByMember: {
+              ...test.statusByMember,
+              [member]: taken ? { taken: true, takenAt: new Date().toISOString() } : { taken: false },
+            },
+          }
+        : test
+    ),
+  };
+}
+
 export function deleteMockTest(state: TrackerState, testId: string): TrackerState {
   return { ...state, mockTests: state.mockTests.filter((t) => t.id !== testId) };
 }
@@ -234,14 +290,22 @@ export interface WeekProgressMockTest {
   scores: Record<Member, number | null>;
 }
 
+export interface WeekProgressWeeklyTest {
+  name: string;
+  source: WeeklyTestSource;
+  kind: WeeklyTestKind;
+  takenBy: { member: Member; takenAt: string }[];
+}
+
 export interface WeekProgress {
   week: number;
   items: { member: Member; section: string; subjectName: string; topicName: string; completedAt: string }[];
   mockTests: WeekProgressMockTest[];
+  weeklyTests: WeekProgressWeeklyTest[];
 }
 
 export function getWeeklyProgress(state: TrackerState): WeekProgress[] {
-  const weekMap = new Map<number, { items: WeekProgress["items"]; mockTests: WeekProgressMockTest[] }>();
+  const weekMap = new Map<number, { items: WeekProgress["items"]; mockTests: WeekProgressMockTest[]; weeklyTests: WeekProgressWeeklyTest[] }>();
 
   for (const [key, entry] of Object.entries(state.checklist)) {
     if (!entry.completed || !entry.week) continue;
@@ -250,7 +314,7 @@ export function getWeeklyProgress(state: TrackerState): WeekProgress[] {
     const allTopics = getAllTopics(state, subjectId);
     const topic = allTopics.find((t) => t.id === topicId);
 
-    const data = weekMap.get(entry.week) || { items: [], mockTests: [] };
+    const data = weekMap.get(entry.week) || { items: [], mockTests: [], weeklyTests: [] };
     data.items.push({
       member: member as Member,
       section,
@@ -264,7 +328,7 @@ export function getWeeklyProgress(state: TrackerState): WeekProgress[] {
   // Add mock tests to their respective weeks
   for (const test of state.mockTests) {
     const week = getWeekNumber(new Date(test.date));
-    const data = weekMap.get(week) || { items: [], mockTests: [] };
+    const data = weekMap.get(week) || { items: [], mockTests: [], weeklyTests: [] };
     data.mockTests.push({
       name: test.name,
       type: test.type || "full",
@@ -274,9 +338,32 @@ export function getWeeklyProgress(state: TrackerState): WeekProgress[] {
     weekMap.set(week, data);
   }
 
+  for (const test of state.weeklyTests) {
+    const membersByWeek = new Map<number, WeekProgressWeeklyTest["takenBy"]>();
+
+    for (const [member, status] of Object.entries(test.statusByMember)) {
+      if (!status.taken || !status.takenAt) continue;
+      const week = getWeekNumber(new Date(status.takenAt));
+      const existing = membersByWeek.get(week) || [];
+      existing.push({ member: member as Member, takenAt: status.takenAt });
+      membersByWeek.set(week, existing);
+    }
+
+    for (const [week, takenBy] of membersByWeek.entries()) {
+      const data = weekMap.get(week) || { items: [], mockTests: [], weeklyTests: [] };
+      data.weeklyTests.push({
+        name: test.name,
+        source: test.source,
+        kind: test.kind,
+        takenBy,
+      });
+      weekMap.set(week, data);
+    }
+  }
+
   return Array.from(weekMap.entries())
     .sort((a, b) => a[0] - b[0])
-    .map(([week, data]) => ({ week, items: data.items, mockTests: data.mockTests }));
+    .map(([week, data]) => ({ week, items: data.items, mockTests: data.mockTests, weeklyTests: data.weeklyTests }));
 }
 
 export function getWeekDateRange(week: number): string {
