@@ -73,6 +73,10 @@ export function getSavedRoomCode(): string | null {
   return localStorage.getItem(ROOM_CODE_KEY);
 }
 
+export function getSavedRoomState(roomCode: string): TrackerState | null {
+  return getLocalRoomSnapshot(roomCode)?.state ?? null;
+}
+
 export function saveRoomCode(code: string) {
   localStorage.setItem(ROOM_CODE_KEY, code);
 }

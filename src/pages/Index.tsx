@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, type SetStateAction } from "react";
 import { type Member } from "@/lib/gateData";
 import { createDefaultState, loadState, saveState, type TrackerState } from "@/lib/trackerStore";
-import { loadCloudState, saveCloudState, getSavedRoomCode, saveRoomCode, clearRoomCode, generateRoomCode, subscribeToRoom, hasCloudSync } from "@/lib/cloudSync";
+import { loadCloudState, saveCloudState, getSavedRoomCode, getSavedRoomState, saveRoomCode, clearRoomCode, generateRoomCode, subscribeToRoom, hasCloudSync } from "@/lib/cloudSync";
 import MemberSelector from "@/components/MemberSelector";
 import RoomCodeDialog from "@/components/RoomCodeDialog";
 import SubjectChecklist from "@/components/SubjectChecklist";
@@ -27,7 +27,17 @@ const TABS = [
 type TabId = (typeof TABS)[number]["id"];
 
 export default function Index() {
-  const [state, setState] = useState<TrackerState>(loadState);
+  const [state, setState] = useState<TrackerState>(() => {
+    const savedRoomCode = getSavedRoomCode();
+    if (savedRoomCode) {
+      const roomState = getSavedRoomState(savedRoomCode);
+      if (roomState) {
+        return roomState;
+      }
+    }
+
+    return loadState();
+  });
   const [tab, setTab] = useState<TabId>("dashboard");
   const [roomCode, setRoomCode] = useState<string | null>(getSavedRoomCode);
   const [cloudReady, setCloudReady] = useState(false);
