@@ -11,12 +11,13 @@ import {
 
 interface RoomCodeDialogProps {
   roomCode: string | null;
+  cloudEnabled: boolean;
   onJoin: (code: string) => void;
   onCreate: () => void;
   onDisconnect: () => void;
 }
 
-export default function RoomCodeDialog({ roomCode, onJoin, onCreate, onDisconnect }: RoomCodeDialogProps) {
+export default function RoomCodeDialog({ roomCode, cloudEnabled, onJoin, onCreate, onDisconnect }: RoomCodeDialogProps) {
   const [joinCode, setJoinCode] = useState("");
   const [copied, setCopied] = useState(false);
   const [open, setOpen] = useState(false);
@@ -49,7 +50,7 @@ export default function RoomCodeDialog({ roomCode, onJoin, onCreate, onDisconnec
       <DialogTrigger asChild>
         <button
           className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-border hover:bg-muted/50 transition-colors"
-          title={roomCode ? `Syncing: ${roomCode}` : "Cloud Sync"}
+          title={roomCode ? `${cloudEnabled ? "Cloud" : "Local"} workspace: ${roomCode}` : cloudEnabled ? "Cloud Sync" : "Local Workspace"}
         >
           {roomCode ? (
             <Cloud className="w-3.5 h-3.5 text-green-500" />
@@ -61,13 +62,13 @@ export default function RoomCodeDialog({ roomCode, onJoin, onCreate, onDisconnec
       </DialogTrigger>
       <DialogContent className="max-w-xs">
         <DialogHeader>
-          <DialogTitle className="text-base">Cloud Sync</DialogTitle>
+          <DialogTitle className="text-base">{cloudEnabled ? "Cloud Sync" : "Local Workspace"}</DialogTitle>
         </DialogHeader>
 
         {roomCode ? (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Connected to room:
+              Connected workspace:
             </p>
             <div className="flex items-center gap-2">
               <code className="flex-1 text-center text-lg font-mono font-bold tracking-widest bg-muted px-3 py-2 rounded-lg">
@@ -78,7 +79,9 @@ export default function RoomCodeDialog({ roomCode, onJoin, onCreate, onDisconnec
               </button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Share this code with your study partner to sync progress.
+              {cloudEnabled
+                ? "Use this code from any device to open the same tracker data."
+                : "Use the same code in another tab or browser profile on this laptop to continue the same tracker data."}
             </p>
             <button
               onClick={() => { onDisconnect(); setOpen(false); }}
@@ -119,7 +122,7 @@ export default function RoomCodeDialog({ roomCode, onJoin, onCreate, onDisconnec
               onClick={handleCreate}
               className="w-full py-2.5 text-sm font-medium bg-card border border-border rounded-lg hover:bg-muted/50 transition-colors"
             >
-              Create new room
+              {cloudEnabled ? "Create cloud workspace" : "Create new workspace"}
             </button>
           </div>
         )}

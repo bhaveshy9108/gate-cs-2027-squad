@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { type Member } from "@/lib/gateData";
 import { loadState, saveState, type TrackerState } from "@/lib/trackerStore";
-import { loadCloudState, saveCloudState, getSavedRoomCode, saveRoomCode, clearRoomCode, generateRoomCode, subscribeToRoom } from "@/lib/cloudSync";
+import { loadCloudState, saveCloudState, getSavedRoomCode, saveRoomCode, clearRoomCode, generateRoomCode, subscribeToRoom, hasCloudSync } from "@/lib/cloudSync";
 import MemberSelector from "@/components/MemberSelector";
 import RoomCodeDialog from "@/components/RoomCodeDialog";
 import SubjectChecklist from "@/components/SubjectChecklist";
@@ -31,9 +31,10 @@ export default function Index() {
   const [tab, setTab] = useState<TabId>("dashboard");
   const [roomCode, setRoomCode] = useState<string | null>(getSavedRoomCode);
   const [cloudReady, setCloudReady] = useState(false);
+  const cloudEnabled = hasCloudSync();
   const member = state.currentMember;
 
-  // Load cloud state and subscribe to real-time updates
+  // Load shared local state and subscribe to updates from other tabs/windows.
   useEffect(() => {
     if (!roomCode) { setCloudReady(true); return; }
     loadCloudState(roomCode).then((cloud) => {
@@ -48,7 +49,6 @@ export default function Index() {
       setCloudReady(true);
     });
 
-    // Subscribe to real-time changes from other devices
     const channel = subscribeToRoom(roomCode, (newState) => {
       setState(newState);
       saveState(newState);
@@ -59,7 +59,7 @@ export default function Index() {
     };
   }, [roomCode]);
 
-  // Save to cloud + localStorage on state change
+  // Save to the default local store and the active shared workspace.
   useEffect(() => {
     saveState(state);
     if (roomCode && cloudReady) {
@@ -79,7 +79,6 @@ export default function Index() {
     saveRoomCode(code);
     setRoomCode(code);
     setCloudReady(true);
-    // Immediately save current state to cloud
     saveCloudState(code, state);
     toast.success(`Created room ${code}`);
   };
@@ -87,7 +86,7 @@ export default function Index() {
   const handleDisconnect = () => {
     clearRoomCode();
     setRoomCode(null);
-    toast.info("Disconnected from cloud sync");
+    toast.info(`Disconnected from ${cloudEnabled ? "cloud sync" : "shared workspace"}`);
   };
 
   const setMember = (m: Member) => setState((s) => ({ ...s, currentMember: m }));
@@ -104,6 +103,7 @@ export default function Index() {
             <div className="flex items-center gap-2">
               <RoomCodeDialog
                 roomCode={roomCode}
+                cloudEnabled={cloudEnabled}
                 onJoin={handleJoinRoom}
                 onCreate={handleCreateRoom}
                 onDisconnect={handleDisconnect}

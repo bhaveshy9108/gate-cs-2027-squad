@@ -1,4 +1,3 @@
-
 -- Create profiles table
 CREATE TABLE public.profiles (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -24,7 +23,6 @@ ON public.profiles FOR UPDATE
 TO authenticated
 USING (auth.uid() = user_id);
 
--- Auto-create profile on signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -43,7 +41,6 @@ AFTER INSERT ON auth.users
 FOR EACH ROW
 EXECUTE FUNCTION public.handle_new_user();
 
--- Create tracker_data table
 CREATE TABLE public.tracker_data (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -68,7 +65,6 @@ ON public.tracker_data FOR UPDATE
 TO authenticated
 USING (auth.uid() = user_id);
 
--- Trigger to update updated_at
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()
 RETURNS TRIGGER
 LANGUAGE plpgsql
