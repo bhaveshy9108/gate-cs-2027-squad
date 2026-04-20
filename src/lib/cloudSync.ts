@@ -17,6 +17,13 @@ interface LocalRoomSnapshot {
   updatedAt: string;
 }
 
+interface BroadcastRoomMessage {
+  type: "room-state";
+  roomCode: string;
+  updatedAt: string;
+  state: TrackerState;
+}
+
 function getRoomStateKey(roomCode: string) {
   return `${ROOM_STATE_PREFIX}${roomCode}`;
 }
@@ -54,6 +61,14 @@ function parseLocalRoomSnapshot(raw: string | null): LocalRoomSnapshot | null {
 
 function getLocalRoomSnapshot(roomCode: string): LocalRoomSnapshot | null {
   return parseLocalRoomSnapshot(localStorage.getItem(getRoomStateKey(roomCode)));
+}
+
+function createRoomChannel(roomCode: string): BroadcastChannel | null {
+  if (typeof window === "undefined" || typeof BroadcastChannel === "undefined") {
+    return null;
+  }
+
+  return new BroadcastChannel(`gate-tracker-room:${roomCode}`);
 }
 
 function saveRoomStateLocally(roomCode: string, state: TrackerState, updatedAt = new Date().toISOString()) {
@@ -137,7 +152,17 @@ export function saveCloudState(
   state: TrackerState,
   options?: { immediate?: boolean }
 ) {
-  saveRoomStateLocally(roomCode, state);
+  const updatedAt = new Date().toISOString();
+  saveRoomStateLocally(roomCode, state, updatedAt);
+
+  const channel = createRoomChannel(roomCode);
+  channel?.postMessage({
+    type: "room-state",
+    roomCode,
+    updatedAt,
+    state: cloneState(state),
+  } satisfies BroadcastRoomMessage);
+  channel?.close();
 
   if (supabase) {
     if (options?.immediate) {
@@ -192,8 +217,25 @@ export function subscribeToRoom(
     emitLatestState();
   };
 
+  const broadcastChannel = createRoomChannel(roomCode);
+  const handleBroadcast = (event: MessageEvent<BroadcastRoomMessage>) => {
+    const message = event.data;
+    if (!message || message.type !== "room-state" || message.roomCode !== roomCode) {
+      return;
+    }
+
+    const localSnapshot = getLocalRoomSnapshot(roomCode);
+    if (localSnapshot && localSnapshot.updatedAt >= message.updatedAt) {
+      return;
+    }
+
+    saveRoomStateLocally(roomCode, message.state, message.updatedAt);
+    onUpdate(message.state);
+  };
+
   window.addEventListener("storage", handleStorage);
   window.addEventListener(getRoomEventName(roomCode), handleLocalUpdate);
+  broadcastChannel?.addEventListener("message", handleBroadcast);
 
   if (supabase) {
     const syncFromCloud = async () => {
@@ -246,6 +288,8 @@ export function subscribeToRoom(
         window.clearInterval(pollInterval);
         window.removeEventListener("storage", handleStorage);
         window.removeEventListener(getRoomEventName(roomCode), handleLocalUpdate);
+        broadcastChannel?.removeEventListener("message", handleBroadcast);
+        broadcastChannel?.close();
       },
     };
   }
@@ -254,6 +298,8 @@ export function subscribeToRoom(
     unsubscribe: () => {
       window.removeEventListener("storage", handleStorage);
       window.removeEventListener(getRoomEventName(roomCode), handleLocalUpdate);
+      broadcastChannel?.removeEventListener("message", handleBroadcast);
+      broadcastChannel?.close();
     },
   };
 }
