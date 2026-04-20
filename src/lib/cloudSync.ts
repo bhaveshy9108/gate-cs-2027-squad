@@ -24,6 +24,11 @@ function cloneState(state: TrackerState): TrackerState {
   return JSON.parse(JSON.stringify(state)) as TrackerState;
 }
 
+function saveRoomStateLocally(roomCode: string, state: TrackerState) {
+  localStorage.setItem(getRoomStateKey(roomCode), JSON.stringify(cloneState(state)));
+  dispatchRoomUpdate(roomCode);
+}
+
 function dispatchRoomUpdate(roomCode: string) {
   window.dispatchEvent(new CustomEvent(getRoomEventName(roomCode)));
 }
@@ -58,7 +63,9 @@ export async function loadCloudState(roomCode: string): Promise<TrackerState | n
       .maybeSingle();
 
     if (error || !data) return null;
-    return data.data as unknown as TrackerState;
+    const cloudState = data.data as unknown as TrackerState;
+    saveRoomStateLocally(roomCode, cloudState);
+    return cloudState;
   }
 
   try {
@@ -70,6 +77,8 @@ export async function loadCloudState(roomCode: string): Promise<TrackerState | n
 }
 
 export function saveCloudState(roomCode: string, state: TrackerState) {
+  saveRoomStateLocally(roomCode, state);
+
   if (supabase) {
     if (saveTimeout) clearTimeout(saveTimeout);
     saveTimeout = setTimeout(async () => {
@@ -90,43 +99,12 @@ export function saveCloudState(roomCode: string, state: TrackerState) {
     return;
   }
 
-  localStorage.setItem(getRoomStateKey(roomCode), JSON.stringify(cloneState(state)));
-  dispatchRoomUpdate(roomCode);
 }
 
 export function subscribeToRoom(
   roomCode: string,
   onUpdate: (state: TrackerState) => void
 ): { unsubscribe: () => void } {
-  if (supabase) {
-    const channel = supabase
-      .channel(`room-${roomCode}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "tracker_data",
-          filter: `room_code=eq.${roomCode}`,
-        },
-        (payload) => {
-          if (isSaving) return;
-
-          const newData = payload.new?.data as unknown as TrackerState;
-          if (newData) {
-            onUpdate(newData);
-          }
-        }
-      )
-      .subscribe();
-
-    return {
-      unsubscribe: () => {
-        channel.unsubscribe();
-      },
-    };
-  }
-
   const roomStateKey = getRoomStateKey(roomCode);
 
   const emitLatestState = () => {
@@ -152,6 +130,38 @@ export function subscribeToRoom(
 
   window.addEventListener("storage", handleStorage);
   window.addEventListener(getRoomEventName(roomCode), handleLocalUpdate);
+
+  if (supabase) {
+    const channel = supabase
+      .channel(`room-${roomCode}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "tracker_data",
+          filter: `room_code=eq.${roomCode}`,
+        },
+        (payload) => {
+          if (isSaving) return;
+
+          const newData = payload.new?.data as unknown as TrackerState;
+          if (newData) {
+            saveRoomStateLocally(roomCode, newData);
+            onUpdate(newData);
+          }
+        }
+      )
+      .subscribe();
+
+    return {
+      unsubscribe: () => {
+        channel.unsubscribe();
+        window.removeEventListener("storage", handleStorage);
+        window.removeEventListener(getRoomEventName(roomCode), handleLocalUpdate);
+      },
+    };
+  }
 
   return {
     unsubscribe: () => {
