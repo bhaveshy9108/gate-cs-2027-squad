@@ -196,6 +196,24 @@ export function subscribeToRoom(
   window.addEventListener(getRoomEventName(roomCode), handleLocalUpdate);
 
   if (supabase) {
+    const syncFromCloud = async () => {
+      const { data, error } = await supabase
+        .from("tracker_data")
+        .select("data,updated_at")
+        .eq("room_code", roomCode)
+        .maybeSingle();
+
+      if (error || !data) return;
+
+      const localSnapshot = getLocalRoomSnapshot(roomCode);
+      const cloudUpdatedAt = data.updated_at ?? new Date(0).toISOString();
+      if (localSnapshot && localSnapshot.updatedAt >= cloudUpdatedAt) return;
+
+      const cloudState = data.data as unknown as TrackerState;
+      saveRoomStateLocally(roomCode, cloudState, cloudUpdatedAt);
+      onUpdate(cloudState);
+    };
+
     const channel = supabase
       .channel(`room-${roomCode}`)
       .on(
@@ -218,9 +236,14 @@ export function subscribeToRoom(
       )
       .subscribe();
 
+    const pollInterval = window.setInterval(() => {
+      void syncFromCloud();
+    }, 2500);
+
     return {
       unsubscribe: () => {
         channel.unsubscribe();
+        window.clearInterval(pollInterval);
         window.removeEventListener("storage", handleStorage);
         window.removeEventListener(getRoomEventName(roomCode), handleLocalUpdate);
       },
