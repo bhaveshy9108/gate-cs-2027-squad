@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { TrackerState } from "./trackerStore";
+import { toast } from "sonner";
 
 const ROOM_CODE_KEY = "gate-tracker-room-code";
 const ROOM_STATE_PREFIX = "gate-tracker-room-state:";
@@ -163,6 +164,7 @@ async function persistCloudState(roomCode: string, state: TrackerState) {
 
   if (error) {
     console.error("Cloud save failed:", error.message);
+    toast.error(`Cloud save failed: ${error.message}`);
   }
 }
 
