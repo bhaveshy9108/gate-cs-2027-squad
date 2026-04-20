@@ -156,7 +156,10 @@ async function persistCloudState(roomCode: string, state: TrackerState) {
   const payload = cloneState(state);
   const { error } = await supabase
     .from("tracker_data")
-      .upsert({ room_code: roomCode, data: payload }, { onConflict: "room_code" });
+    .upsert(
+      { room_code: roomCode, data: payload, user_id: null },
+      { onConflict: "room_code" }
+    );
 
   if (error) {
     console.error("Cloud save failed:", error.message);
