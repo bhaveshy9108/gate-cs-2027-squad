@@ -75,3 +75,5 @@ npm run build
 ```
 
 The Vite config uses a relative asset base, so the generated `dist` folder works on GitHub Pages.
+Made by Bhavesh
+
