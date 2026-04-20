@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, type SetStateAction } from "react";
 import { type Member } from "@/lib/gateData";
 import { loadState, saveState, type TrackerState } from "@/lib/trackerStore";
 import { loadCloudState, saveCloudState, getSavedRoomCode, saveRoomCode, clearRoomCode, generateRoomCode, subscribeToRoom, hasCloudSync } from "@/lib/cloudSync";
@@ -33,12 +33,29 @@ export default function Index() {
   const [cloudReady, setCloudReady] = useState(false);
   const cloudEnabled = hasCloudSync();
   const member = state.currentMember;
+  const canPersistRoomRef = useRef(false);
+  const hasLocalChangesRef = useRef(false);
+  const suppressNextRoomSaveRef = useRef(false);
 
   // Load shared local state and subscribe to updates from other tabs/windows.
   useEffect(() => {
-    if (!roomCode) { setCloudReady(true); return; }
+    if (!roomCode) {
+      canPersistRoomRef.current = false;
+      hasLocalChangesRef.current = false;
+      suppressNextRoomSaveRef.current = false;
+      setCloudReady(true);
+      return;
+    }
+
+    setCloudReady(false);
+    canPersistRoomRef.current = false;
+    hasLocalChangesRef.current = false;
+    suppressNextRoomSaveRef.current = false;
+
     loadCloudState(roomCode).then((cloud) => {
       if (cloud) {
+        canPersistRoomRef.current = true;
+        suppressNextRoomSaveRef.current = true;
         setState((local) => {
           const localHasData = Object.keys(local.checklist).length > 0;
           const cloudHasData = Object.keys(cloud.checklist || {}).length > 0;
@@ -62,7 +79,15 @@ export default function Index() {
   // Save to the default local store and the active shared workspace.
   useEffect(() => {
     saveState(state);
-    if (roomCode && cloudReady) {
+    if (!roomCode || !cloudReady) return;
+
+    if (suppressNextRoomSaveRef.current) {
+      suppressNextRoomSaveRef.current = false;
+      return;
+    }
+
+    if (canPersistRoomRef.current && hasLocalChangesRef.current) {
+      hasLocalChangesRef.current = false;
       saveCloudState(roomCode, state);
     }
   }, [state, roomCode, cloudReady]);
@@ -78,8 +103,10 @@ export default function Index() {
     const code = generateRoomCode();
     saveRoomCode(code);
     setRoomCode(code);
+    canPersistRoomRef.current = true;
+    hasLocalChangesRef.current = false;
     setCloudReady(true);
-    saveCloudState(code, state);
+    saveCloudState(code, state, { immediate: true });
     toast.success(`Created room ${code}`);
   };
 
@@ -89,7 +116,13 @@ export default function Index() {
     toast.info(`Disconnected from ${cloudEnabled ? "cloud sync" : "shared workspace"}`);
   };
 
-  const setMember = (m: Member) => setState((s) => ({ ...s, currentMember: m }));
+  const updateState = (updater: SetStateAction<TrackerState>) => {
+    hasLocalChangesRef.current = true;
+    canPersistRoomRef.current = Boolean(roomCode) || canPersistRoomRef.current;
+    setState(updater);
+  };
+
+  const setMember = (m: Member) => updateState((s) => ({ ...s, currentMember: m }));
 
   return (
     <div className="min-h-screen bg-background">
@@ -142,11 +175,11 @@ export default function Index() {
           </>
         )}
         {tab === "study" && (
-          <SubjectChecklist section="study" sectionLabel="Study Checklist" state={state} member={member} onUpdate={setState} />
+          <SubjectChecklist section="study" sectionLabel="Study Checklist" state={state} member={member} onUpdate={updateState} />
         )}
-        {tab === "revision" && <RevisionSection state={state} member={member} onUpdate={setState} />}
-        {tab === "pyq" && <PYQSection state={state} member={member} onUpdate={setState} />}
-        {tab === "mock" && <MockTestSection state={state} member={member} onUpdate={setState} />}
+        {tab === "revision" && <RevisionSection state={state} member={member} onUpdate={updateState} />}
+        {tab === "pyq" && <PYQSection state={state} member={member} onUpdate={updateState} />}
+        {tab === "mock" && <MockTestSection state={state} member={member} onUpdate={updateState} />}
         {tab === "weekly" && <WeeklyProgress state={state} />}
       </main>
     </div>

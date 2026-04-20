@@ -76,21 +76,40 @@ export async function loadCloudState(roomCode: string): Promise<TrackerState | n
   }
 }
 
-export function saveCloudState(roomCode: string, state: TrackerState) {
+async function persistCloudState(roomCode: string, state: TrackerState) {
+  const payload = cloneState(state);
+  const { error } = await supabase
+    .from("tracker_data")
+    .upsert({ room_code: roomCode, data: payload }, { onConflict: "room_code" });
+
+  if (error) {
+    console.error("Cloud save failed:", error.message);
+  }
+}
+
+export function saveCloudState(
+  roomCode: string,
+  state: TrackerState,
+  options?: { immediate?: boolean }
+) {
   saveRoomStateLocally(roomCode, state);
 
   if (supabase) {
+    if (options?.immediate) {
+      if (saveTimeout) clearTimeout(saveTimeout);
+      isSaving = true;
+      void persistCloudState(roomCode, state).finally(() => {
+        setTimeout(() => {
+          isSaving = false;
+        }, 300);
+      });
+      return;
+    }
+
     if (saveTimeout) clearTimeout(saveTimeout);
     saveTimeout = setTimeout(async () => {
       isSaving = true;
-      const payload = cloneState(state);
-      const { error } = await supabase
-        .from("tracker_data")
-        .upsert({ room_code: roomCode, data: payload }, { onConflict: "room_code" });
-
-      if (error) {
-        console.error("Cloud save failed:", error.message);
-      }
+      await persistCloudState(roomCode, state);
 
       setTimeout(() => {
         isSaving = false;
