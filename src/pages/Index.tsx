@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, type SetStateAction } from "react";
 import { type Member } from "@/lib/gateData";
-import { loadState, saveState, type TrackerState } from "@/lib/trackerStore";
+import { createDefaultState, loadState, saveState, type TrackerState } from "@/lib/trackerStore";
 import { loadCloudState, saveCloudState, getSavedRoomCode, saveRoomCode, clearRoomCode, generateRoomCode, subscribeToRoom, hasCloudSync } from "@/lib/cloudSync";
 import MemberSelector from "@/components/MemberSelector";
 import RoomCodeDialog from "@/components/RoomCodeDialog";
@@ -56,12 +56,13 @@ export default function Index() {
       if (cloud) {
         canPersistRoomRef.current = true;
         suppressNextRoomSaveRef.current = true;
-        setState((local) => {
-          const localHasData = Object.keys(local.checklist).length > 0;
-          const cloudHasData = Object.keys(cloud.checklist || {}).length > 0;
-          if (localHasData && !cloudHasData) return local;
-          return { ...local, ...cloud };
-        });
+        setState(cloud);
+      } else {
+        suppressNextRoomSaveRef.current = true;
+        setState((local) => ({
+          ...createDefaultState(),
+          currentMember: local.currentMember,
+        }));
       }
       setCloudReady(true);
     });

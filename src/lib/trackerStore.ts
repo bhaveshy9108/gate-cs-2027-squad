@@ -56,6 +56,10 @@ function defaultState(): TrackerState {
   };
 }
 
+export function createDefaultState(): TrackerState {
+  return defaultState();
+}
+
 // Notes helpers
 export function getTopicNote(state: TrackerState, subjectId: string, topicId: string): TopicNote {
   return state.topicNotes[`${subjectId}|${topicId}`] || { text: "", links: [] };
