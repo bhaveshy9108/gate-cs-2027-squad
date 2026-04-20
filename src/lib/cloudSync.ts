@@ -7,6 +7,8 @@ const ROOM_EVENT_PREFIX = "gate-tracker-room-updated:";
 
 let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 let isSaving = false;
+const CLOUD_SAVE_DELAY_MS = 300;
+const CLOUD_POLL_INTERVAL_MS = 1000;
 
 export function hasCloudSync() {
   return Boolean(supabase);
@@ -188,7 +190,7 @@ export function saveCloudState(
       setTimeout(() => {
         isSaving = false;
       }, 300);
-    }, 1500);
+    }, CLOUD_SAVE_DELAY_MS);
     return;
   }
 
@@ -284,7 +286,7 @@ export function subscribeToRoom(
 
     const pollInterval = window.setInterval(() => {
       void syncFromCloud();
-    }, 2500);
+    }, CLOUD_POLL_INTERVAL_MS);
 
     return {
       unsubscribe: () => {
