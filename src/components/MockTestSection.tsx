@@ -18,6 +18,19 @@ export default function MockTestSection({ state, onUpdate }: Props) {
   const [editingScore, setEditingScore] = useState<{ testId: string; member: Member } | null>(null);
   const [scoreInput, setScoreInput] = useState("");
 
+  const getMemberBorderColor = (member: Member) => {
+    switch (member) {
+      case "Bhavesh":
+        return "border-person1";
+      case "Avani":
+        return "border-person2";
+      case "Akshita":
+        return "border-person3";
+      case "Aryan":
+        return "border-amber-500";
+    }
+  };
+
   const handleAddTest = () => {
     if (!testName.trim() || !totalMarks.trim()) return;
     const test: MockTest = {
@@ -27,7 +40,7 @@ export default function MockTestSection({ state, onUpdate }: Props) {
       type: testType,
       totalMarks: parseFloat(totalMarks) || 100,
       notes: notes.trim(),
-      scores: { Bhavesh: null, Avani: null, Akshita: null },
+      scores: Object.fromEntries(MEMBERS.map((member) => [member, null])) as MockTest["scores"],
     };
     onUpdate(addMockTest(state, test));
     setTestName("");
@@ -147,11 +160,11 @@ export default function MockTestSection({ state, onUpdate }: Props) {
                 </span>
               </div>
             )}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               {MEMBERS.map((m) => {
                 const score = test.scores[m];
                 const isEditing = editingScore?.testId === test.id && editingScore.member === m;
-                const colors = m === "Bhavesh" ? "border-person1" : m === "Avani" ? "border-person2" : "border-person3";
+                const colors = getMemberBorderColor(m);
                 const isTop = highest && allScored && highest.member === m;
 
                 return (
