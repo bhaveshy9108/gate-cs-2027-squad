@@ -12,6 +12,11 @@ export function hasCloudSync() {
   return Boolean(supabase);
 }
 
+interface LocalRoomSnapshot {
+  state: TrackerState;
+  updatedAt: string;
+}
+
 function getRoomStateKey(roomCode: string) {
   return `${ROOM_STATE_PREFIX}${roomCode}`;
 }
@@ -24,8 +29,39 @@ function cloneState(state: TrackerState): TrackerState {
   return JSON.parse(JSON.stringify(state)) as TrackerState;
 }
 
-function saveRoomStateLocally(roomCode: string, state: TrackerState) {
-  localStorage.setItem(getRoomStateKey(roomCode), JSON.stringify(cloneState(state)));
+function parseLocalRoomSnapshot(raw: string | null): LocalRoomSnapshot | null {
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as TrackerState | LocalRoomSnapshot;
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      "state" in parsed &&
+      "updatedAt" in parsed
+    ) {
+      return parsed as LocalRoomSnapshot;
+    }
+
+    return {
+      state: parsed as TrackerState,
+      updatedAt: new Date(0).toISOString(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function getLocalRoomSnapshot(roomCode: string): LocalRoomSnapshot | null {
+  return parseLocalRoomSnapshot(localStorage.getItem(getRoomStateKey(roomCode)));
+}
+
+function saveRoomStateLocally(roomCode: string, state: TrackerState, updatedAt = new Date().toISOString()) {
+  const snapshot: LocalRoomSnapshot = {
+    state: cloneState(state),
+    updatedAt,
+  };
+  localStorage.setItem(getRoomStateKey(roomCode), JSON.stringify(snapshot));
   dispatchRoomUpdate(roomCode);
 }
 
@@ -55,32 +91,37 @@ export function generateRoomCode(): string {
 }
 
 export async function loadCloudState(roomCode: string): Promise<TrackerState | null> {
+  const localSnapshot = getLocalRoomSnapshot(roomCode);
+
   if (supabase) {
     const { data, error } = await supabase
       .from("tracker_data")
-      .select("data")
+      .select("data,updated_at")
       .eq("room_code", roomCode)
       .maybeSingle();
 
-    if (error || !data) return null;
+    if (error || !data) return localSnapshot?.state ?? null;
+
     const cloudState = data.data as unknown as TrackerState;
-    saveRoomStateLocally(roomCode, cloudState);
+    const cloudUpdatedAt = data.updated_at ?? new Date(0).toISOString();
+
+    if (localSnapshot && localSnapshot.updatedAt > cloudUpdatedAt) {
+      void persistCloudState(roomCode, localSnapshot.state);
+      return localSnapshot.state;
+    }
+
+    saveRoomStateLocally(roomCode, cloudState, cloudUpdatedAt);
     return cloudState;
   }
 
-  try {
-    const raw = localStorage.getItem(getRoomStateKey(roomCode));
-    return raw ? (JSON.parse(raw) as TrackerState) : null;
-  } catch {
-    return null;
-  }
+  return localSnapshot?.state ?? null;
 }
 
 async function persistCloudState(roomCode: string, state: TrackerState) {
   const payload = cloneState(state);
   const { error } = await supabase
     .from("tracker_data")
-    .upsert({ room_code: roomCode, data: payload }, { onConflict: "room_code" });
+      .upsert({ room_code: roomCode, data: payload }, { onConflict: "room_code" });
 
   if (error) {
     console.error("Cloud save failed:", error.message);
@@ -127,11 +168,11 @@ export function subscribeToRoom(
   const roomStateKey = getRoomStateKey(roomCode);
 
   const emitLatestState = () => {
-    const raw = localStorage.getItem(roomStateKey);
-    if (!raw) return;
+    const snapshot = getLocalRoomSnapshot(roomCode);
+    if (!snapshot) return;
 
     try {
-      onUpdate(JSON.parse(raw) as TrackerState);
+      onUpdate(snapshot.state);
     } catch (error) {
       console.error("Room sync failed:", error);
     }
@@ -166,7 +207,7 @@ export function subscribeToRoom(
 
           const newData = payload.new?.data as unknown as TrackerState;
           if (newData) {
-            saveRoomStateLocally(roomCode, newData);
+            saveRoomStateLocally(roomCode, newData, payload.new?.updated_at);
             onUpdate(newData);
           }
         }
