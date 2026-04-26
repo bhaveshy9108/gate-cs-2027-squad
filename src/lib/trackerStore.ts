@@ -86,6 +86,7 @@ function defaultState(): TrackerState {
     weeklyTests: [],
     testSeries: [
       { id: "series-gateoverflow", name: "GateOverflow", url: "" },
+      { id: "series-gateoverflow-quizzes", name: "GateOverflow Quizzes", url: "https://gateoverflow.in/view-accesslist?accesslist=36&userid=296917" },
       { id: "series-goclasses", name: "GO Classes", url: "" },
       { id: "series-madeeasy", name: "MadeEasy", url: "" },
       { id: "series-zeal", name: "Zeal", url: "" },
@@ -115,12 +116,20 @@ function normalizeTestSeries(testSeries: unknown, legacyPlatformLinks?: unknown)
 
   if (normalizedFromArray.length > 0) {
     const seen = new Set<string>();
-    return normalizedFromArray.filter((entry) => {
+    const deduped = normalizedFromArray.filter((entry) => {
       const key = entry.name.toLowerCase();
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     });
+
+    for (const entry of defaults) {
+      if (!deduped.some((item) => item.name.toLowerCase() === entry.name.toLowerCase())) {
+        deduped.push(entry);
+      }
+    }
+
+    return deduped;
   }
 
   const legacy =
