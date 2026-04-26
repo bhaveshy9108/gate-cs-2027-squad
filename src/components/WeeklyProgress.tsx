@@ -1,6 +1,6 @@
 import { MEMBERS, type Member } from "@/lib/gateData";
 import { getMockTestTypeLabel, getWeekDateRange, getWeeklyProgress, getWeeklyTestDisplayName, type TrackerState } from "@/lib/trackerStore";
-import { CalendarDays, ClipboardList, ListTodo, Trophy } from "lucide-react";
+import { CalendarDays, ClipboardList, ExternalLink, ListTodo, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const memberBadge: Record<Member, string> = {
@@ -173,6 +173,16 @@ export default function WeeklyProgress({ state }: Props) {
                         <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-accent text-accent-foreground">
                           {test.kind === "mock" ? "Mock" : test.kind === "subject" ? "Subject" : "Quiz"}
                         </span>
+                        {test.link && (
+                          <a
+                            href={test.link}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                          >
+                            Open <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
                       </div>
                       <div className="grid gap-2 md:grid-cols-2">
                         {MEMBERS.map((member) => {

@@ -64,6 +64,7 @@ export interface WeeklyTest {
   id: string;
   linkedMockTestId?: string;
   subjectId?: string;
+  link?: string;
   name: string;
   source: WeeklyTestSource;
   kind: WeeklyTestKind;
@@ -184,6 +185,7 @@ function normalizeWeeklyTests(weeklyTests: unknown): WeeklyTest[] {
       id: record.id ?? `weekly-test-${index}`,
       linkedMockTestId: typeof record.linkedMockTestId === "string" ? record.linkedMockTestId : undefined,
       subjectId: typeof record.subjectId === "string" ? record.subjectId : undefined,
+      link: typeof record.link === "string" ? record.link : "",
       name: record.name ?? `Weekly Test ${index + 1}`,
       source: typeof record.source === "string" && record.source.trim() ? record.source : "GO Classes",
       kind:
@@ -699,6 +701,7 @@ export interface WeekProgressMockTest {
 export interface WeekProgressWeeklyTest {
   name: string;
   subjectId?: string;
+  link?: string;
   source: WeeklyTestSource;
   kind: WeeklyTestKind;
   scheduledWeek: number;
@@ -752,6 +755,7 @@ export function getWeeklyProgress(state: TrackerState): WeekProgress[] {
     data.weeklyTests.push({
       name: test.name,
       subjectId: test.subjectId,
+      link: test.link,
       source: test.source,
       kind: test.kind,
       scheduledWeek: test.scheduledWeek,

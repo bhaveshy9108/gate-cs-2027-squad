@@ -38,6 +38,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
   const [kind, setKind] = useState<WeeklyTestKind>("mock");
   const [subjectId, setSubjectId] = useState("");
   const [scheduledWeek, setScheduledWeek] = useState(String(currentWeek));
+  const [testLink, setTestLink] = useState("");
   const [totalMarks, setTotalMarks] = useState("");
   const [notes, setNotes] = useState("");
   const [seriesName, setSeriesName] = useState("");
@@ -70,6 +71,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
       source,
       kind,
       subjectId: subjectId || undefined,
+      link: testLink.trim(),
       scheduledWeek: Math.max(1, parseInt(scheduledWeek, 10) || currentWeek),
       notes: notes.trim(),
       statusByMember: Object.fromEntries(
@@ -86,6 +88,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
     setKind("mock");
     setSubjectId("");
     setScheduledWeek(String(currentWeek));
+    setTestLink("");
     setTotalMarks("");
     setNotes("");
     setShowAdd(false);
@@ -265,6 +268,12 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
             />
           </div>
           <input
+            value={testLink}
+            onChange={(e) => setTestLink(e.target.value)}
+            placeholder="Direct test or quiz link (optional)"
+            className="w-full px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+          <input
             value={totalMarks}
             onChange={(e) => setTotalMarks(e.target.value)}
             placeholder="Default out of marks (optional)"
@@ -291,6 +300,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                 setKind("mock");
                 setSubjectId("");
                 setScheduledWeek(String(currentWeek));
+                setTestLink("");
                 setTotalMarks("");
                 setNotes("");
               }}
@@ -376,6 +386,16 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                     <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-accent text-accent-foreground">
                       {test.kind === "mock" ? "Mock" : test.kind === "subject" ? "Subject" : "Quiz"}
                     </span>
+                    {test.link && (
+                      <a
+                        href={test.link}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                      >
+                        Open <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
                   </div>
                   {test.notes && <p className="text-xs text-muted-foreground mt-1">{test.notes}</p>}
                 </div>
