@@ -1,5 +1,5 @@
 import { MEMBERS, type Member } from "@/lib/gateData";
-import { getWeekDateRange, getWeeklyProgress, type TrackerState } from "@/lib/trackerStore";
+import { getMockTestTypeLabel, getWeekDateRange, getWeeklyProgress, getWeeklyTestDisplayName, type TrackerState } from "@/lib/trackerStore";
 import { CalendarDays, ClipboardList, ListTodo, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -123,8 +123,8 @@ export default function WeeklyProgress({ state }: Props) {
                       <div key={idx} className="bg-muted/40 rounded-lg px-3 py-2">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-xs font-semibold text-foreground">{test.name}</span>
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${test.type === "subject" ? "bg-accent text-accent-foreground" : "bg-primary/10 text-primary"}`}>
-                            {test.type === "subject" ? "Subject Wise" : "Full Length"}
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${test.type === "subject" ? "bg-accent text-accent-foreground" : test.type === "weekly" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-primary/10 text-primary"}`}>
+                            {getMockTestTypeLabel(test.type)}
                           </span>
                         </div>
                         <div className="flex flex-wrap gap-2">
@@ -161,7 +161,7 @@ export default function WeeklyProgress({ state }: Props) {
                   {wp.weeklyTests.map((test, idx) => (
                     <div key={idx} className="bg-muted/40 rounded-lg px-3 py-2">
                       <div className="flex flex-wrap items-center gap-2 mb-1">
-                        <span className="text-xs font-semibold text-foreground">{test.name}</span>
+                        <span className="text-xs font-semibold text-foreground">{getWeeklyTestDisplayName(test)}</span>
                         <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-primary/10 text-primary">
                           {test.source}
                         </span>

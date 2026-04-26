@@ -37,6 +37,7 @@ export type MockTestType = "subject" | "full" | "weekly";
 export interface MockTest {
   id: string;
   linkedWeeklyTestId?: string;
+  subjectId?: string;
   name: string;
   date: string;
   type: MockTestType;
@@ -45,7 +46,7 @@ export interface MockTest {
   scores: Record<Member, number | null>;
 }
 
-export type WeeklyTestSource = "GO Classes" | "GateOverflow";
+export type WeeklyTestSource = TestPlatform;
 export type WeeklyTestKind = "mock" | "subject" | "quiz";
 
 export interface WeeklyTestMemberStatus {
@@ -58,6 +59,7 @@ export interface WeeklyTestMemberStatus {
 export interface WeeklyTest {
   id: string;
   linkedMockTestId?: string;
+  subjectId?: string;
   name: string;
   source: WeeklyTestSource;
   kind: WeeklyTestKind;
@@ -107,6 +109,7 @@ function normalizeMockTests(mockTests: unknown): MockTest[] {
     return {
       id: record.id ?? `mock-${index}`,
       linkedWeeklyTestId: typeof record.linkedWeeklyTestId === "string" ? record.linkedWeeklyTestId : undefined,
+      subjectId: typeof record.subjectId === "string" ? record.subjectId : undefined,
       name: record.name ?? `Mock Test ${index + 1}`,
       date: record.date ?? new Date().toISOString().split("T")[0],
       type:
@@ -138,8 +141,16 @@ function normalizeWeeklyTests(weeklyTests: unknown): WeeklyTest[] {
     return {
       id: record.id ?? `weekly-test-${index}`,
       linkedMockTestId: typeof record.linkedMockTestId === "string" ? record.linkedMockTestId : undefined,
+      subjectId: typeof record.subjectId === "string" ? record.subjectId : undefined,
       name: record.name ?? `Weekly Test ${index + 1}`,
-      source: record.source === "GateOverflow" ? "GateOverflow" : "GO Classes",
+      source:
+        record.source === "GateOverflow" ||
+        record.source === "GO Classes" ||
+        record.source === "MadeEasy" ||
+        record.source === "Zeal" ||
+        record.source === "Bikram"
+          ? record.source
+          : "GO Classes",
       kind:
         record.kind === "subject" || record.kind === "quiz" || record.kind === "mock"
           ? record.kind
@@ -340,6 +351,16 @@ export function addMockTest(state: TrackerState, test: MockTest): TrackerState {
   return { ...state, mockTests: [...state.mockTests, test] };
 }
 
+export function getSubjectNameById(subjectId?: string): string | null {
+  if (!subjectId) return null;
+  return SUBJECTS.find((subject) => subject.id === subjectId)?.name ?? null;
+}
+
+export function getWeeklyTestDisplayName(test: Pick<WeeklyTest, "name" | "subjectId">): string {
+  const subjectName = getSubjectNameById(test.subjectId);
+  return subjectName ? `${subjectName} - ${test.name}` : test.name;
+}
+
 export function updatePlatformLink(state: TrackerState, platform: TestPlatform, url: string): TrackerState {
   return {
     ...state,
@@ -365,7 +386,8 @@ export function addWeeklyTest(state: TrackerState, test: WeeklyTest): TrackerSta
   const linkedMockTest: MockTest = {
     id: linkedMockTestId,
     linkedWeeklyTestId: test.id,
-    name: test.name,
+    subjectId: test.subjectId,
+    name: getWeeklyTestDisplayName(test),
     date: new Date().toISOString().split("T")[0],
     type: getMockTypeFromWeeklyKind(test.kind),
     totalMarks,
@@ -548,6 +570,12 @@ export function getHighestScorer(test: MockTest): { member: Member; score: numbe
   return best;
 }
 
+export function getMockTestTypeLabel(type: MockTestType): string {
+  if (type === "subject") return "Subject Wise";
+  if (type === "weekly") return "Weekly Quiz";
+  return "Full Length";
+}
+
 export function getWeekNumber(date: Date): number {
   const start = new Date(2026, 3, 6);
   const diff = date.getTime() - start.getTime();
@@ -564,6 +592,7 @@ export interface WeekProgressMockTest {
 
 export interface WeekProgressWeeklyTest {
   name: string;
+  subjectId?: string;
   source: WeeklyTestSource;
   kind: WeeklyTestKind;
   scheduledWeek: number;
@@ -615,6 +644,7 @@ export function getWeeklyProgress(state: TrackerState): WeekProgress[] {
     const data = weekMap.get(test.scheduledWeek) || { items: [], mockTests: [], weeklyTests: [] };
     data.weeklyTests.push({
       name: test.name,
+      subjectId: test.subjectId,
       source: test.source,
       kind: test.kind,
       scheduledWeek: test.scheduledWeek,

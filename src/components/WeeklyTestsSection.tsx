@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
-import { MEMBERS, type Member } from "@/lib/gateData";
+import { MEMBERS, SUBJECTS, type Member } from "@/lib/gateData";
 import {
   addWeeklyTest,
   deleteWeeklyTest,
   getWeekNumber,
+  getWeeklyTestDisplayName,
   getWeeklyTestAnalysis,
   type PlatformLinks,
   type TrackerState,
@@ -22,7 +23,7 @@ interface Props {
   onUpdate: (state: TrackerState) => void;
 }
 
-const sources: WeeklyTestSource[] = ["GO Classes", "GateOverflow"];
+const sources: WeeklyTestSource[] = ["GateOverflow", "GO Classes", "MadeEasy", "Zeal", "Bikram"];
 const kinds: WeeklyTestKind[] = ["mock", "subject", "quiz"];
 const platforms: TestPlatform[] = ["GateOverflow", "GO Classes", "MadeEasy", "Zeal", "Bikram"];
 
@@ -37,6 +38,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
   const [name, setName] = useState("");
   const [source, setSource] = useState<WeeklyTestSource>("GO Classes");
   const [kind, setKind] = useState<WeeklyTestKind>("mock");
+  const [subjectId, setSubjectId] = useState("");
   const [scheduledWeek, setScheduledWeek] = useState(String(currentWeek));
   const [totalMarks, setTotalMarks] = useState("");
   const [notes, setNotes] = useState("");
@@ -67,6 +69,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
       name: name.trim(),
       source,
       kind,
+      subjectId: subjectId || undefined,
       scheduledWeek: Math.max(1, parseInt(scheduledWeek, 10) || currentWeek),
       notes: notes.trim(),
       statusByMember: Object.fromEntries(
@@ -81,6 +84,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
     setName("");
     setSource("GO Classes");
     setKind("mock");
+    setSubjectId("");
     setScheduledWeek(String(currentWeek));
     setTotalMarks("");
     setNotes("");
@@ -149,7 +153,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Track which GO Classes and GateOverflow tests should be taken this week, and mark who has completed them.
+        Track which weekly tests should be taken, save the portal links, and mark who has completed them.
       </p>
 
       <div className="bg-card border border-border rounded-xl p-4 space-y-3">
@@ -174,7 +178,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
             placeholder="Test name"
             className="w-full px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
           />
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-2">
             <select
               value={source}
               onChange={(e) => setSource(e.target.value as WeeklyTestSource)}
@@ -194,6 +198,20 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
               {kinds.map((value) => (
                 <option key={value} value={value}>
                   {value === "mock" ? "Mock Test" : value === "subject" ? "Subject Test" : "Quiz"}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <select
+              value={subjectId}
+              onChange={(e) => setSubjectId(e.target.value)}
+              className="px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="">General / Full Syllabus</option>
+              {SUBJECTS.map((subject) => (
+                <option key={subject.id} value={subject.id}>
+                  {subject.name}
                 </option>
               ))}
             </select>
@@ -231,6 +249,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                 setName("");
                 setSource("GO Classes");
                 setKind("mock");
+                setSubjectId("");
                 setScheduledWeek(String(currentWeek));
                 setTotalMarks("");
                 setNotes("");
@@ -274,7 +293,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
           {subjectTests.map((test) => (
             <div key={test.id} className="rounded-lg bg-muted/40 p-3">
               <div className="flex flex-wrap items-center gap-2 mb-2">
-                <span className="text-sm font-semibold text-foreground">{test.name}</span>
+                <span className="text-sm font-semibold text-foreground">{getWeeklyTestDisplayName(test)}</span>
                 <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-primary/10 text-primary">
                   {test.source}
                 </span>
@@ -310,7 +329,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <h4 className="font-semibold text-foreground">{test.name}</h4>
+                    <h4 className="font-semibold text-foreground">{getWeeklyTestDisplayName(test)}</h4>
                     <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-primary/10 text-primary">
                       {test.source}
                     </span>
