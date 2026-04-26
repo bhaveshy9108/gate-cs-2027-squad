@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { TrackerState } from "./trackerStore";
+import { normalizeTrackerState, type TrackerState } from "./trackerStore";
 import { toast } from "sonner";
 
 const ROOM_CODE_KEY = "gate-tracker-room-code";
@@ -36,7 +36,7 @@ function getRoomEventName(roomCode: string) {
 }
 
 function cloneState(state: TrackerState): TrackerState {
-  return JSON.parse(JSON.stringify(state)) as TrackerState;
+  return normalizeTrackerState(JSON.parse(JSON.stringify(state)));
 }
 
 function parseLocalRoomSnapshot(raw: string | null): LocalRoomSnapshot | null {
@@ -50,11 +50,14 @@ function parseLocalRoomSnapshot(raw: string | null): LocalRoomSnapshot | null {
       "state" in parsed &&
       "updatedAt" in parsed
     ) {
-      return parsed as LocalRoomSnapshot;
+      return {
+        state: normalizeTrackerState((parsed as LocalRoomSnapshot).state),
+        updatedAt: (parsed as LocalRoomSnapshot).updatedAt,
+      };
     }
 
     return {
-      state: parsed as TrackerState,
+      state: normalizeTrackerState(parsed),
       updatedAt: new Date(0).toISOString(),
     };
   } catch {
@@ -146,7 +149,7 @@ export async function loadCloudState(roomCode: string): Promise<TrackerState | n
       return localSnapshot?.state ?? null;
     }
 
-    const cloudState = data.data as unknown as TrackerState;
+    const cloudState = normalizeTrackerState(data.data);
     const cloudUpdatedAt = data.updated_at ?? new Date(0).toISOString();
 
     if (localSnapshot && localSnapshot.updatedAt > cloudUpdatedAt) {
@@ -277,7 +280,7 @@ export function subscribeToRoom(
       const cloudUpdatedAt = data.updated_at ?? new Date(0).toISOString();
       if (localSnapshot && localSnapshot.updatedAt >= cloudUpdatedAt) return;
 
-      const cloudState = data.data as unknown as TrackerState;
+      const cloudState = normalizeTrackerState(data.data);
       saveRoomStateLocally(roomCode, cloudState, cloudUpdatedAt);
       onUpdate(cloudState);
     };
@@ -295,7 +298,7 @@ export function subscribeToRoom(
         (payload) => {
           if (isSaving) return;
 
-          const newData = payload.new?.data as unknown as TrackerState;
+          const newData = payload.new?.data ? normalizeTrackerState(payload.new.data) : null;
           if (newData) {
             saveRoomStateLocally(roomCode, newData, payload.new?.updated_at);
             onUpdate(newData);

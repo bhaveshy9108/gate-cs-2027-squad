@@ -80,6 +80,104 @@ export function createDefaultState(): TrackerState {
   return defaultState();
 }
 
+function normalizeMockTests(mockTests: unknown): MockTest[] {
+  if (!Array.isArray(mockTests)) return [];
+
+  return mockTests.map((test, index) => {
+    const record = typeof test === "object" && test !== null ? (test as Partial<MockTest>) : {};
+    const rawScores =
+      typeof record.scores === "object" && record.scores !== null
+        ? (record.scores as Partial<Record<string, number | null>>)
+        : {};
+
+    return {
+      id: record.id ?? `mock-${index}`,
+      name: record.name ?? `Mock Test ${index + 1}`,
+      date: record.date ?? new Date().toISOString().split("T")[0],
+      type:
+        record.type === "subject" || record.type === "full" || record.type === "weekly"
+          ? record.type
+          : "full",
+      totalMarks: typeof record.totalMarks === "number" ? record.totalMarks : 100,
+      notes: typeof record.notes === "string" ? record.notes : "",
+      scores: Object.fromEntries(
+        MEMBERS.map((member) => [
+          member,
+          typeof rawScores[member] === "number" ? rawScores[member] : rawScores[member] === null ? null : null,
+        ])
+      ) as Record<Member, number | null>,
+    };
+  });
+}
+
+function normalizeWeeklyTests(weeklyTests: unknown): WeeklyTest[] {
+  if (!Array.isArray(weeklyTests)) return [];
+
+  return weeklyTests.map((test, index) => {
+    const record = typeof test === "object" && test !== null ? (test as Partial<WeeklyTest>) : {};
+    const rawStatus =
+      typeof record.statusByMember === "object" && record.statusByMember !== null
+        ? (record.statusByMember as Partial<Record<string, WeeklyTestMemberStatus>>)
+        : {};
+
+    return {
+      id: record.id ?? `weekly-test-${index}`,
+      name: record.name ?? `Weekly Test ${index + 1}`,
+      source: record.source === "GateOverflow" ? "GateOverflow" : "GO Classes",
+      kind:
+        record.kind === "subject" || record.kind === "quiz" || record.kind === "mock"
+          ? record.kind
+          : "mock",
+      scheduledWeek:
+        typeof record.scheduledWeek === "number" && Number.isFinite(record.scheduledWeek)
+          ? Math.max(1, Math.floor(record.scheduledWeek))
+          : 1,
+      notes: typeof record.notes === "string" ? record.notes : "",
+      statusByMember: Object.fromEntries(
+        MEMBERS.map((member) => {
+          const status = rawStatus[member];
+          return [
+            member,
+            {
+              taken: Boolean(status?.taken),
+              takenAt: typeof status?.takenAt === "string" ? status.takenAt : undefined,
+            },
+          ];
+        })
+      ) as Record<Member, WeeklyTestMemberStatus>,
+    };
+  });
+}
+
+export function normalizeTrackerState(raw: unknown): TrackerState {
+  const base = defaultState();
+  const parsed = typeof raw === "object" && raw !== null ? (raw as Partial<TrackerState>) : {};
+
+  return {
+    ...base,
+    ...parsed,
+    checklist:
+      typeof parsed.checklist === "object" && parsed.checklist !== null ? parsed.checklist : base.checklist,
+    customTopics:
+      typeof parsed.customTopics === "object" && parsed.customTopics !== null
+        ? parsed.customTopics
+        : base.customTopics,
+    deletedTopics:
+      typeof parsed.deletedTopics === "object" && parsed.deletedTopics !== null
+        ? parsed.deletedTopics
+        : base.deletedTopics,
+    mockTests: normalizeMockTests(parsed.mockTests),
+    weeklyTests: normalizeWeeklyTests(parsed.weeklyTests),
+    currentMember: MEMBERS.includes(parsed.currentMember as Member) ? (parsed.currentMember as Member) : MEMBERS[0],
+    topicNotes:
+      typeof parsed.topicNotes === "object" && parsed.topicNotes !== null ? parsed.topicNotes : base.topicNotes,
+    topicDifficulty:
+      typeof parsed.topicDifficulty === "object" && parsed.topicDifficulty !== null
+        ? parsed.topicDifficulty
+        : base.topicDifficulty,
+  };
+}
+
 // Notes helpers
 export function getTopicNote(state: TrackerState, subjectId: string, topicId: string): TopicNote {
   return state.topicNotes[`${subjectId}|${topicId}`] || { text: "", links: [] };
@@ -123,11 +221,7 @@ export function loadState(): TrackerState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      const parsed = { ...defaultState(), ...JSON.parse(raw) } as TrackerState;
-      if (!MEMBERS.includes(parsed.currentMember)) {
-        parsed.currentMember = MEMBERS[0];
-      }
-      return parsed;
+      return normalizeTrackerState(JSON.parse(raw));
     }
   } catch {}
   return defaultState();
