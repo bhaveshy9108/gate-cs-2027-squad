@@ -47,7 +47,7 @@ export default function WeeklyProgress({ state }: Props) {
               <p className="text-xs text-muted-foreground">
                 {getWeekDateRange(wp.week)} | {wp.items.length} topics completed
                 {wp.mockTests.length > 0 && ` | ${wp.mockTests.length} mock test${wp.mockTests.length > 1 ? "s" : ""}`}
-                {wp.weeklyTests.length > 0 && ` | ${wp.weeklyTests.length} weekly test${wp.weeklyTests.length > 1 ? "s" : ""} taken`}
+                {wp.weeklyTests.length > 0 && ` | ${wp.weeklyTests.length} weekly test${wp.weeklyTests.length > 1 ? "s" : ""} scheduled`}
               </p>
               {memberCounts.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-2">
@@ -156,7 +156,7 @@ export default function WeeklyProgress({ state }: Props) {
                 <div className="border-t border-border pt-3 space-y-2">
                   <div className="flex items-center gap-1.5">
                     <ListTodo className="w-3.5 h-3.5 text-primary" />
-                    <span className="text-xs font-semibold text-foreground">Weekly Tests Taken</span>
+                    <span className="text-xs font-semibold text-foreground">Weekly Tests This Week</span>
                   </div>
                   {wp.weeklyTests.map((test, idx) => (
                     <div key={idx} className="bg-muted/40 rounded-lg px-3 py-2">
@@ -169,12 +169,26 @@ export default function WeeklyProgress({ state }: Props) {
                           {test.kind === "mock" ? "Mock" : test.kind === "subject" ? "Subject" : "Quiz"}
                         </span>
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        {test.takenBy.map((entry) => (
-                          <span key={`${entry.member}-${entry.takenAt}`} className={cn("text-[11px] px-2 py-0.5 rounded-md font-medium", memberBadge[entry.member])}>
-                            {entry.member} | {new Date(entry.takenAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
-                          </span>
-                        ))}
+                      <div className="grid gap-2 md:grid-cols-2">
+                        {MEMBERS.map((member) => {
+                          const status = test.memberStatus[member];
+                          const percent =
+                            status.taken &&
+                            typeof status.score === "number" &&
+                            typeof status.outOf === "number" &&
+                            status.outOf > 0
+                              ? Math.round((status.score / status.outOf) * 100)
+                              : null;
+
+                          return (
+                            <span key={`${test.name}-${member}`} className={cn("text-[11px] px-2 py-1 rounded-md font-medium", memberBadge[member])}>
+                              {member}:{" "}
+                              {status.taken
+                                ? `${status.score ?? "-"} / ${status.outOf ?? "-"}${percent !== null ? ` (${percent}%)` : ""}`
+                                : "Pending"}
+                            </span>
+                          );
+                        })}
                       </div>
                     </div>
                   ))}

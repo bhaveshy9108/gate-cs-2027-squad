@@ -47,6 +47,8 @@ export type WeeklyTestKind = "mock" | "subject" | "quiz";
 export interface WeeklyTestMemberStatus {
   taken: boolean;
   takenAt?: string;
+  score?: number | null;
+  outOf?: number | null;
 }
 
 export interface WeeklyTest {
@@ -141,6 +143,8 @@ function normalizeWeeklyTests(weeklyTests: unknown): WeeklyTest[] {
             {
               taken: Boolean(status?.taken),
               takenAt: typeof status?.takenAt === "string" ? status.takenAt : undefined,
+              score: typeof status?.score === "number" ? status.score : status?.score === null ? null : null,
+              outOf: typeof status?.outOf === "number" ? status.outOf : status?.outOf === null ? null : null,
             },
           ];
         })
@@ -339,7 +343,42 @@ export function updateWeeklyTestTaken(
             ...test,
             statusByMember: {
               ...test.statusByMember,
-              [member]: taken ? { taken: true, takenAt: new Date().toISOString() } : { taken: false },
+              [member]: taken
+                ? {
+                    ...test.statusByMember[member],
+                    taken: true,
+                    takenAt: test.statusByMember[member]?.takenAt ?? new Date().toISOString(),
+                  }
+                : { taken: false, score: null, outOf: null },
+            },
+          }
+        : test
+    ),
+  };
+}
+
+export function updateWeeklyTestScore(
+  state: TrackerState,
+  testId: string,
+  member: Member,
+  score: number | null,
+  outOf: number | null
+): TrackerState {
+  return {
+    ...state,
+    weeklyTests: state.weeklyTests.map((test) =>
+      test.id === testId
+        ? {
+            ...test,
+            statusByMember: {
+              ...test.statusByMember,
+              [member]: {
+                ...test.statusByMember[member],
+                taken: true,
+                takenAt: test.statusByMember[member]?.takenAt ?? new Date().toISOString(),
+                score,
+                outOf,
+              },
             },
           }
         : test
@@ -394,7 +433,8 @@ export interface WeekProgressWeeklyTest {
   name: string;
   source: WeeklyTestSource;
   kind: WeeklyTestKind;
-  takenBy: { member: Member; takenAt: string }[];
+  scheduledWeek: number;
+  memberStatus: Record<Member, WeeklyTestMemberStatus>;
 }
 
 export interface WeekProgress {
@@ -439,31 +479,50 @@ export function getWeeklyProgress(state: TrackerState): WeekProgress[] {
   }
 
   for (const test of state.weeklyTests) {
-    const membersByWeek = new Map<number, WeekProgressWeeklyTest["takenBy"]>();
-
-    for (const [member, status] of Object.entries(test.statusByMember)) {
-      if (!status.taken || !status.takenAt) continue;
-      const week = getWeekNumber(new Date(status.takenAt));
-      const existing = membersByWeek.get(week) || [];
-      existing.push({ member: member as Member, takenAt: status.takenAt });
-      membersByWeek.set(week, existing);
-    }
-
-    for (const [week, takenBy] of membersByWeek.entries()) {
-      const data = weekMap.get(week) || { items: [], mockTests: [], weeklyTests: [] };
-      data.weeklyTests.push({
-        name: test.name,
-        source: test.source,
-        kind: test.kind,
-        takenBy,
-      });
-      weekMap.set(week, data);
-    }
+    const data = weekMap.get(test.scheduledWeek) || { items: [], mockTests: [], weeklyTests: [] };
+    data.weeklyTests.push({
+      name: test.name,
+      source: test.source,
+      kind: test.kind,
+      scheduledWeek: test.scheduledWeek,
+      memberStatus: test.statusByMember,
+    });
+    weekMap.set(test.scheduledWeek, data);
   }
 
   return Array.from(weekMap.entries())
     .sort((a, b) => a[0] - b[0])
     .map(([week, data]) => ({ week, items: data.items, mockTests: data.mockTests, weeklyTests: data.weeklyTests }));
+}
+
+export interface WeeklyTestMemberAnalysis {
+  member: Member;
+  testsTaken: number;
+  averagePercent: number | null;
+  bestPercent: number | null;
+}
+
+export function getWeeklyTestAnalysis(state: TrackerState): WeeklyTestMemberAnalysis[] {
+  return MEMBERS.map((member) => {
+    const percentages = state.weeklyTests
+      .map((test) => test.statusByMember[member])
+      .filter(
+        (status) =>
+          status?.taken &&
+          typeof status.score === "number" &&
+          typeof status.outOf === "number" &&
+          status.outOf > 0
+      )
+      .map((status) => ((status.score ?? 0) / (status.outOf ?? 1)) * 100);
+
+    return {
+      member,
+      testsTaken: state.weeklyTests.filter((test) => test.statusByMember[member]?.taken).length,
+      averagePercent:
+        percentages.length > 0 ? Math.round(percentages.reduce((sum, value) => sum + value, 0) / percentages.length) : null,
+      bestPercent: percentages.length > 0 ? Math.round(Math.max(...percentages)) : null,
+    };
+  });
 }
 
 export function getWeekDateRange(week: number): string {

@@ -4,13 +4,15 @@ import {
   addWeeklyTest,
   deleteWeeklyTest,
   getWeekNumber,
+  getWeeklyTestAnalysis,
   type TrackerState,
   type WeeklyTest,
   type WeeklyTestKind,
   type WeeklyTestSource,
+  updateWeeklyTestScore,
   updateWeeklyTestTaken,
 } from "@/lib/trackerStore";
-import { CalendarCheck2, Check, Plus, Trash2 } from "lucide-react";
+import { BarChart3, CalendarCheck2, Check, Plus, Trash2, Trophy } from "lucide-react";
 
 interface Props {
   state: TrackerState;
@@ -32,10 +34,17 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
   const [source, setSource] = useState<WeeklyTestSource>("GO Classes");
   const [kind, setKind] = useState<WeeklyTestKind>("mock");
   const [scheduledWeek, setScheduledWeek] = useState(String(currentWeek));
+  const [totalMarks, setTotalMarks] = useState("");
   const [notes, setNotes] = useState("");
+  const [draftScores, setDraftScores] = useState<Record<string, string>>({});
 
   const sortedTests = useMemo(
     () => [...state.weeklyTests].sort((a, b) => a.scheduledWeek - b.scheduledWeek || a.name.localeCompare(b.name)),
+    [state.weeklyTests]
+  );
+  const analysis = useMemo(() => getWeeklyTestAnalysis(state), [state]);
+  const subjectTests = useMemo(
+    () => state.weeklyTests.filter((test) => test.kind === "subject"),
     [state.weeklyTests]
   );
 
@@ -56,7 +65,12 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
       kind,
       scheduledWeek: Math.max(1, parseInt(scheduledWeek, 10) || currentWeek),
       notes: notes.trim(),
-      statusByMember: Object.fromEntries(MEMBERS.map((member) => [member, { taken: false }])) as WeeklyTest["statusByMember"],
+      statusByMember: Object.fromEntries(
+        MEMBERS.map((member) => [
+          member,
+          { taken: false, score: null, outOf: totalMarks.trim() ? parseFloat(totalMarks) || null : null },
+        ])
+      ) as WeeklyTest["statusByMember"],
     };
 
     onUpdate(addWeeklyTest(state, test));
@@ -64,8 +78,33 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
     setSource("GO Classes");
     setKind("mock");
     setScheduledWeek(String(currentWeek));
+    setTotalMarks("");
     setNotes("");
     setShowAdd(false);
+  };
+
+  const getDraftKey = (testId: string, member: Member, field: "score" | "outOf") => `${testId}|${member}|${field}`;
+
+  const getDraftValue = (testId: string, member: Member, field: "score" | "outOf", fallback?: number | null) => {
+    const key = getDraftKey(testId, member, field);
+    return draftScores[key] ?? (typeof fallback === "number" ? String(fallback) : "");
+  };
+
+  const saveMemberScore = (test: WeeklyTest, member: Member) => {
+    const scoreRaw = getDraftValue(test.id, member, "score", test.statusByMember[member]?.score);
+    const outOfRaw = getDraftValue(test.id, member, "outOf", test.statusByMember[member]?.outOf);
+    const parsedScore = scoreRaw.trim() === "" ? null : parseFloat(scoreRaw);
+    const parsedOutOf = outOfRaw.trim() === "" ? null : parseFloat(outOfRaw);
+
+    onUpdate(
+      updateWeeklyTestScore(
+        state,
+        test.id,
+        member,
+        Number.isFinite(parsedScore as number) ? parsedScore : null,
+        Number.isFinite(parsedOutOf as number) ? parsedOutOf : null
+      )
+    );
   };
 
   return (
@@ -128,6 +167,14 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
               className="px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
+          <input
+            value={totalMarks}
+            onChange={(e) => setTotalMarks(e.target.value)}
+            placeholder="Default out of marks (optional)"
+            type="number"
+            min={1}
+            className="w-full px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+          />
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
@@ -146,6 +193,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                 setSource("GO Classes");
                 setKind("mock");
                 setScheduledWeek(String(currentWeek));
+                setTotalMarks("");
                 setNotes("");
               }}
               className="px-3 py-2 text-sm text-muted-foreground"
@@ -159,6 +207,59 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
       {sortedTests.length === 0 && !showAdd && (
         <div className="bg-card border border-border rounded-xl p-8 text-center text-muted-foreground text-sm">
           No weekly tests planned yet. Add this week's tests to start tracking them.
+        </div>
+      )}
+
+      {sortedTests.length > 0 && (
+        <div className="grid gap-3 md:grid-cols-2">
+          {analysis.map((entry) => (
+            <div key={entry.member} className={`rounded-xl border-2 p-4 ${memberBorder[entry.member]}`}>
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold">{entry.member}</h3>
+                {entry.bestPercent !== null && <Trophy className="w-4 h-4" />}
+              </div>
+              <p className="text-sm mt-2">Tests taken: {entry.testsTaken}</p>
+              <p className="text-sm">Average: {entry.averagePercent !== null ? `${entry.averagePercent}%` : "-"}</p>
+              <p className="text-sm">Best: {entry.bestPercent !== null ? `${entry.bestPercent}%` : "-"}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {subjectTests.length > 0 && (
+        <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-primary" />
+            <h3 className="font-semibold text-foreground">Subject Test Score Comparison</h3>
+          </div>
+          {subjectTests.map((test) => (
+            <div key={test.id} className="rounded-lg bg-muted/40 p-3">
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <span className="text-sm font-semibold text-foreground">{test.name}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-primary/10 text-primary">
+                  {test.source}
+                </span>
+              </div>
+              <div className="grid gap-2 md:grid-cols-2">
+                {MEMBERS.map((member) => {
+                  const status = test.statusByMember[member];
+                  const percent =
+                    status.taken && typeof status.score === "number" && typeof status.outOf === "number" && status.outOf > 0
+                      ? Math.round((status.score / status.outOf) * 100)
+                      : null;
+
+                  return (
+                    <div key={member} className="text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground">{member}:</span>{" "}
+                      {status.taken
+                        ? `${status.score ?? "-"} / ${status.outOf ?? "-"}${percent !== null ? ` (${percent}%)` : ""}`
+                        : "Pending"}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -193,21 +294,63 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                 {MEMBERS.map((member) => {
                   const status = test.statusByMember[member];
                   return (
-                    <button
+                    <div
                       key={member}
-                      onClick={() => onUpdate(updateWeeklyTestTaken(state, test.id, member, !status.taken))}
-                      className={`border-2 rounded-lg p-3 text-left transition-colors ${memberBorder[member]} ${status.taken ? "bg-muted/50" : "bg-background hover:bg-muted/30"}`}
+                      className={`border-2 rounded-lg p-3 text-left transition-colors ${memberBorder[member]} ${status.taken ? "bg-muted/50" : "bg-background"}`}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-sm font-semibold">{member}</span>
-                        {status.taken && <Check className="w-4 h-4" />}
+                        <button
+                          onClick={() => onUpdate(updateWeeklyTestTaken(state, test.id, member, !status.taken))}
+                          className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium ${status.taken ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
+                        >
+                          {status.taken && <Check className="w-3.5 h-3.5" />}
+                          {status.taken ? "Taken" : "Mark done"}
+                        </button>
                       </div>
                       <p className="text-xs mt-1">
                         {status.taken && status.takenAt
                           ? `Taken on ${new Date(status.takenAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`
                           : "Not taken yet"}
                       </p>
-                    </button>
+                      <div className="grid grid-cols-2 gap-2 mt-3">
+                        <input
+                          value={getDraftValue(test.id, member, "score", status.score)}
+                          onChange={(e) =>
+                            setDraftScores((current) => ({
+                              ...current,
+                              [getDraftKey(test.id, member, "score")]: e.target.value,
+                            }))
+                          }
+                          onBlur={() => saveMemberScore(test, member)}
+                          onKeyDown={(e) => e.key === "Enter" && saveMemberScore(test, member)}
+                          placeholder="Score"
+                          type="number"
+                          min={0}
+                          className="w-full px-2 py-1 text-xs bg-muted rounded border border-border focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                        <input
+                          value={getDraftValue(test.id, member, "outOf", status.outOf)}
+                          onChange={(e) =>
+                            setDraftScores((current) => ({
+                              ...current,
+                              [getDraftKey(test.id, member, "outOf")]: e.target.value,
+                            }))
+                          }
+                          onBlur={() => saveMemberScore(test, member)}
+                          onKeyDown={(e) => e.key === "Enter" && saveMemberScore(test, member)}
+                          placeholder="Out of"
+                          type="number"
+                          min={1}
+                          className="w-full px-2 py-1 text-xs bg-muted rounded border border-border focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                      </div>
+                      {status.taken && typeof status.score === "number" && typeof status.outOf === "number" && status.outOf > 0 && (
+                        <p className="text-xs mt-2 font-medium">
+                          {Math.round((status.score / status.outOf) * 100)}%
+                        </p>
+                      )}
+                    </div>
                   );
                 })}
               </div>
