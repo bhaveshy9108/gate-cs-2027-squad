@@ -17,6 +17,8 @@ export interface TopicNote {
 }
 
 export type Difficulty = "easy" | "medium" | "hard";
+export type TestPlatform = "GateOverflow" | "GO Classes" | "MadeEasy" | "Zeal" | "Bikram";
+export type PlatformLinks = Record<TestPlatform, string>;
 
 export interface TrackerState {
   checklist: ChecklistData;
@@ -24,6 +26,7 @@ export interface TrackerState {
   deletedTopics: Record<string, string[]>;
   mockTests: MockTest[];
   weeklyTests: WeeklyTest[];
+  platformLinks: PlatformLinks;
   currentMember: Member;
   topicNotes: Record<string, TopicNote>; // key: `${subjectId}|${topicId}`
   topicDifficulty: Record<string, Difficulty>; // key: `${subjectId}|${topicId}`
@@ -33,6 +36,7 @@ export type MockTestType = "subject" | "full" | "weekly";
 
 export interface MockTest {
   id: string;
+  linkedWeeklyTestId?: string;
   name: string;
   date: string;
   type: MockTestType;
@@ -53,6 +57,7 @@ export interface WeeklyTestMemberStatus {
 
 export interface WeeklyTest {
   id: string;
+  linkedMockTestId?: string;
   name: string;
   source: WeeklyTestSource;
   kind: WeeklyTestKind;
@@ -72,6 +77,13 @@ function defaultState(): TrackerState {
     deletedTopics: {},
     mockTests: [],
     weeklyTests: [],
+    platformLinks: {
+      GateOverflow: "",
+      "GO Classes": "",
+      MadeEasy: "",
+      Zeal: "",
+      Bikram: "",
+    },
     currentMember: "Bhavesh",
     topicNotes: {},
     topicDifficulty: {},
@@ -94,6 +106,7 @@ function normalizeMockTests(mockTests: unknown): MockTest[] {
 
     return {
       id: record.id ?? `mock-${index}`,
+      linkedWeeklyTestId: typeof record.linkedWeeklyTestId === "string" ? record.linkedWeeklyTestId : undefined,
       name: record.name ?? `Mock Test ${index + 1}`,
       date: record.date ?? new Date().toISOString().split("T")[0],
       type:
@@ -124,6 +137,7 @@ function normalizeWeeklyTests(weeklyTests: unknown): WeeklyTest[] {
 
     return {
       id: record.id ?? `weekly-test-${index}`,
+      linkedMockTestId: typeof record.linkedMockTestId === "string" ? record.linkedMockTestId : undefined,
       name: record.name ?? `Weekly Test ${index + 1}`,
       source: record.source === "GateOverflow" ? "GateOverflow" : "GO Classes",
       kind:
@@ -156,6 +170,10 @@ function normalizeWeeklyTests(weeklyTests: unknown): WeeklyTest[] {
 export function normalizeTrackerState(raw: unknown): TrackerState {
   const base = defaultState();
   const parsed = typeof raw === "object" && raw !== null ? (raw as Partial<TrackerState>) : {};
+  const rawPlatformLinks =
+    typeof parsed.platformLinks === "object" && parsed.platformLinks !== null
+      ? (parsed.platformLinks as Partial<PlatformLinks>)
+      : {};
 
   return {
     ...base,
@@ -172,6 +190,13 @@ export function normalizeTrackerState(raw: unknown): TrackerState {
         : base.deletedTopics,
     mockTests: normalizeMockTests(parsed.mockTests),
     weeklyTests: normalizeWeeklyTests(parsed.weeklyTests),
+    platformLinks: {
+      GateOverflow: typeof rawPlatformLinks.GateOverflow === "string" ? rawPlatformLinks.GateOverflow : "",
+      "GO Classes": typeof rawPlatformLinks["GO Classes"] === "string" ? rawPlatformLinks["GO Classes"] : "",
+      MadeEasy: typeof rawPlatformLinks.MadeEasy === "string" ? rawPlatformLinks.MadeEasy : "",
+      Zeal: typeof rawPlatformLinks.Zeal === "string" ? rawPlatformLinks.Zeal : "",
+      Bikram: typeof rawPlatformLinks.Bikram === "string" ? rawPlatformLinks.Bikram : "",
+    },
     currentMember: MEMBERS.includes(parsed.currentMember as Member) ? (parsed.currentMember as Member) : MEMBERS[0],
     topicNotes:
       typeof parsed.topicNotes === "object" && parsed.topicNotes !== null ? parsed.topicNotes : base.topicNotes,
@@ -315,17 +340,58 @@ export function addMockTest(state: TrackerState, test: MockTest): TrackerState {
   return { ...state, mockTests: [...state.mockTests, test] };
 }
 
-export function addWeeklyTest(state: TrackerState, test: WeeklyTest): TrackerState {
+export function updatePlatformLink(state: TrackerState, platform: TestPlatform, url: string): TrackerState {
   return {
     ...state,
-    weeklyTests: [...state.weeklyTests, test].sort((a, b) => a.scheduledWeek - b.scheduledWeek),
+    platformLinks: {
+      ...state.platformLinks,
+      [platform]: url,
+    },
+  };
+}
+
+function getMockTypeFromWeeklyKind(kind: WeeklyTestKind): MockTestType {
+  if (kind === "subject") return "subject";
+  if (kind === "quiz") return "weekly";
+  return "full";
+}
+
+export function addWeeklyTest(state: TrackerState, test: WeeklyTest): TrackerState {
+  const linkedMockTestId = test.linkedMockTestId ?? `linked-mock-${test.id}`;
+  const totalMarks =
+    MEMBERS.map((member) => test.statusByMember[member]?.outOf)
+      .find((value) => typeof value === "number" && value > 0) ?? 100;
+
+  const linkedMockTest: MockTest = {
+    id: linkedMockTestId,
+    linkedWeeklyTestId: test.id,
+    name: test.name,
+    date: new Date().toISOString().split("T")[0],
+    type: getMockTypeFromWeeklyKind(test.kind),
+    totalMarks,
+    notes: `${test.source}${test.notes ? ` - ${test.notes}` : ""}`,
+    scores: Object.fromEntries(
+      MEMBERS.map((member) => [member, typeof test.statusByMember[member]?.score === "number" ? test.statusByMember[member]?.score ?? null : null])
+    ) as Record<Member, number | null>,
+  };
+
+  return {
+    ...state,
+    weeklyTests: [...state.weeklyTests, { ...test, linkedMockTestId }].sort((a, b) => a.scheduledWeek - b.scheduledWeek),
+    mockTests: [...state.mockTests, linkedMockTest],
   };
 }
 
 export function deleteWeeklyTest(state: TrackerState, testId: string): TrackerState {
+  const linkedMockIds = state.weeklyTests
+    .filter((test) => test.id === testId)
+    .map((test) => test.linkedMockTestId)
+    .filter((value): value is string => Boolean(value));
+
   return {
     ...state,
     weeklyTests: state.weeklyTests.filter((test) => test.id !== testId),
+    mockTests: state.mockTests.filter((test) => !linkedMockIds.includes(test.id)),
   };
 }
 
@@ -335,25 +401,40 @@ export function updateWeeklyTestTaken(
   member: Member,
   taken: boolean
 ): TrackerState {
+  const nextWeeklyTests = state.weeklyTests.map((test) =>
+    test.id === testId
+      ? {
+          ...test,
+          statusByMember: {
+            ...test.statusByMember,
+            [member]: taken
+              ? {
+                  ...test.statusByMember[member],
+                  taken: true,
+                  takenAt: test.statusByMember[member]?.takenAt ?? new Date().toISOString(),
+                }
+              : { taken: false, score: null, outOf: null },
+          },
+        }
+      : test
+  );
+
+  const nextMockTests = state.mockTests.map((test) =>
+    test.linkedWeeklyTestId === testId
+      ? {
+          ...test,
+          scores: {
+            ...test.scores,
+            [member]: taken ? test.scores[member] : null,
+          },
+        }
+      : test
+  );
+
   return {
     ...state,
-    weeklyTests: state.weeklyTests.map((test) =>
-      test.id === testId
-        ? {
-            ...test,
-            statusByMember: {
-              ...test.statusByMember,
-              [member]: taken
-                ? {
-                    ...test.statusByMember[member],
-                    taken: true,
-                    takenAt: test.statusByMember[member]?.takenAt ?? new Date().toISOString(),
-                  }
-                : { taken: false, score: null, outOf: null },
-            },
-          }
-        : test
-    ),
+    weeklyTests: nextWeeklyTests,
+    mockTests: nextMockTests,
   };
 }
 
@@ -364,30 +445,55 @@ export function updateWeeklyTestScore(
   score: number | null,
   outOf: number | null
 ): TrackerState {
+  const nextWeeklyTests = state.weeklyTests.map((test) =>
+    test.id === testId
+      ? {
+          ...test,
+          statusByMember: {
+            ...test.statusByMember,
+            [member]: {
+              ...test.statusByMember[member],
+              taken: true,
+              takenAt: test.statusByMember[member]?.takenAt ?? new Date().toISOString(),
+              score,
+              outOf,
+            },
+          },
+        }
+      : test
+  );
+
+  const nextMockTests = state.mockTests.map((test) =>
+    test.linkedWeeklyTestId === testId
+      ? {
+          ...test,
+          totalMarks: typeof outOf === "number" && outOf > 0 ? outOf : test.totalMarks,
+          scores: {
+            ...test.scores,
+            [member]: score,
+          },
+        }
+      : test
+  );
+
   return {
     ...state,
-    weeklyTests: state.weeklyTests.map((test) =>
-      test.id === testId
-        ? {
-            ...test,
-            statusByMember: {
-              ...test.statusByMember,
-              [member]: {
-                ...test.statusByMember[member],
-                taken: true,
-                takenAt: test.statusByMember[member]?.takenAt ?? new Date().toISOString(),
-                score,
-                outOf,
-              },
-            },
-          }
-        : test
-    ),
+    weeklyTests: nextWeeklyTests,
+    mockTests: nextMockTests,
   };
 }
 
 export function deleteMockTest(state: TrackerState, testId: string): TrackerState {
-  return { ...state, mockTests: state.mockTests.filter((t) => t.id !== testId) };
+  const linkedWeeklyIds = state.mockTests
+    .filter((test) => test.id === testId)
+    .map((test) => test.linkedWeeklyTestId)
+    .filter((value): value is string => Boolean(value));
+
+  return {
+    ...state,
+    mockTests: state.mockTests.filter((t) => t.id !== testId),
+    weeklyTests: state.weeklyTests.filter((test) => !linkedWeeklyIds.includes(test.id)),
+  };
 }
 
 export function updateMockScore(
@@ -396,11 +502,38 @@ export function updateMockScore(
   member: Member,
   score: number
 ): TrackerState {
+  const nextMockTests = state.mockTests.map((t) =>
+    t.id === testId ? { ...t, scores: { ...t.scores, [member]: score } } : t
+  );
+
+  const linkedWeekly = state.mockTests.find((test) => test.id === testId)?.linkedWeeklyTestId;
+  const nextWeeklyTests = linkedWeekly
+    ? state.weeklyTests.map((test) =>
+        test.id === linkedWeekly
+          ? {
+              ...test,
+              statusByMember: {
+                ...test.statusByMember,
+                [member]: {
+                  ...test.statusByMember[member],
+                  taken: true,
+                  takenAt: test.statusByMember[member]?.takenAt ?? new Date().toISOString(),
+                  score,
+                  outOf:
+                    typeof test.statusByMember[member]?.outOf === "number" && (test.statusByMember[member]?.outOf ?? 0) > 0
+                      ? test.statusByMember[member]?.outOf ?? null
+                      : state.mockTests.find((mock) => mock.id === testId)?.totalMarks ?? null,
+                },
+              },
+            }
+          : test
+      )
+    : state.weeklyTests;
+
   return {
     ...state,
-    mockTests: state.mockTests.map((t) =>
-      t.id === testId ? { ...t, scores: { ...t.scores, [member]: score } } : t
-    ),
+    mockTests: nextMockTests,
+    weeklyTests: nextWeeklyTests,
   };
 }
 

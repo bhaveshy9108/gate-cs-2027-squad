@@ -5,14 +5,17 @@ import {
   deleteWeeklyTest,
   getWeekNumber,
   getWeeklyTestAnalysis,
+  type PlatformLinks,
   type TrackerState,
+  type TestPlatform,
   type WeeklyTest,
   type WeeklyTestKind,
   type WeeklyTestSource,
+  updatePlatformLink,
   updateWeeklyTestScore,
   updateWeeklyTestTaken,
 } from "@/lib/trackerStore";
-import { BarChart3, CalendarCheck2, Check, Plus, Trash2, Trophy } from "lucide-react";
+import { BarChart3, CalendarCheck2, Check, ExternalLink, Link2, Plus, Trash2, Trophy } from "lucide-react";
 
 interface Props {
   state: TrackerState;
@@ -21,6 +24,7 @@ interface Props {
 
 const sources: WeeklyTestSource[] = ["GO Classes", "GateOverflow"];
 const kinds: WeeklyTestKind[] = ["mock", "subject", "quiz"];
+const platforms: TestPlatform[] = ["GateOverflow", "GO Classes", "MadeEasy", "Zeal", "Bikram"];
 
 const memberBorder: Record<Member, string> = {
   Bhavesh: "border-person1 text-person1",
@@ -83,6 +87,28 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
     setShowAdd(false);
   };
 
+  const renderPlatformLink = (platform: TestPlatform, links: PlatformLinks) => {
+    const value = links[platform];
+    return (
+      <div key={platform} className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-semibold text-foreground">{platform}</span>
+          {value && (
+            <a href={value} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-primary">
+              Open <ExternalLink className="w-3 h-3" />
+            </a>
+          )}
+        </div>
+        <input
+          value={value}
+          onChange={(e) => onUpdate(updatePlatformLink(state, platform, e.target.value))}
+          placeholder={`Paste ${platform} link`}
+          className="w-full px-3 py-2 text-sm bg-background rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+        />
+      </div>
+    );
+  };
+
   const getDraftKey = (testId: string, member: Member, field: "score" | "outOf") => `${testId}|${member}|${field}`;
 
   const getDraftValue = (testId: string, member: Member, field: "score" | "outOf", fallback?: number | null) => {
@@ -125,6 +151,19 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
       <p className="text-xs text-muted-foreground">
         Track which GO Classes and GateOverflow tests should be taken this week, and mark who has completed them.
       </p>
+
+      <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Link2 className="w-4 h-4 text-primary" />
+          <h3 className="font-semibold text-foreground">Platform Test Links</h3>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Save direct links for the test series portals you use most, so the whole group can open them from one place.
+        </p>
+        <div className="grid gap-3 md:grid-cols-2">
+          {platforms.map((platform) => renderPlatformLink(platform, state.platformLinks))}
+        </div>
+      </div>
 
       {showAdd && (
         <div className="bg-card border border-border rounded-xl p-4 space-y-3">
