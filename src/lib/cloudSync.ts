@@ -136,7 +136,15 @@ export async function loadCloudState(roomCode: string): Promise<TrackerState | n
       .eq("room_code", roomCode)
       .maybeSingle();
 
-    if (error || !data) return localSnapshot?.state ?? null;
+    if (error) {
+      console.error(`Cloud load failed for room ${roomCode}:`, error.message);
+      toast.error(`Cloud load failed for room ${roomCode}: ${error.message}`);
+      return localSnapshot?.state ?? null;
+    }
+
+    if (!data) {
+      return localSnapshot?.state ?? null;
+    }
 
     const cloudState = data.data as unknown as TrackerState;
     const cloudUpdatedAt = data.updated_at ?? new Date(0).toISOString();
@@ -258,7 +266,12 @@ export function subscribeToRoom(
         .eq("room_code", roomCode)
         .maybeSingle();
 
-      if (error || !data) return;
+      if (error) {
+        console.error(`Cloud sync poll failed for room ${roomCode}:`, error.message);
+        return;
+      }
+
+      if (!data) return;
 
       const localSnapshot = getLocalRoomSnapshot(roomCode);
       const cloudUpdatedAt = data.updated_at ?? new Date(0).toISOString();
