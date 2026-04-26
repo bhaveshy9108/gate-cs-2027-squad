@@ -93,7 +93,9 @@ export default function WeeklyProgress({ state }: Props) {
 
                         return (
                           <p key={idx} className="text-xs text-muted-foreground">
-                            <span className="text-foreground font-medium">{item.subjectName}</span> -> {item.topicName}{" "}
+                            <span className="text-foreground font-medium">{item.subjectName}</span>
+                            {" -> "}
+                            {item.topicName}{" "}
                             <span className="text-[10px]">({item.section})</span>
                             {dateStr && <span className="text-[10px] ml-1 text-muted-foreground/70">| {dateStr}</span>}
                           </p>
