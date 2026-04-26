@@ -24,6 +24,7 @@ interface Props {
 }
 
 const kinds: WeeklyTestKind[] = ["mock", "subject", "quiz"];
+const QUIZ_ONLY_SOURCE = "GateOverflow Quizzes";
 
 const memberBorder: Record<Member, string> = {
   Bhavesh: "border-person1 text-person1",
@@ -62,6 +63,8 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
     return acc;
   }, {});
 
+  const isQuizOnlySource = source === QUIZ_ONLY_SOURCE;
+
   const handleAdd = () => {
     if (!name.trim()) return;
 
@@ -69,7 +72,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
       id: `weekly-test-${Date.now()}`,
       name: name.trim(),
       source,
-      kind,
+      kind: isQuizOnlySource ? "quiz" : kind,
       subjectId: subjectId || undefined,
       link: testLink.trim(),
       scheduledWeek: Math.max(1, parseInt(scheduledWeek, 10) || currentWeek),
@@ -219,7 +222,13 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
           <div className="grid gap-3 md:grid-cols-2">
             <select
               value={source}
-              onChange={(e) => setSource(e.target.value as WeeklyTestSource)}
+              onChange={(e) => {
+                const nextSource = e.target.value as WeeklyTestSource;
+                setSource(nextSource);
+                if (nextSource === QUIZ_ONLY_SOURCE) {
+                  setKind("quiz");
+                }
+              }}
               className="px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
             >
               {state.testSeries.map((entry) => (
@@ -236,9 +245,10 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
             <select
               value={kind}
               onChange={(e) => setKind(e.target.value as WeeklyTestKind)}
-              className="px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+              disabled={isQuizOnlySource}
+              className="px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {kinds.map((value) => (
+              {(isQuizOnlySource ? ["quiz"] : kinds).map((value) => (
                 <option key={value} value={value}>
                   {value === "mock" ? "Mock Test" : value === "subject" ? "Subject Test" : "Quiz"}
                 </option>

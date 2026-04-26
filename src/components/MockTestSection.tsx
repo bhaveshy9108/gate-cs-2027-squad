@@ -19,6 +19,8 @@ interface Props {
   onUpdate: (s: TrackerState) => void;
 }
 
+const QUIZ_ONLY_SOURCE = "GateOverflow Quizzes";
+
 export default function MockTestSection({ state, onUpdate }: Props) {
   const [showAdd, setShowAdd] = useState(false);
   const [testName, setTestName] = useState("");
@@ -29,6 +31,7 @@ export default function MockTestSection({ state, onUpdate }: Props) {
   const [source, setSource] = useState("GO Classes");
   const [editingScore, setEditingScore] = useState<{ testId: string; member: Member } | null>(null);
   const [scoreInput, setScoreInput] = useState("");
+  const isQuizOnlySource = source === QUIZ_ONLY_SOURCE;
 
   const getMemberBorderColor = (member: Member) => {
     switch (member) {
@@ -47,7 +50,7 @@ export default function MockTestSection({ state, onUpdate }: Props) {
       subjectId: subjectId || undefined,
       source,
       date: new Date().toISOString().split("T")[0],
-      type: testType,
+      type: isQuizOnlySource ? "weekly" : testType,
       totalMarks: parseFloat(totalMarks) || 100,
       notes: notes.trim(),
       scores: Object.fromEntries(MEMBERS.map((member) => [member, null])) as MockTest["scores"],
@@ -101,7 +104,13 @@ export default function MockTestSection({ state, onUpdate }: Props) {
           <div className="grid gap-3 md:grid-cols-3">
             <select
               value={source}
-              onChange={(e) => setSource(e.target.value)}
+              onChange={(e) => {
+                const nextSource = e.target.value;
+                setSource(nextSource);
+                if (nextSource === QUIZ_ONLY_SOURCE) {
+                  setTestType("weekly");
+                }
+              }}
               className="px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
             >
               {state.testSeries.map((entry) => (
@@ -118,11 +127,18 @@ export default function MockTestSection({ state, onUpdate }: Props) {
             <select
               value={testType}
               onChange={(e) => setTestType(e.target.value as MockTestType)}
-              className="px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+              disabled={isQuizOnlySource}
+              className="px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <option value="full">Full Length</option>
-              <option value="subject">Subject Wise</option>
-              <option value="weekly">Weekly Quiz</option>
+              {isQuizOnlySource ? (
+                <option value="weekly">Weekly Quiz</option>
+              ) : (
+                <>
+                  <option value="full">Full Length</option>
+                  <option value="subject">Subject Wise</option>
+                  <option value="weekly">Weekly Quiz</option>
+                </>
+              )}
             </select>
             <select
               value={subjectId}
