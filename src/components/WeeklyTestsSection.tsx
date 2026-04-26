@@ -22,8 +22,6 @@ const kinds: WeeklyTestKind[] = ["mock", "subject", "quiz"];
 
 const memberBorder: Record<Member, string> = {
   Bhavesh: "border-person1 text-person1",
-  Avani: "border-person2 text-person2",
-  Akshita: "border-person3 text-person3",
   Aryan: "border-amber-500 text-amber-600",
 };
 

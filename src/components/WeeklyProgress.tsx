@@ -5,8 +5,6 @@ import { cn } from "@/lib/utils";
 
 const memberBadge: Record<Member, string> = {
   Bhavesh: "bg-person1/15 text-person1",
-  Avani: "bg-person2/15 text-person2",
-  Akshita: "bg-person3/15 text-person3",
   Aryan: "bg-amber-500/15 text-amber-600",
 };
 

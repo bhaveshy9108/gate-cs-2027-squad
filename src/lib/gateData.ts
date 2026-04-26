@@ -1,4 +1,4 @@
-export const MEMBERS = ["Bhavesh", "Avani", "Akshita", "Aryan"] as const;
+export const MEMBERS = ["Bhavesh", "Aryan"] as const;
 export type Member = (typeof MEMBERS)[number];
 
 export interface Topic {

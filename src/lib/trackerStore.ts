@@ -122,7 +122,13 @@ export function getDifficultyStats(state: TrackerState): Record<Difficulty, numb
 export function loadState(): TrackerState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return { ...defaultState(), ...JSON.parse(raw) };
+    if (raw) {
+      const parsed = { ...defaultState(), ...JSON.parse(raw) } as TrackerState;
+      if (!MEMBERS.includes(parsed.currentMember)) {
+        parsed.currentMember = MEMBERS[0];
+      }
+      return parsed;
+    }
   } catch {}
   return defaultState();
 }
