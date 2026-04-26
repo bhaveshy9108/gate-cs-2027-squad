@@ -49,6 +49,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
   const [seriesName, setSeriesName] = useState("");
   const [seriesUrl, setSeriesUrl] = useState("");
   const [selectedSeriesId, setSelectedSeriesId] = useState(state.testSeries[0]?.id ?? "");
+  const [editingSeriesId, setEditingSeriesId] = useState<string | null>(null);
   const [draftScores, setDraftScores] = useState<Record<string, string>>({});
 
   const sortedTests = useMemo(
@@ -74,6 +75,8 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
     state.testSeries.find((series) => series.id === selectedSeriesId) ??
     state.testSeries[0] ??
     null;
+  const editingSeries =
+    state.testSeries.find((series) => series.id === editingSeriesId) ?? null;
 
   const handleAdd = () => {
     if (!name.trim()) return;
@@ -238,32 +241,69 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                   </a>
                 )}
                 <button
-                  onClick={() => {
-                    onUpdate(removeTestSeries(state, selectedSeries.id));
-                    const fallback = state.testSeries.find((series) => series.id !== selectedSeries.id);
-                    setSelectedSeriesId(fallback?.id ?? "");
-                  }}
-                  className="px-3 py-1.5 text-xs text-destructive hover:bg-destructive/10 rounded-lg"
-                  title={`Remove ${selectedSeries.name}`}
+                  onClick={() =>
+                    setEditingSeriesId((current) =>
+                      current === selectedSeries.id ? null : selectedSeries.id
+                    )
+                  }
+                  className="px-3 py-1.5 text-xs text-primary hover:bg-primary/10 rounded-lg"
                 >
-                  Remove
+                  {editingSeriesId === selectedSeries.id ? "Close" : "Modify"}
                 </button>
               </div>
             </div>
-            <div className="grid gap-2 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-              <input
-                value={selectedSeries.name}
-                onChange={(e) => onUpdate(updateTestSeries(state, selectedSeries.id, { name: e.target.value }))}
-                placeholder="Series name"
-                className="w-full px-3 py-2 text-sm bg-background rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-              <input
-                value={selectedSeries.url}
-                onChange={(e) => onUpdate(updateTestSeries(state, selectedSeries.id, { url: e.target.value }))}
-                placeholder={`Paste ${selectedSeries.name} link`}
-                className="w-full px-3 py-2 text-sm bg-background rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
-              />
+            <div className="rounded-lg border border-border bg-background/80 px-3 py-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-semibold text-foreground">{selectedSeries.name}</span>
+                {selectedSeries.url ? (
+                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                    Linked
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                    Link missing
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 break-all text-xs text-muted-foreground">
+                {selectedSeries.url || "No link added yet for this test series."}
+              </p>
             </div>
+            {editingSeries && editingSeries.id === selectedSeries.id && (
+              <div className="rounded-lg border border-dashed border-border bg-background p-3 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Modify Test Series
+                  </p>
+                  <button
+                    onClick={() => {
+                      onUpdate(removeTestSeries(state, editingSeries.id));
+                      const fallback = state.testSeries.find((series) => series.id !== editingSeries.id);
+                      setSelectedSeriesId(fallback?.id ?? "");
+                      setEditingSeriesId(null);
+                    }}
+                    className="px-3 py-1.5 text-xs text-destructive hover:bg-destructive/10 rounded-lg"
+                    title={`Remove ${editingSeries.name}`}
+                  >
+                    Remove
+                  </button>
+                </div>
+                <div className="grid gap-2 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+                  <input
+                    value={editingSeries.name}
+                    onChange={(e) => onUpdate(updateTestSeries(state, editingSeries.id, { name: e.target.value }))}
+                    placeholder="Series name"
+                    className="w-full px-3 py-2 text-sm bg-background rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  <input
+                    value={editingSeries.url}
+                    onChange={(e) => onUpdate(updateTestSeries(state, editingSeries.id, { url: e.target.value }))}
+                    placeholder={`Paste ${editingSeries.name} link`}
+                    className="w-full px-3 py-2 text-sm bg-background rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -483,6 +523,11 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <h4 className="font-semibold text-foreground">{getWeeklyTestDisplayName(test)}</h4>
+                    {test.topicLabel && (
+                      <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                        {test.topicLabel}
+                      </span>
+                    )}
                     <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-primary/10 text-primary">
                       {test.source}
                     </span>
