@@ -4,9 +4,11 @@ import {
   addWeeklyTest,
   addTestSeries,
   deleteWeeklyTest,
+  getCoverageScopeLabel,
   getWeekNumber,
   getWeeklyTestDisplayName,
   getWeeklyTestAnalysis,
+  type TestCoverageScope,
   type TrackerState,
   type WeeklyTest,
   type WeeklyTestKind,
@@ -37,13 +39,16 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
   const [name, setName] = useState("");
   const [source, setSource] = useState<WeeklyTestSource>("GO Classes");
   const [kind, setKind] = useState<WeeklyTestKind>("mock");
+  const [coverageScope, setCoverageScope] = useState<TestCoverageScope>("full");
   const [subjectId, setSubjectId] = useState("");
+  const [topicLabel, setTopicLabel] = useState("");
   const [scheduledWeek, setScheduledWeek] = useState(String(currentWeek));
   const [testLink, setTestLink] = useState("");
   const [totalMarks, setTotalMarks] = useState("");
   const [notes, setNotes] = useState("");
   const [seriesName, setSeriesName] = useState("");
   const [seriesUrl, setSeriesUrl] = useState("");
+  const [selectedSeriesId, setSelectedSeriesId] = useState(state.testSeries[0]?.id ?? "");
   const [draftScores, setDraftScores] = useState<Record<string, string>>({});
 
   const sortedTests = useMemo(
@@ -64,6 +69,11 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
   }, {});
 
   const isQuizOnlySource = source === QUIZ_ONLY_SOURCE;
+  const linkedSeries = useMemo(() => state.testSeries.filter((series) => series.url.trim()), [state.testSeries]);
+  const selectedSeries =
+    state.testSeries.find((series) => series.id === selectedSeriesId) ??
+    state.testSeries[0] ??
+    null;
 
   const handleAdd = () => {
     if (!name.trim()) return;
@@ -73,7 +83,9 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
       name: name.trim(),
       source,
       kind: isQuizOnlySource ? "quiz" : kind,
-      subjectId: subjectId || undefined,
+      subjectId: coverageScope !== "full" ? subjectId || undefined : undefined,
+      coverageScope,
+      topicLabel: coverageScope === "topic" ? topicLabel.trim() : "",
       link: testLink.trim(),
       scheduledWeek: Math.max(1, parseInt(scheduledWeek, 10) || currentWeek),
       notes: notes.trim(),
@@ -89,7 +101,9 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
     setName("");
     setSource("GO Classes");
     setKind("mock");
+    setCoverageScope("full");
     setSubjectId("");
+    setTopicLabel("");
     setScheduledWeek(String(currentWeek));
     setTestLink("");
     setTotalMarks("");
@@ -105,36 +119,6 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
     }
     setSeriesName("");
     setSeriesUrl("");
-  };
-
-  const renderSeriesLink = (seriesId: string, label: string, value: string) => {
-    return (
-      <div key={seriesId} className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-semibold text-foreground">{label}</span>
-          {value && (
-            <a href={value} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-primary">
-              Open <ExternalLink className="w-3 h-3" />
-            </a>
-          )}
-        </div>
-        <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
-          <input
-            value={value}
-            onChange={(e) => onUpdate(updateTestSeries(state, seriesId, { url: e.target.value }))}
-            placeholder={`Paste ${label} link`}
-            className="w-full px-3 py-2 text-sm bg-background rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-          <button
-            onClick={() => onUpdate(removeTestSeries(state, seriesId))}
-            className="px-3 py-2 text-xs text-destructive hover:bg-destructive/10 rounded-lg"
-            title={`Remove ${label}`}
-          >
-            Remove
-          </button>
-        </div>
-      </div>
-    );
   };
 
   const getDraftKey = (testId: string, member: Member, field: "score" | "outOf") => `${testId}|${member}|${field}`;
@@ -188,6 +172,25 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
         <p className="text-xs text-muted-foreground">
           Add and manage the test series you use. Any series added here becomes available in both Weekly Tests and Mock Tests.
         </p>
+        {linkedSeries.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">Quick access</p>
+            <div className="flex flex-wrap gap-2">
+              {linkedSeries.map((series) => (
+                <a
+                  key={series.id}
+                  href={series.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10"
+                >
+                  {series.name}
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="grid gap-3 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)_auto]">
           <input
             value={seriesName}
@@ -205,9 +208,64 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
             Add Series
           </button>
         </div>
-        <div className="grid gap-3 md:grid-cols-2">
-          {state.testSeries.map((series) => renderSeriesLink(series.id, series.name, series.url))}
-        </div>
+        {selectedSeries && (
+          <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-3">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="flex flex-wrap gap-2">
+                {state.testSeries.map((series) => (
+                  <button
+                    key={series.id}
+                    onClick={() => setSelectedSeriesId(series.id)}
+                    className={
+                      series.id === selectedSeries.id
+                        ? "rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
+                        : "rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+                    }
+                  >
+                    {series.name}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                {selectedSeries.url && (
+                  <a
+                    href={selectedSeries.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-primary"
+                  >
+                    Open <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+                <button
+                  onClick={() => {
+                    onUpdate(removeTestSeries(state, selectedSeries.id));
+                    const fallback = state.testSeries.find((series) => series.id !== selectedSeries.id);
+                    setSelectedSeriesId(fallback?.id ?? "");
+                  }}
+                  className="px-3 py-1.5 text-xs text-destructive hover:bg-destructive/10 rounded-lg"
+                  title={`Remove ${selectedSeries.name}`}
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+            <div className="grid gap-2 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+              <input
+                value={selectedSeries.name}
+                onChange={(e) => onUpdate(updateTestSeries(state, selectedSeries.id, { name: e.target.value }))}
+                placeholder="Series name"
+                className="w-full px-3 py-2 text-sm bg-background rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <input
+                value={selectedSeries.url}
+                onChange={(e) => onUpdate(updateTestSeries(state, selectedSeries.id, { url: e.target.value }))}
+                placeholder={`Paste ${selectedSeries.name} link`}
+                className="w-full px-3 py-2 text-sm bg-background rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {showAdd && (
@@ -227,6 +285,9 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                 setSource(nextSource);
                 if (nextSource === QUIZ_ONLY_SOURCE) {
                   setKind("quiz");
+                  if (coverageScope === "full") {
+                    setCoverageScope("topic");
+                  }
                 }
               }}
               className="px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
@@ -255,13 +316,32 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
               ))}
             </select>
           </div>
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-3">
+            <select
+              value={coverageScope}
+              onChange={(e) => {
+                const nextScope = e.target.value as TestCoverageScope;
+                setCoverageScope(nextScope);
+                if (nextScope === "full") {
+                  setSubjectId("");
+                  setTopicLabel("");
+                } else if (nextScope === "subject") {
+                  setTopicLabel("");
+                }
+              }}
+              className="px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="full">Full Syllabus</option>
+              <option value="subject">Subject Wise</option>
+              <option value="topic">Topic Wise</option>
+            </select>
             <select
               value={subjectId}
               onChange={(e) => setSubjectId(e.target.value)}
+              disabled={coverageScope === "full"}
               className="px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
             >
-              <option value="">General / Full Syllabus</option>
+              <option value="">{coverageScope === "topic" ? "Select subject for topic" : "Select subject"}</option>
               {SUBJECTS.map((subject) => (
                 <option key={subject.id} value={subject.id}>
                   {subject.name}
@@ -277,6 +357,14 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
               className="px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
+          {coverageScope === "topic" && (
+            <input
+              value={topicLabel}
+              onChange={(e) => setTopicLabel(e.target.value)}
+              placeholder="Topic wise name (e.g., Set Theory, Linear Algebra)"
+              className="w-full px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          )}
           <input
             value={testLink}
             onChange={(e) => setTestLink(e.target.value)}
@@ -308,7 +396,9 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                 setName("");
                 setSource("GO Classes");
                 setKind("mock");
+                setCoverageScope("full");
                 setSubjectId("");
+                setTopicLabel("");
                 setScheduledWeek(String(currentWeek));
                 setTestLink("");
                 setTotalMarks("");
@@ -357,6 +447,9 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                 <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-primary/10 text-primary">
                   {test.source}
                 </span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-muted text-muted-foreground">
+                  {getCoverageScopeLabel(test.coverageScope ?? "full")}
+                </span>
               </div>
               <div className="grid gap-2 md:grid-cols-2">
                 {MEMBERS.map((member) => {
@@ -392,6 +485,9 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                     <h4 className="font-semibold text-foreground">{getWeeklyTestDisplayName(test)}</h4>
                     <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-primary/10 text-primary">
                       {test.source}
+                    </span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-muted text-muted-foreground">
+                      {getCoverageScopeLabel(test.coverageScope ?? "full")}
                     </span>
                     <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-accent text-accent-foreground">
                       {test.kind === "mock" ? "Mock" : test.kind === "subject" ? "Subject" : "Weekly Quiz"}
