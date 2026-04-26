@@ -26,6 +26,7 @@ export default function MockTestSection({ state, onUpdate }: Props) {
   const [notes, setNotes] = useState("");
   const [testType, setTestType] = useState<MockTestType>("full");
   const [subjectId, setSubjectId] = useState("");
+  const [source, setSource] = useState("GO Classes");
   const [editingScore, setEditingScore] = useState<{ testId: string; member: Member } | null>(null);
   const [scoreInput, setScoreInput] = useState("");
 
@@ -44,6 +45,7 @@ export default function MockTestSection({ state, onUpdate }: Props) {
       id: `mock-${Date.now()}`,
       name: testName.trim(),
       subjectId: subjectId || undefined,
+      source,
       date: new Date().toISOString().split("T")[0],
       type: testType,
       totalMarks: parseFloat(totalMarks) || 100,
@@ -56,6 +58,7 @@ export default function MockTestSection({ state, onUpdate }: Props) {
     setNotes("");
     setTestType("full");
     setSubjectId("");
+    setSource("GO Classes");
     setShowAdd(false);
   };
 
@@ -95,7 +98,23 @@ export default function MockTestSection({ state, onUpdate }: Props) {
             placeholder="Test name (e.g., Mock Test 1 - Made Easy)"
             className="w-full px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
           />
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-3">
+            <select
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
+              className="px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              {state.testSeries.map((entry) => (
+                <option key={entry.id} value={entry.name}>
+                  {entry.name}
+                </option>
+              ))}
+              {!state.testSeries.some((entry) => entry.name === source) && source && (
+                <option key={source} value={source}>
+                  {source}
+                </option>
+              )}
+            </select>
             <select
               value={testType}
               onChange={(e) => setTestType(e.target.value as MockTestType)}
@@ -144,6 +163,7 @@ export default function MockTestSection({ state, onUpdate }: Props) {
                 setNotes("");
                 setTestType("full");
                 setSubjectId("");
+                setSource("GO Classes");
               }}
               className="px-3 py-2 text-sm text-muted-foreground"
             >
@@ -180,6 +200,11 @@ export default function MockTestSection({ state, onUpdate }: Props) {
                 >
                   {getMockTestTypeLabel(test.type)}
                 </span>
+                {test.source && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-primary/10 text-primary">
+                    {test.source}
+                  </span>
+                )}
                 {isLinkedWeeklyTest && (
                   <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
                     <Link2 className="w-3 h-3" />

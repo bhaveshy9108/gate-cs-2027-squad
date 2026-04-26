@@ -126,6 +126,11 @@ export default function WeeklyProgress({ state }: Props) {
                           <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${test.type === "subject" ? "bg-accent text-accent-foreground" : test.type === "weekly" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-primary/10 text-primary"}`}>
                             {getMockTestTypeLabel(test.type)}
                           </span>
+                          {test.source && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-primary/10 text-primary">
+                              {test.source}
+                            </span>
+                          )}
                         </div>
                         <div className="flex flex-wrap gap-2">
                           {MEMBERS.map((member) => {

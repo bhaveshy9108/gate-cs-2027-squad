@@ -2,17 +2,17 @@ import { useMemo, useState } from "react";
 import { MEMBERS, SUBJECTS, type Member } from "@/lib/gateData";
 import {
   addWeeklyTest,
+  addTestSeries,
   deleteWeeklyTest,
   getWeekNumber,
   getWeeklyTestDisplayName,
   getWeeklyTestAnalysis,
-  type PlatformLinks,
   type TrackerState,
-  type TestPlatform,
   type WeeklyTest,
   type WeeklyTestKind,
   type WeeklyTestSource,
-  updatePlatformLink,
+  removeTestSeries,
+  updateTestSeries,
   updateWeeklyTestScore,
   updateWeeklyTestTaken,
 } from "@/lib/trackerStore";
@@ -23,9 +23,7 @@ interface Props {
   onUpdate: (state: TrackerState) => void;
 }
 
-const sources: WeeklyTestSource[] = ["GateOverflow", "GO Classes", "MadeEasy", "Zeal", "Bikram"];
 const kinds: WeeklyTestKind[] = ["mock", "subject", "quiz"];
-const platforms: TestPlatform[] = ["GateOverflow", "GO Classes", "MadeEasy", "Zeal", "Bikram"];
 
 const memberBorder: Record<Member, string> = {
   Bhavesh: "border-person1 text-person1",
@@ -42,6 +40,8 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
   const [scheduledWeek, setScheduledWeek] = useState(String(currentWeek));
   const [totalMarks, setTotalMarks] = useState("");
   const [notes, setNotes] = useState("");
+  const [seriesName, setSeriesName] = useState("");
+  const [seriesUrl, setSeriesUrl] = useState("");
   const [draftScores, setDraftScores] = useState<Record<string, string>>({});
 
   const sortedTests = useMemo(
@@ -91,24 +91,42 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
     setShowAdd(false);
   };
 
-  const renderPlatformLink = (platform: TestPlatform, links: PlatformLinks) => {
-    const value = links[platform];
+  const handleAddSeries = () => {
+    if (!seriesName.trim()) return;
+    onUpdate(addTestSeries(state, seriesName, seriesUrl));
+    if (!state.testSeries.some((entry) => entry.name.toLowerCase() === seriesName.trim().toLowerCase())) {
+      setSource(seriesName.trim());
+    }
+    setSeriesName("");
+    setSeriesUrl("");
+  };
+
+  const renderSeriesLink = (seriesId: string, label: string, value: string) => {
     return (
-      <div key={platform} className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+      <div key={seriesId} className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-semibold text-foreground">{platform}</span>
+          <span className="text-sm font-semibold text-foreground">{label}</span>
           {value && (
             <a href={value} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-primary">
               Open <ExternalLink className="w-3 h-3" />
             </a>
           )}
         </div>
-        <input
-          value={value}
-          onChange={(e) => onUpdate(updatePlatformLink(state, platform, e.target.value))}
-          placeholder={`Paste ${platform} link`}
-          className="w-full px-3 py-2 text-sm bg-background rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
-        />
+        <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
+          <input
+            value={value}
+            onChange={(e) => onUpdate(updateTestSeries(state, seriesId, { url: e.target.value }))}
+            placeholder={`Paste ${label} link`}
+            className="w-full px-3 py-2 text-sm bg-background rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+          <button
+            onClick={() => onUpdate(removeTestSeries(state, seriesId))}
+            className="px-3 py-2 text-xs text-destructive hover:bg-destructive/10 rounded-lg"
+            title={`Remove ${label}`}
+          >
+            Remove
+          </button>
+        </div>
       </div>
     );
   };
@@ -162,10 +180,27 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
           <h3 className="font-semibold text-foreground">Platform Test Links</h3>
         </div>
         <p className="text-xs text-muted-foreground">
-          Save direct links for the test series portals you use most, so the whole group can open them from one place.
+          Add and manage the test series you use. Any series added here becomes available in both Weekly Tests and Mock Tests.
         </p>
+        <div className="grid gap-3 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)_auto]">
+          <input
+            value={seriesName}
+            onChange={(e) => setSeriesName(e.target.value)}
+            placeholder="Test series name"
+            className="w-full px-3 py-2 text-sm bg-background rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+          <input
+            value={seriesUrl}
+            onChange={(e) => setSeriesUrl(e.target.value)}
+            placeholder="Test series link"
+            className="w-full px-3 py-2 text-sm bg-background rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+          <button onClick={handleAddSeries} className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg font-medium">
+            Add Series
+          </button>
+        </div>
         <div className="grid gap-3 md:grid-cols-2">
-          {platforms.map((platform) => renderPlatformLink(platform, state.platformLinks))}
+          {state.testSeries.map((series) => renderSeriesLink(series.id, series.name, series.url))}
         </div>
       </div>
 
@@ -184,11 +219,16 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
               onChange={(e) => setSource(e.target.value as WeeklyTestSource)}
               className="px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
             >
-              {sources.map((value) => (
-                <option key={value} value={value}>
-                  {value}
+              {state.testSeries.map((entry) => (
+                <option key={entry.id} value={entry.name}>
+                  {entry.name}
                 </option>
               ))}
+              {!state.testSeries.some((entry) => entry.name === source) && source && (
+                <option key={source} value={source}>
+                  {source}
+                </option>
+              )}
             </select>
             <select
               value={kind}

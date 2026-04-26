@@ -17,8 +17,11 @@ export interface TopicNote {
 }
 
 export type Difficulty = "easy" | "medium" | "hard";
-export type TestPlatform = "GateOverflow" | "GO Classes" | "MadeEasy" | "Zeal" | "Bikram";
-export type PlatformLinks = Record<TestPlatform, string>;
+export interface TestSeriesLink {
+  id: string;
+  name: string;
+  url: string;
+}
 
 export interface TrackerState {
   checklist: ChecklistData;
@@ -26,7 +29,7 @@ export interface TrackerState {
   deletedTopics: Record<string, string[]>;
   mockTests: MockTest[];
   weeklyTests: WeeklyTest[];
-  platformLinks: PlatformLinks;
+  testSeries: TestSeriesLink[];
   currentMember: Member;
   topicNotes: Record<string, TopicNote>; // key: `${subjectId}|${topicId}`
   topicDifficulty: Record<string, Difficulty>; // key: `${subjectId}|${topicId}`
@@ -38,6 +41,7 @@ export interface MockTest {
   id: string;
   linkedWeeklyTestId?: string;
   subjectId?: string;
+  source?: string;
   name: string;
   date: string;
   type: MockTestType;
@@ -46,7 +50,7 @@ export interface MockTest {
   scores: Record<Member, number | null>;
 }
 
-export type WeeklyTestSource = TestPlatform;
+export type WeeklyTestSource = string;
 export type WeeklyTestKind = "mock" | "subject" | "quiz";
 
 export interface WeeklyTestMemberStatus {
@@ -79,17 +83,54 @@ function defaultState(): TrackerState {
     deletedTopics: {},
     mockTests: [],
     weeklyTests: [],
-    platformLinks: {
-      GateOverflow: "",
-      "GO Classes": "",
-      MadeEasy: "",
-      Zeal: "",
-      Bikram: "",
-    },
+    testSeries: [
+      { id: "series-gateoverflow", name: "GateOverflow", url: "" },
+      { id: "series-goclasses", name: "GO Classes", url: "" },
+      { id: "series-madeeasy", name: "MadeEasy", url: "" },
+      { id: "series-zeal", name: "Zeal", url: "" },
+    ],
     currentMember: "Bhavesh",
     topicNotes: {},
     topicDifficulty: {},
   };
+}
+
+function normalizeTestSeries(testSeries: unknown, legacyPlatformLinks?: unknown): TestSeriesLink[] {
+  const defaults = defaultState().testSeries;
+  const normalizedFromArray = Array.isArray(testSeries)
+    ? testSeries
+        .map((entry, index) => {
+          const record = typeof entry === "object" && entry !== null ? (entry as Partial<TestSeriesLink>) : {};
+          const name = typeof record.name === "string" ? record.name.trim() : "";
+          if (!name) return null;
+          return {
+            id: typeof record.id === "string" && record.id ? record.id : `series-${index}-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+            name,
+            url: typeof record.url === "string" ? record.url : "",
+          };
+        })
+        .filter((entry): entry is TestSeriesLink => Boolean(entry))
+    : [];
+
+  if (normalizedFromArray.length > 0) {
+    const seen = new Set<string>();
+    return normalizedFromArray.filter((entry) => {
+      const key = entry.name.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  const legacy =
+    typeof legacyPlatformLinks === "object" && legacyPlatformLinks !== null
+      ? (legacyPlatformLinks as Record<string, unknown>)
+      : {};
+
+  return defaults.map((entry) => ({
+    ...entry,
+    url: typeof legacy[entry.name] === "string" ? (legacy[entry.name] as string) : "",
+  }));
 }
 
 export function createDefaultState(): TrackerState {
@@ -110,6 +151,7 @@ function normalizeMockTests(mockTests: unknown): MockTest[] {
       id: record.id ?? `mock-${index}`,
       linkedWeeklyTestId: typeof record.linkedWeeklyTestId === "string" ? record.linkedWeeklyTestId : undefined,
       subjectId: typeof record.subjectId === "string" ? record.subjectId : undefined,
+      source: typeof record.source === "string" ? record.source : undefined,
       name: record.name ?? `Mock Test ${index + 1}`,
       date: record.date ?? new Date().toISOString().split("T")[0],
       type:
@@ -143,14 +185,7 @@ function normalizeWeeklyTests(weeklyTests: unknown): WeeklyTest[] {
       linkedMockTestId: typeof record.linkedMockTestId === "string" ? record.linkedMockTestId : undefined,
       subjectId: typeof record.subjectId === "string" ? record.subjectId : undefined,
       name: record.name ?? `Weekly Test ${index + 1}`,
-      source:
-        record.source === "GateOverflow" ||
-        record.source === "GO Classes" ||
-        record.source === "MadeEasy" ||
-        record.source === "Zeal" ||
-        record.source === "Bikram"
-          ? record.source
-          : "GO Classes",
+      source: typeof record.source === "string" && record.source.trim() ? record.source : "GO Classes",
       kind:
         record.kind === "subject" || record.kind === "quiz" || record.kind === "mock"
           ? record.kind
@@ -181,11 +216,6 @@ function normalizeWeeklyTests(weeklyTests: unknown): WeeklyTest[] {
 export function normalizeTrackerState(raw: unknown): TrackerState {
   const base = defaultState();
   const parsed = typeof raw === "object" && raw !== null ? (raw as Partial<TrackerState>) : {};
-  const rawPlatformLinks =
-    typeof parsed.platformLinks === "object" && parsed.platformLinks !== null
-      ? (parsed.platformLinks as Partial<PlatformLinks>)
-      : {};
-
   return {
     ...base,
     ...parsed,
@@ -201,13 +231,7 @@ export function normalizeTrackerState(raw: unknown): TrackerState {
         : base.deletedTopics,
     mockTests: normalizeMockTests(parsed.mockTests),
     weeklyTests: normalizeWeeklyTests(parsed.weeklyTests),
-    platformLinks: {
-      GateOverflow: typeof rawPlatformLinks.GateOverflow === "string" ? rawPlatformLinks.GateOverflow : "",
-      "GO Classes": typeof rawPlatformLinks["GO Classes"] === "string" ? rawPlatformLinks["GO Classes"] : "",
-      MadeEasy: typeof rawPlatformLinks.MadeEasy === "string" ? rawPlatformLinks.MadeEasy : "",
-      Zeal: typeof rawPlatformLinks.Zeal === "string" ? rawPlatformLinks.Zeal : "",
-      Bikram: typeof rawPlatformLinks.Bikram === "string" ? rawPlatformLinks.Bikram : "",
-    },
+    testSeries: normalizeTestSeries(parsed.testSeries, (parsed as { platformLinks?: unknown }).platformLinks),
     currentMember: MEMBERS.includes(parsed.currentMember as Member) ? (parsed.currentMember as Member) : MEMBERS[0],
     topicNotes:
       typeof parsed.topicNotes === "object" && parsed.topicNotes !== null ? parsed.topicNotes : base.topicNotes,
@@ -366,13 +390,53 @@ export function getMockTestDisplayName(test: Pick<MockTest, "name" | "subjectId"
   return subjectName ? `${subjectName} - ${test.name}` : test.name;
 }
 
-export function updatePlatformLink(state: TrackerState, platform: TestPlatform, url: string): TrackerState {
+export function addTestSeries(state: TrackerState, name: string, url: string): TrackerState {
+  const trimmedName = name.trim();
+  if (!trimmedName) return state;
+  const exists = state.testSeries.some((entry) => entry.name.toLowerCase() === trimmedName.toLowerCase());
+  if (exists) return state;
+
+  const newSeries: TestSeriesLink = {
+    id: `series-${Date.now()}-${trimmedName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+    name: trimmedName,
+    url: url.trim(),
+  };
+
   return {
     ...state,
-    platformLinks: {
-      ...state.platformLinks,
-      [platform]: url,
-    },
+    testSeries: [...state.testSeries, newSeries],
+  };
+}
+
+export function updateTestSeries(state: TrackerState, seriesId: string, updates: Partial<Pick<TestSeriesLink, "name" | "url">>): TrackerState {
+  return {
+    ...state,
+    testSeries: state.testSeries.map((entry) =>
+      entry.id === seriesId
+        ? {
+            ...entry,
+            name: typeof updates.name === "string" && updates.name.trim() ? updates.name.trim() : entry.name,
+            url: typeof updates.url === "string" ? updates.url : entry.url,
+          }
+        : entry
+    ),
+  };
+}
+
+export function removeTestSeries(state: TrackerState, seriesId: string): TrackerState {
+  const removed = state.testSeries.find((entry) => entry.id === seriesId);
+  if (!removed) return state;
+
+  const fallbackSource = state.testSeries.find((entry) => entry.id !== seriesId)?.name ?? "GO Classes";
+  return {
+    ...state,
+    testSeries: state.testSeries.filter((entry) => entry.id !== seriesId),
+    weeklyTests: state.weeklyTests.map((test) =>
+      test.source === removed.name ? { ...test, source: fallbackSource } : test
+    ),
+    mockTests: state.mockTests.map((test) =>
+      test.source === removed.name ? { ...test, source: fallbackSource } : test
+    ),
   };
 }
 
@@ -392,6 +456,7 @@ export function addWeeklyTest(state: TrackerState, test: WeeklyTest): TrackerSta
     id: linkedMockTestId,
     linkedWeeklyTestId: test.id,
     subjectId: test.subjectId,
+    source: test.source,
     name: getWeeklyTestDisplayName(test),
     date: new Date().toISOString().split("T")[0],
     type: getMockTypeFromWeeklyKind(test.kind),
@@ -495,6 +560,7 @@ export function updateWeeklyTestScore(
       ? {
           ...test,
           totalMarks: typeof outOf === "number" && outOf > 0 ? outOf : test.totalMarks,
+          source: state.weeklyTests.find((weeklyTest) => weeklyTest.id === testId)?.source ?? test.source,
           scores: {
             ...test.scores,
             [member]: score,
@@ -605,7 +671,7 @@ export function getTestPerformanceRecords(state: TrackerState): TestPerformanceR
       displayName: getMockTestDisplayName(mockTest),
       name: mockTest.name,
       type: mockTest.type,
-      source: linkedWeeklyTest?.source ?? null,
+      source: linkedWeeklyTest?.source ?? mockTest.source ?? null,
       subjectId: mockTest.subjectId,
       subjectName: getSubjectNameById(mockTest.subjectId),
       date: mockTest.date,
@@ -624,6 +690,7 @@ export function getWeekNumber(date: Date): number {
 // Week-wise progress
 export interface WeekProgressMockTest {
   name: string;
+  source?: string;
   type: MockTestType;
   totalMarks: number;
   scores: Record<Member, number | null>;
@@ -672,6 +739,7 @@ export function getWeeklyProgress(state: TrackerState): WeekProgress[] {
     const data = weekMap.get(week) || { items: [], mockTests: [], weeklyTests: [] };
     data.mockTests.push({
       name: test.name,
+      source: test.source,
       type: test.type || "full",
       totalMarks: test.totalMarks,
       scores: test.scores,
