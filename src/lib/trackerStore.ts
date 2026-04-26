@@ -361,6 +361,11 @@ export function getWeeklyTestDisplayName(test: Pick<WeeklyTest, "name" | "subjec
   return subjectName ? `${subjectName} - ${test.name}` : test.name;
 }
 
+export function getMockTestDisplayName(test: Pick<MockTest, "name" | "subjectId">): string {
+  const subjectName = getSubjectNameById(test.subjectId);
+  return subjectName ? `${subjectName} - ${test.name}` : test.name;
+}
+
 export function updatePlatformLink(state: TrackerState, platform: TestPlatform, url: string): TrackerState {
   return {
     ...state,
@@ -574,6 +579,40 @@ export function getMockTestTypeLabel(type: MockTestType): string {
   if (type === "subject") return "Subject Wise";
   if (type === "weekly") return "Weekly Quiz";
   return "Full Length";
+}
+
+export interface TestPerformanceRecord {
+  id: string;
+  displayName: string;
+  name: string;
+  type: MockTestType;
+  source: WeeklyTestSource | null;
+  subjectId?: string;
+  subjectName: string | null;
+  date: string;
+  totalMarks: number;
+  scores: Record<Member, number | null>;
+}
+
+export function getTestPerformanceRecords(state: TrackerState): TestPerformanceRecord[] {
+  return state.mockTests.map((mockTest) => {
+    const linkedWeeklyTest = mockTest.linkedWeeklyTestId
+      ? state.weeklyTests.find((weeklyTest) => weeklyTest.id === mockTest.linkedWeeklyTestId)
+      : undefined;
+
+    return {
+      id: mockTest.id,
+      displayName: getMockTestDisplayName(mockTest),
+      name: mockTest.name,
+      type: mockTest.type,
+      source: linkedWeeklyTest?.source ?? null,
+      subjectId: mockTest.subjectId,
+      subjectName: getSubjectNameById(mockTest.subjectId),
+      date: mockTest.date,
+      totalMarks: mockTest.totalMarks,
+      scores: mockTest.scores,
+    };
+  });
 }
 
 export function getWeekNumber(date: Date): number {

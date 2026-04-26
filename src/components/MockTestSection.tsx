@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { MEMBERS, type Member } from "@/lib/gateData";
+import { MEMBERS, SUBJECTS, type Member } from "@/lib/gateData";
 import {
   type TrackerState,
   addMockTest,
+  getMockTestDisplayName,
+  getMockTestTypeLabel,
   updateMockScore,
   deleteMockTest,
   getHighestScorer,
@@ -23,6 +25,7 @@ export default function MockTestSection({ state, onUpdate }: Props) {
   const [totalMarks, setTotalMarks] = useState("");
   const [notes, setNotes] = useState("");
   const [testType, setTestType] = useState<MockTestType>("full");
+  const [subjectId, setSubjectId] = useState("");
   const [editingScore, setEditingScore] = useState<{ testId: string; member: Member } | null>(null);
   const [scoreInput, setScoreInput] = useState("");
 
@@ -40,6 +43,7 @@ export default function MockTestSection({ state, onUpdate }: Props) {
     const test: MockTest = {
       id: `mock-${Date.now()}`,
       name: testName.trim(),
+      subjectId: subjectId || undefined,
       date: new Date().toISOString().split("T")[0],
       type: testType,
       totalMarks: parseFloat(totalMarks) || 100,
@@ -51,6 +55,7 @@ export default function MockTestSection({ state, onUpdate }: Props) {
     setTotalMarks("");
     setNotes("");
     setTestType("full");
+    setSubjectId("");
     setShowAdd(false);
   };
 
@@ -83,17 +88,6 @@ export default function MockTestSection({ state, onUpdate }: Props) {
 
       {showAdd && (
         <div className="bg-card border border-border rounded-xl p-4 space-y-3">
-          <div className="flex gap-2">
-            {(["full", "subject", "weekly"] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => setTestType(t)}
-                className={`flex-1 px-3 py-2 text-sm rounded-lg font-medium border transition-colors ${testType === t ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground border-border"}`}
-              >
-                {t === "full" ? "Full Length" : t === "subject" ? "Subject Wise" : "Weekly Quiz"}
-              </button>
-            ))}
-          </div>
           <input
             autoFocus
             value={testName}
@@ -101,6 +95,29 @@ export default function MockTestSection({ state, onUpdate }: Props) {
             placeholder="Test name (e.g., Mock Test 1 - Made Easy)"
             className="w-full px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
           />
+          <div className="grid gap-3 md:grid-cols-2">
+            <select
+              value={testType}
+              onChange={(e) => setTestType(e.target.value as MockTestType)}
+              className="px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="full">Full Length</option>
+              <option value="subject">Subject Wise</option>
+              <option value="weekly">Weekly Quiz</option>
+            </select>
+            <select
+              value={subjectId}
+              onChange={(e) => setSubjectId(e.target.value)}
+              className="px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="">General / Full Syllabus</option>
+              {SUBJECTS.map((subject) => (
+                <option key={subject.id} value={subject.id}>
+                  {subject.name}
+                </option>
+              ))}
+            </select>
+          </div>
           <input
             value={totalMarks}
             onChange={(e) => setTotalMarks(e.target.value)}
@@ -126,6 +143,7 @@ export default function MockTestSection({ state, onUpdate }: Props) {
                 setTotalMarks("");
                 setNotes("");
                 setTestType("full");
+                setSubjectId("");
               }}
               className="px-3 py-2 text-sm text-muted-foreground"
             >
@@ -150,7 +168,7 @@ export default function MockTestSection({ state, onUpdate }: Props) {
           <div key={test.id} className="bg-card border border-border rounded-xl p-4">
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="font-semibold text-foreground">{test.name}</h3>
+                <h3 className="font-semibold text-foreground">{getMockTestDisplayName(test)}</h3>
                 <span
                   className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
                     test.type === "subject"
@@ -160,7 +178,7 @@ export default function MockTestSection({ state, onUpdate }: Props) {
                         : "bg-primary/10 text-primary"
                   }`}
                 >
-                  {test.type === "subject" ? "Subject Wise" : test.type === "weekly" ? "Weekly Quiz" : "Full Length"}
+                  {getMockTestTypeLabel(test.type)}
                 </span>
                 {isLinkedWeeklyTest && (
                   <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">

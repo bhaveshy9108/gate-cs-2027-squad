@@ -8,11 +8,12 @@ import SubjectChecklist from "@/components/SubjectChecklist";
 import PYQSection from "@/components/PYQSection";
 import MockTestSection from "@/components/MockTestSection";
 import WeeklyTestsSection from "@/components/WeeklyTestsSection";
+import TestAnalysisSection from "@/components/TestAnalysisSection";
 import WeeklyProgress from "@/components/WeeklyProgress";
 import OverallDashboard from "@/components/OverallDashboard";
 import RevisionSection from "@/components/RevisionSection";
 import StreakCalendar from "@/components/StreakCalendar";
-import { BookOpen, BookMarked, ClipboardList, CalendarCheck2, CalendarDays, BarChart3, GraduationCap, RefreshCw } from "lucide-react";
+import { BookOpen, BookMarked, ClipboardList, CalendarCheck2, CalendarDays, BarChart3, GraduationCap, LineChart, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -23,6 +24,7 @@ const TABS = [
   { id: "pyq", label: "PYQs", icon: BookMarked },
   { id: "mock", label: "Mock Tests", icon: ClipboardList },
   { id: "weekly-tests", label: "Weekly Tests", icon: CalendarCheck2 },
+  { id: "test-analysis", label: "Test Analysis", icon: LineChart },
   { id: "weekly", label: "Weekly Progress", icon: CalendarDays },
 ] as const;
 
@@ -192,6 +194,7 @@ export default function Index() {
         {tab === "pyq" && <PYQSection state={state} member={member} onUpdate={updateState} />}
         {tab === "mock" && <MockTestSection state={state} member={member} onUpdate={updateState} />}
         {tab === "weekly-tests" && <WeeklyTestsSection state={state} onUpdate={updateState} />}
+        {tab === "test-analysis" && <TestAnalysisSection state={state} />}
         {tab === "weekly" && <WeeklyProgress state={state} />}
       </main>
     </div>
