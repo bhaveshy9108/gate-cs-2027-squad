@@ -1,8 +1,9 @@
-import { SUBJECTS, type Member } from "@/lib/gateData";
-import { type TrackerState, toggleTopic, isCompleted, getAllTopics, getSubjectProgress, addCustomTopic, deleteCustomTopic } from "@/lib/trackerStore";
+import { useMemo, useState } from "react";
+import { BookMarked, ChevronDown, ChevronRight, FileText } from "lucide-react";
+import { type Member } from "@/lib/gateData";
+import { type TrackerState, getSubjectProgress, isCompleted, toggleTopic } from "@/lib/trackerStore";
+import { PYQ_SUBJECTS } from "@/lib/pyqCatalog";
 import { cn } from "@/lib/utils";
-import { BookMarked, ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
 
 interface Props {
   state: TrackerState;
@@ -13,126 +14,153 @@ interface Props {
 const SECTION = "pyq";
 
 export default function PYQSection({ state, member, onUpdate }: Props) {
-  const [expanded, setExpanded] = useState<string | null>(null);
-  const [addingTopic, setAddingTopic] = useState<string | null>(null);
-  const [newTopicName, setNewTopicName] = useState("");
+  const [expanded, setExpanded] = useState<string | null>(PYQ_SUBJECTS[0]?.id ?? null);
 
-  const handleToggle = (subjectId: string, topicId: string) => {
-    onUpdate(toggleTopic(state, member, SECTION, subjectId, topicId));
-  };
-
-  const handleAddTopic = (subjectId: string) => {
-    if (!newTopicName.trim()) return;
-    onUpdate(addCustomTopic(state, subjectId, newTopicName.trim()));
-    setNewTopicName("");
-    setAddingTopic(null);
-  };
-
-  const handleDeleteTopic = (subjectId: string, topicId: string) => {
-    onUpdate(deleteCustomTopic(state, subjectId, topicId));
-  };
+  const summary = useMemo(() => {
+    let done = 0;
+    let total = 0;
+    for (const subject of PYQ_SUBJECTS) {
+      const progress = getSubjectProgress(state, member, SECTION, subject.id);
+      done += progress.done;
+      total += progress.total;
+    }
+    return { done, total, pct: total > 0 ? Math.round((done / total) * 100) : 0 };
+  }, [state, member]);
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2 mb-2">
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
         <BookMarked className="w-5 h-5 text-primary" />
-        <h2 className="text-lg font-bold text-foreground">PYQs — Topic Wise</h2>
-        <span className="text-xs text-muted-foreground ml-1">— {member}</span>
+        <h2 className="text-lg font-bold text-foreground">PYQs</h2>
+        <span className="text-xs text-muted-foreground">for {member}</span>
       </div>
 
-      <div className="bg-card border border-border rounded-xl p-4 mb-4">
-        <p className="text-sm text-muted-foreground">
-          📚 <span className="font-semibold text-foreground">Reference Book:</span>{" "}
-          GATE Overflow — Previous Years Questions (All Past Years, Topic-wise)
-        </p>
-        <p className="text-xs text-muted-foreground mt-1">
-          Go through each topic's PYQs from GateOverflow. Mark them done as you solve topic-wise questions.
-        </p>
+      <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
+        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-foreground">Book-based Topic Layout</p>
+            <p className="text-sm text-muted-foreground">
+              Built from your uploaded PYQ books, so the section now follows the actual subject and topic buckets instead
+              of the generic study checklist.
+            </p>
+          </div>
+          <div className="rounded-xl bg-primary/5 px-4 py-3 text-right">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Your PYQ progress</p>
+            <p className="text-2xl font-bold text-primary">{summary.pct}%</p>
+            <p className="text-xs text-muted-foreground">
+              {summary.done}/{summary.total} topic buckets done
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="rounded-xl border border-border bg-muted/30 p-3">
+            <p className="text-sm font-semibold text-foreground">Volume 1</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Discrete Mathematics, Engineering Mathematics, and General Aptitude topic groups.
+            </p>
+          </div>
+          <div className="rounded-xl border border-border bg-muted/30 p-3">
+            <p className="text-sm font-semibold text-foreground">Volume 2</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Core CS subjects like Algorithms, OS, DBMS, CN, COA, Digital Logic, Compiler, TOC, and C.
+            </p>
+          </div>
+        </div>
       </div>
 
-      {SUBJECTS.map((subject) => {
-        const topics = getAllTopics(state, subject.id);
-        const { done, total } = getSubjectProgress(state, member, SECTION, subject.id);
-        const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+      {PYQ_SUBJECTS.map((subject) => {
+        const progress = getSubjectProgress(state, member, SECTION, subject.id);
+        const pct = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
         const isOpen = expanded === subject.id;
 
         return (
-          <div key={subject.id} className="bg-card rounded-xl border border-border overflow-hidden">
+          <div key={subject.id} className="bg-card rounded-2xl border border-border overflow-hidden">
             <button
               onClick={() => setExpanded(isOpen ? null : subject.id)}
-              className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
+              className="w-full p-4 text-left hover:bg-muted/30 transition-colors"
             >
-              <div className="flex items-center gap-3">
-                {isOpen ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
-                <span className="font-semibold text-foreground">{subject.name}</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-muted-foreground">{done}/{total}</span>
-                <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
-                  <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} />
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 text-muted-foreground">
+                    {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold text-foreground">{subject.name}</span>
+                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                        {subject.volume}
+                      </span>
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+                        {subject.topics.length} topic buckets
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Mark each topic bucket when you finish the PYQs from the book for that cluster.
+                    </p>
+                  </div>
                 </div>
-                <span className="text-xs font-mono text-muted-foreground w-10 text-right">{pct}%</span>
+
+                <div className="min-w-[180px] space-y-2">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>
+                      {progress.done}/{progress.total} done
+                    </span>
+                    <span>{pct}%</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
               </div>
             </button>
+
             {isOpen && (
-              <div className="px-4 pb-4 space-y-1">
-                {topics.map((topic) => {
-                  const checked = isCompleted(state, member, SECTION, subject.id, topic.id);
-                  return (
-                    <div
-                      key={topic.id}
-                      className={cn(
-                        "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group",
-                        checked ? "bg-accent/10" : "hover:bg-muted/50"
-                      )}
-                    >
-                      <label className="flex items-center gap-3 cursor-pointer flex-1">
+              <div className="border-t border-border px-4 py-4">
+                <div className="grid gap-3 md:grid-cols-2">
+                  {subject.topics.map((topic) => {
+                    const checked = isCompleted(state, member, SECTION, subject.id, topic.id);
+                    return (
+                      <label
+                        key={topic.id}
+                        className={cn(
+                          "flex items-start gap-3 rounded-xl border px-3 py-3 cursor-pointer transition-colors",
+                          checked
+                            ? "border-primary/30 bg-primary/5"
+                            : "border-border bg-background hover:bg-muted/30"
+                        )}
+                      >
                         <input
                           type="checkbox"
                           checked={checked}
-                          onChange={() => handleToggle(subject.id, topic.id)}
-                          className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                          onChange={() => onUpdate(toggleTopic(state, member, SECTION, subject.id, topic.id))}
+                          className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary"
                         />
-                        <span className={cn("text-sm", checked ? "line-through text-muted-foreground" : "text-foreground")}>
-                          {topic.name} — PYQs
-                        </span>
-                        {topic.isCustom && (
-                          <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium">Custom</span>
-                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span
+                              className={cn(
+                                "text-sm font-medium",
+                                checked ? "text-muted-foreground line-through" : "text-foreground"
+                              )}
+                            >
+                              {topic.name}
+                            </span>
+                            {typeof topic.count === "number" && (
+                              <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+                                ~{topic.count} PYQs
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
+                            <FileText className="w-3 h-3" />
+                            <span>{checked ? "Completed for this member" : "Pending in the PYQ book"}</span>
+                          </div>
+                        </div>
                       </label>
-                      <button
-                        onClick={() => handleDeleteTopic(subject.id, topic.id)}
-                        className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive/80 transition-opacity"
-                        title="Delete topic"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  );
-                })}
-
-                {addingTopic === subject.id ? (
-                  <div className="flex gap-2 mt-2 pl-3">
-                    <input
-                      autoFocus
-                      value={newTopicName}
-                      onChange={(e) => setNewTopicName(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleAddTopic(subject.id)}
-                      placeholder="Topic name..."
-                      className="flex-1 px-3 py-1.5 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
-                    <button onClick={() => handleAddTopic(subject.id)} className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90">Add</button>
-                    <button onClick={() => { setAddingTopic(null); setNewTopicName(""); }} className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground">Cancel</button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setAddingTopic(subject.id)}
-                    className="flex items-center gap-2 mt-2 pl-3 text-sm text-primary hover:text-primary/80 font-medium"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    Add Topic
-                  </button>
-                )}
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>

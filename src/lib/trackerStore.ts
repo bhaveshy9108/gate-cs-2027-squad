@@ -1,4 +1,5 @@
 import { SUBJECTS, MEMBERS, type Member, type Topic } from "./gateData";
+import { getPyqSubjectById } from "./pyqCatalog";
 
 const STORAGE_KEY = "gate-cs-2027-tracker";
 
@@ -36,11 +37,14 @@ export interface TrackerState {
 }
 
 export type MockTestType = "subject" | "full" | "weekly";
+export type TestCoverageScope = "full" | "subject" | "topic";
 
 export interface MockTest {
   id: string;
   linkedWeeklyTestId?: string;
   subjectId?: string;
+  coverageScope?: TestCoverageScope;
+  topicLabel?: string;
   source?: string;
   name: string;
   date: string;
@@ -64,6 +68,8 @@ export interface WeeklyTest {
   id: string;
   linkedMockTestId?: string;
   subjectId?: string;
+  coverageScope?: TestCoverageScope;
+  topicLabel?: string;
   link?: string;
   name: string;
   source: WeeklyTestSource;
@@ -161,6 +167,13 @@ function normalizeMockTests(mockTests: unknown): MockTest[] {
       id: record.id ?? `mock-${index}`,
       linkedWeeklyTestId: typeof record.linkedWeeklyTestId === "string" ? record.linkedWeeklyTestId : undefined,
       subjectId: typeof record.subjectId === "string" ? record.subjectId : undefined,
+      coverageScope:
+        record.coverageScope === "subject" || record.coverageScope === "topic" || record.coverageScope === "full"
+          ? record.coverageScope
+          : record.subjectId
+            ? "subject"
+            : "full",
+      topicLabel: typeof record.topicLabel === "string" ? record.topicLabel : "",
       source: typeof record.source === "string" ? record.source : undefined,
       name: record.name ?? `Mock Test ${index + 1}`,
       date: record.date ?? new Date().toISOString().split("T")[0],
@@ -194,6 +207,13 @@ function normalizeWeeklyTests(weeklyTests: unknown): WeeklyTest[] {
       id: record.id ?? `weekly-test-${index}`,
       linkedMockTestId: typeof record.linkedMockTestId === "string" ? record.linkedMockTestId : undefined,
       subjectId: typeof record.subjectId === "string" ? record.subjectId : undefined,
+      coverageScope:
+        record.coverageScope === "subject" || record.coverageScope === "topic" || record.coverageScope === "full"
+          ? record.coverageScope
+          : record.subjectId
+            ? "subject"
+            : "full",
+      topicLabel: typeof record.topicLabel === "string" ? record.topicLabel : "",
       link: typeof record.link === "string" ? record.link : "",
       name: record.name ?? `Weekly Test ${index + 1}`,
       source: typeof record.source === "string" && record.source.trim() ? record.source : "GO Classes",
@@ -362,7 +382,11 @@ export function addCustomTopic(state: TrackerState, subjectId: string, topicName
   };
 }
 
-export function getAllTopics(state: TrackerState, subjectId: string): Topic[] {
+export function getAllTopics(state: TrackerState, subjectId: string, section = "study"): Topic[] {
+  if (section === "pyq") {
+    return getPyqSubjectById(subjectId)?.topics ?? [];
+  }
+
   const subject = SUBJECTS.find((s) => s.id === subjectId);
   const base = subject?.topics || [];
   const deleted = state.deletedTopics?.[subjectId] || [];
@@ -377,7 +401,7 @@ export function getSubjectProgress(
   section: string,
   subjectId: string
 ): { done: number; total: number } {
-  const topics = getAllTopics(state, subjectId);
+  const topics = getAllTopics(state, subjectId, section);
   const done = topics.filter((t) => isCompleted(state, member, section, subjectId, t.id)).length;
   return { done, total: topics.length };
 }
@@ -392,13 +416,47 @@ export function getSubjectNameById(subjectId?: string): string | null {
 }
 
 export function getWeeklyTestDisplayName(test: Pick<WeeklyTest, "name" | "subjectId">): string {
-  const subjectName = getSubjectNameById(test.subjectId);
-  return subjectName ? `${subjectName} - ${test.name}` : test.name;
+  return getStructuredTestDisplayName({
+    name: test.name,
+    subjectId: test.subjectId,
+    coverageScope: (test as Partial<WeeklyTest>).coverageScope,
+    topicLabel: (test as Partial<WeeklyTest>).topicLabel,
+  });
 }
 
 export function getMockTestDisplayName(test: Pick<MockTest, "name" | "subjectId">): string {
+  return getStructuredTestDisplayName({
+    name: test.name,
+    subjectId: test.subjectId,
+    coverageScope: (test as Partial<MockTest>).coverageScope,
+    topicLabel: (test as Partial<MockTest>).topicLabel,
+  });
+}
+
+function getStructuredTestDisplayName(test: {
+  name: string;
+  subjectId?: string;
+  coverageScope?: TestCoverageScope;
+  topicLabel?: string;
+}): string {
   const subjectName = getSubjectNameById(test.subjectId);
-  return subjectName ? `${subjectName} - ${test.name}` : test.name;
+  const topicLabel = test.topicLabel?.trim();
+
+  if (test.coverageScope === "topic" && topicLabel) {
+    return subjectName ? `${subjectName} | ${topicLabel} | ${test.name}` : `${topicLabel} | ${test.name}`;
+  }
+
+  if (test.coverageScope === "subject" && subjectName) {
+    return `${subjectName} | ${test.name}`;
+  }
+
+  return test.name;
+}
+
+export function getCoverageScopeLabel(scope: TestCoverageScope): string {
+  if (scope === "topic") return "Topic Wise";
+  if (scope === "subject") return "Subject Wise";
+  return "Full Syllabus";
 }
 
 export function addTestSeries(state: TrackerState, name: string, url: string): TrackerState {
@@ -467,6 +525,8 @@ export function addWeeklyTest(state: TrackerState, test: WeeklyTest): TrackerSta
     id: linkedMockTestId,
     linkedWeeklyTestId: test.id,
     subjectId: test.subjectId,
+    coverageScope: test.coverageScope,
+    topicLabel: test.topicLabel,
     source: test.source,
     name: getWeeklyTestDisplayName(test),
     date: new Date().toISOString().split("T")[0],
@@ -665,6 +725,8 @@ export interface TestPerformanceRecord {
   type: MockTestType;
   source: WeeklyTestSource | null;
   subjectId?: string;
+  coverageScope?: TestCoverageScope;
+  topicLabel?: string;
   subjectName: string | null;
   date: string;
   totalMarks: number;
@@ -684,6 +746,8 @@ export function getTestPerformanceRecords(state: TrackerState): TestPerformanceR
       type: mockTest.type,
       source: linkedWeeklyTest?.source ?? mockTest.source ?? null,
       subjectId: mockTest.subjectId,
+      coverageScope: mockTest.coverageScope,
+      topicLabel: mockTest.topicLabel,
       subjectName: getSubjectNameById(mockTest.subjectId),
       date: mockTest.date,
       totalMarks: mockTest.totalMarks,
@@ -702,6 +766,9 @@ export function getWeekNumber(date: Date): number {
 export interface WeekProgressMockTest {
   name: string;
   source?: string;
+  subjectId?: string;
+  coverageScope?: TestCoverageScope;
+  topicLabel?: string;
   type: MockTestType;
   totalMarks: number;
   scores: Record<Member, number | null>;
@@ -710,6 +777,8 @@ export interface WeekProgressMockTest {
 export interface WeekProgressWeeklyTest {
   name: string;
   subjectId?: string;
+  coverageScope?: TestCoverageScope;
+  topicLabel?: string;
   link?: string;
   source: WeeklyTestSource;
   kind: WeeklyTestKind;
@@ -752,6 +821,9 @@ export function getWeeklyProgress(state: TrackerState): WeekProgress[] {
     data.mockTests.push({
       name: test.name,
       source: test.source,
+      subjectId: test.subjectId,
+      coverageScope: test.coverageScope,
+      topicLabel: test.topicLabel,
       type: test.type || "full",
       totalMarks: test.totalMarks,
       scores: test.scores,
@@ -764,6 +836,8 @@ export function getWeeklyProgress(state: TrackerState): WeekProgress[] {
     data.weeklyTests.push({
       name: test.name,
       subjectId: test.subjectId,
+      coverageScope: test.coverageScope,
+      topicLabel: test.topicLabel,
       link: test.link,
       source: test.source,
       kind: test.kind,
