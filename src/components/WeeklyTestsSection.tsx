@@ -250,7 +250,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
             >
               {(isQuizOnlySource ? ["quiz"] : kinds).map((value) => (
                 <option key={value} value={value}>
-                  {value === "mock" ? "Mock Test" : value === "subject" ? "Subject Test" : "Quiz"}
+                  {value === "mock" ? "Mock Test" : value === "subject" ? "Subject Test" : "Weekly Quiz"}
                 </option>
               ))}
             </select>
@@ -394,7 +394,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                       {test.source}
                     </span>
                     <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-accent text-accent-foreground">
-                      {test.kind === "mock" ? "Mock" : test.kind === "subject" ? "Subject" : "Quiz"}
+                      {test.kind === "mock" ? "Mock" : test.kind === "subject" ? "Subject" : "Weekly Quiz"}
                     </span>
                     {test.link && (
                       <a
