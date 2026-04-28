@@ -310,15 +310,6 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
         )}
       </div>
 
-      <div className="flex justify-end">
-        <button
-          onClick={() => setShowAdd(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90"
-        >
-          <Plus className="w-3.5 h-3.5" /> Add Weekly Test
-        </button>
-      </div>
-
       {showAdd && (
         <div className="bg-card border border-border rounded-xl p-4 space-y-3">
           <input
@@ -470,25 +461,36 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
       )}
 
       {sortedTests.length > 0 && (
-        <div className="space-y-2">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           {analysis.map((entry) => (
             <div
               key={entry.member}
-              className={`rounded-xl border-2 px-3 py-2 ${memberBorder[entry.member]}`}
+              className={`group rounded-xl border-2 px-3 py-2 min-h-[64px] ${memberBorder[entry.member]}`}
             >
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+              <div className="flex items-center justify-between gap-2 text-sm">
                 <div className="flex items-center gap-1.5 font-semibold">
                   <span>{entry.member}</span>
                   {entry.bestPercent !== null && <Trophy className="w-3.5 h-3.5" />}
                 </div>
-                <span>Tests: {entry.testsTaken}</span>
-                <span>Avg: {entry.averagePercent !== null ? `${entry.averagePercent}%` : "-"}</span>
-                <span>Best: {entry.bestPercent !== null ? `${entry.bestPercent}%` : "-"}</span>
+                <span className="text-xs font-medium">Tests: {entry.testsTaken}</span>
+              </div>
+              <div className="mt-1 text-[11px] opacity-0 max-h-0 overflow-hidden transition-all duration-200 group-hover:opacity-100 group-hover:max-h-16">
+                <p>Average: {entry.averagePercent !== null ? `${entry.averagePercent}%` : "-"}</p>
+                <p>Best: {entry.bestPercent !== null ? `${entry.bestPercent}%` : "-"}</p>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      <div className="flex justify-end">
+        <button
+          onClick={() => setShowAdd(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90"
+        >
+          <Plus className="w-3.5 h-3.5" /> Add Weekly Test
+        </button>
+      </div>
 
       {subjectTests.length > 0 && (
         <div className="bg-card border border-border rounded-xl p-4 space-y-3">
