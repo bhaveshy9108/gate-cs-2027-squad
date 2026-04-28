@@ -3,12 +3,14 @@ import { MEMBERS, SUBJECTS, type Member } from "@/lib/gateData";
 import {
   type TrackerState,
   addMockTest,
+  getCoverageScopeLabel,
   getMockTestDisplayName,
   getMockTestTypeLabel,
   updateMockScore,
   deleteMockTest,
   getHighestScorer,
   type MockTest,
+  type TestCoverageScope,
   type MockTestType,
 } from "@/lib/trackerStore";
 import { ClipboardList, Link2, Plus, Trash2, Trophy } from "lucide-react";
@@ -27,7 +29,9 @@ export default function MockTestSection({ state, onUpdate }: Props) {
   const [totalMarks, setTotalMarks] = useState("");
   const [notes, setNotes] = useState("");
   const [testType, setTestType] = useState<MockTestType>("full");
+  const [coverageScope, setCoverageScope] = useState<TestCoverageScope>("full");
   const [subjectId, setSubjectId] = useState("");
+  const [topicLabel, setTopicLabel] = useState("");
   const [source, setSource] = useState("GO Classes");
   const [editingScore, setEditingScore] = useState<{ testId: string; member: Member } | null>(null);
   const [scoreInput, setScoreInput] = useState("");
@@ -39,6 +43,12 @@ export default function MockTestSection({ state, onUpdate }: Props) {
         return "border-person1";
       case "Aryan":
         return "border-amber-500";
+      case "Avani":
+        return "border-pink-500";
+      case "Akshita":
+        return "border-emerald-500";
+      case "Nayan":
+        return "border-violet-500";
     }
   };
 
@@ -47,7 +57,9 @@ export default function MockTestSection({ state, onUpdate }: Props) {
     const test: MockTest = {
       id: `mock-${Date.now()}`,
       name: testName.trim(),
-      subjectId: subjectId || undefined,
+      subjectId: coverageScope !== "full" ? subjectId || undefined : undefined,
+      coverageScope,
+      topicLabel: coverageScope === "topic" ? topicLabel.trim() : "",
       source,
       date: new Date().toISOString().split("T")[0],
       type: isQuizOnlySource ? "weekly" : testType,
@@ -60,7 +72,9 @@ export default function MockTestSection({ state, onUpdate }: Props) {
     setTotalMarks("");
     setNotes("");
     setTestType("full");
+    setCoverageScope("full");
     setSubjectId("");
+    setTopicLabel("");
     setSource("GO Classes");
     setShowAdd(false);
   };
@@ -101,7 +115,7 @@ export default function MockTestSection({ state, onUpdate }: Props) {
             placeholder="Test name (e.g., Mock Test 1 - Made Easy)"
             className="w-full px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
           />
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-4">
             <select
               value={source}
               onChange={(e) => {
@@ -109,6 +123,9 @@ export default function MockTestSection({ state, onUpdate }: Props) {
                 setSource(nextSource);
                 if (nextSource === QUIZ_ONLY_SOURCE) {
                   setTestType("weekly");
+                  if (coverageScope === "full") {
+                    setCoverageScope("topic");
+                  }
                 }
               }}
               className="px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
@@ -143,16 +160,43 @@ export default function MockTestSection({ state, onUpdate }: Props) {
             <select
               value={subjectId}
               onChange={(e) => setSubjectId(e.target.value)}
-              className="px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+              disabled={coverageScope === "full"}
+              className="px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <option value="">General / Full Syllabus</option>
+              <option value="">{coverageScope === "topic" ? "Select subject for topic" : "Select subject"}</option>
               {SUBJECTS.map((subject) => (
                 <option key={subject.id} value={subject.id}>
                   {subject.name}
                 </option>
               ))}
             </select>
+            <select
+              value={coverageScope}
+              onChange={(e) => {
+                const nextScope = e.target.value as TestCoverageScope;
+                setCoverageScope(nextScope);
+                if (nextScope === "full") {
+                  setSubjectId("");
+                  setTopicLabel("");
+                } else if (nextScope === "subject") {
+                  setTopicLabel("");
+                }
+              }}
+              className="px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="full">Full Syllabus</option>
+              <option value="subject">Subject Wise</option>
+              <option value="topic">Topic Wise</option>
+            </select>
           </div>
+          {coverageScope === "topic" && (
+            <input
+              value={topicLabel}
+              onChange={(e) => setTopicLabel(e.target.value)}
+              placeholder="Topic wise name (e.g., Set Theory, Linear Algebra)"
+              className="w-full px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          )}
           <input
             value={totalMarks}
             onChange={(e) => setTotalMarks(e.target.value)}
@@ -178,7 +222,9 @@ export default function MockTestSection({ state, onUpdate }: Props) {
                 setTotalMarks("");
                 setNotes("");
                 setTestType("full");
+                setCoverageScope("full");
                 setSubjectId("");
+                setTopicLabel("");
                 setSource("GO Classes");
               }}
               className="px-3 py-2 text-sm text-muted-foreground"
@@ -221,6 +267,9 @@ export default function MockTestSection({ state, onUpdate }: Props) {
                     {test.source}
                   </span>
                 )}
+                <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-muted text-muted-foreground">
+                  {getCoverageScopeLabel(test.coverageScope ?? "full")}
+                </span>
                 {isLinkedWeeklyTest && (
                   <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
                     <Link2 className="w-3 h-3" />

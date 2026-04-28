@@ -6,6 +6,9 @@ import { cn } from "@/lib/utils";
 const memberColor: Record<Member, string> = {
   Bhavesh: "bg-person1",
   Aryan: "bg-amber-500",
+  Avani: "bg-pink-500",
+  Akshita: "bg-emerald-500",
+  Nayan: "bg-violet-500",
 };
 
 const SECTIONS = [
@@ -29,10 +32,10 @@ export default function OverallDashboard({ state }: Props) {
         <h2 className="text-lg font-bold text-foreground">Overall Progress</h2>
       </div>
       <p className="text-xs text-muted-foreground -mt-1">
-        Subject weightage below is now based on the uploaded PYQ-book distribution.
+        Subject weightage below is now shown as approximate marks based on the uploaded PYQ-book distribution.
       </p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 mb-4">
         {MEMBERS.map((m) => {
           let totalDone = 0, totalAll = 0;
           SECTIONS.forEach((sec) => {
@@ -109,7 +112,7 @@ export default function OverallDashboard({ state }: Props) {
                 <td className="py-2 px-3 font-medium text-foreground text-xs">{sub.name}</td>
                 <td className="text-center py-2 px-2">
                   <span className="inline-block bg-primary/10 text-primary text-xs font-bold px-2 py-0.5 rounded-full">
-                    ~{sub.weightage}%
+                    ~{sub.weightage}m
                   </span>
                 </td>
                 {MEMBERS.map((m) =>

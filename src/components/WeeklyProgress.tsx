@@ -6,6 +6,9 @@ import { cn } from "@/lib/utils";
 const memberBadge: Record<Member, string> = {
   Bhavesh: "bg-person1/15 text-person1",
   Aryan: "bg-amber-500/15 text-amber-600",
+  Avani: "bg-pink-500/15 text-pink-600",
+  Akshita: "bg-emerald-500/15 text-emerald-600",
+  Nayan: "bg-violet-500/15 text-violet-600",
 };
 
 interface Props {

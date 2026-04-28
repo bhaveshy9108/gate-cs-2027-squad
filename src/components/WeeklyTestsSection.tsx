@@ -31,6 +31,9 @@ const QUIZ_ONLY_SOURCE = "GateOverflow Quizzes";
 const memberBorder: Record<Member, string> = {
   Bhavesh: "border-person1 text-person1",
   Aryan: "border-amber-500 text-amber-600",
+  Avani: "border-pink-500 text-pink-600",
+  Akshita: "border-emerald-500 text-emerald-600",
+  Nayan: "border-violet-500 text-violet-600",
 };
 
 export default function WeeklyTestsSection({ state, onUpdate }: Props) {
