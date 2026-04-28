@@ -764,7 +764,9 @@ export function getWeekNumber(date: Date): number {
 
 // Week-wise progress
 export interface WeekProgressMockTest {
+  id: string;
   name: string;
+  date: string;
   source?: string;
   subjectId?: string;
   coverageScope?: TestCoverageScope;
@@ -775,6 +777,7 @@ export interface WeekProgressMockTest {
 }
 
 export interface WeekProgressWeeklyTest {
+  id: string;
   name: string;
   subjectId?: string;
   coverageScope?: TestCoverageScope;
@@ -819,7 +822,9 @@ export function getWeeklyProgress(state: TrackerState): WeekProgress[] {
     const week = getWeekNumber(new Date(test.date));
     const data = weekMap.get(week) || { items: [], mockTests: [], weeklyTests: [] };
     data.mockTests.push({
+      id: test.id,
       name: test.name,
+      date: test.date,
       source: test.source,
       subjectId: test.subjectId,
       coverageScope: test.coverageScope,
@@ -834,6 +839,7 @@ export function getWeeklyProgress(state: TrackerState): WeekProgress[] {
   for (const test of state.weeklyTests) {
     const data = weekMap.get(test.scheduledWeek) || { items: [], mockTests: [], weeklyTests: [] };
     data.weeklyTests.push({
+      id: test.id,
       name: test.name,
       subjectId: test.subjectId,
       coverageScope: test.coverageScope,

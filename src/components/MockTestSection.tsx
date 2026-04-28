@@ -36,6 +36,11 @@ export default function MockTestSection({ state, onUpdate }: Props) {
   const [editingScore, setEditingScore] = useState<{ testId: string; member: Member } | null>(null);
   const [scoreInput, setScoreInput] = useState("");
   const isQuizOnlySource = source === QUIZ_ONLY_SOURCE;
+  const sortedMockTests = [...state.mockTests].sort((a, b) => {
+    const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
+    if (dateDiff !== 0) return dateDiff;
+    return b.id.localeCompare(a.id);
+  });
 
   const getMemberBorderColor = (member: Member) => {
     switch (member) {
@@ -235,13 +240,13 @@ export default function MockTestSection({ state, onUpdate }: Props) {
         </div>
       )}
 
-      {state.mockTests.length === 0 && !showAdd && (
+      {sortedMockTests.length === 0 && !showAdd && (
         <div className="bg-card border border-border rounded-xl p-8 text-center text-muted-foreground text-sm">
           No mock tests added yet. Click "Add Test" to get started.
         </div>
       )}
 
-      {state.mockTests.map((test) => {
+      {sortedMockTests.map((test) => {
         const highest = getHighestScorer(test);
         const allScored = MEMBERS.every((m) => test.scores[m] !== null);
         const isLinkedWeeklyTest = Boolean(test.linkedWeeklyTestId);

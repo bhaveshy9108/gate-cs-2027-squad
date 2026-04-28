@@ -36,6 +36,13 @@ export default function WeeklyProgress({ state }: Props) {
       )}
 
       {weeks.map((wp) => {
+        const sortedMockTests = [...wp.mockTests].sort((a, b) => {
+          const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
+          if (dateDiff !== 0) return dateDiff;
+          return b.id.localeCompare(a.id);
+        });
+        const sortedWeeklyTests = [...wp.weeklyTests].sort((a, b) => b.id.localeCompare(a.id));
+
         const memberCounts = MEMBERS.map((member) => ({
           member,
           count: wp.items.filter((item) => item.member === member).length,
@@ -109,13 +116,13 @@ export default function WeeklyProgress({ state }: Props) {
                 );
               })}
 
-              {wp.mockTests.length > 0 && (
+              {sortedMockTests.length > 0 && (
                 <div className="border-t border-border pt-3 space-y-2">
                   <div className="flex items-center gap-1.5">
                     <ClipboardList className="w-3.5 h-3.5 text-primary" />
                     <span className="text-xs font-semibold text-foreground">Mock Tests This Week</span>
                   </div>
-                  {wp.mockTests.map((test, idx) => {
+                  {sortedMockTests.map((test, idx) => {
                     const scoredMembers = MEMBERS.filter((member) => test.scores[member] !== null);
                     const best =
                       scoredMembers.length > 0
@@ -163,13 +170,13 @@ export default function WeeklyProgress({ state }: Props) {
                 </div>
               )}
 
-              {wp.weeklyTests.length > 0 && (
+              {sortedWeeklyTests.length > 0 && (
                 <div className="border-t border-border pt-3 space-y-2">
                   <div className="flex items-center gap-1.5">
                     <ListTodo className="w-3.5 h-3.5 text-primary" />
                     <span className="text-xs font-semibold text-foreground">Weekly Tests This Week</span>
                   </div>
-                  {wp.weeklyTests.map((test, idx) => (
+                  {sortedWeeklyTests.map((test, idx) => (
                     <div key={idx} className="bg-muted/40 rounded-lg px-3 py-2">
                       <div className="flex flex-wrap items-center gap-2 mb-1">
                         <span className="text-xs font-semibold text-foreground">{getWeeklyTestDisplayName(test)}</span>
