@@ -154,17 +154,9 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <CalendarCheck2 className="w-5 h-5 text-primary" />
-          <h2 className="text-lg font-bold text-foreground">Weekly Tests</h2>
-        </div>
-        <button
-          onClick={() => setShowAdd(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90"
-        >
-          <Plus className="w-3.5 h-3.5" /> Add Weekly Test
-        </button>
+      <div className="flex items-center gap-2 mb-2">
+        <CalendarCheck2 className="w-5 h-5 text-primary" />
+        <h2 className="text-lg font-bold text-foreground">Weekly Tests</h2>
       </div>
 
       <p className="text-xs text-muted-foreground">
@@ -316,6 +308,15 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
             )}
           </div>
         )}
+      </div>
+
+      <div className="flex justify-end">
+        <button
+          onClick={() => setShowAdd(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90"
+        >
+          <Plus className="w-3.5 h-3.5" /> Add Weekly Test
+        </button>
       </div>
 
       {showAdd && (
