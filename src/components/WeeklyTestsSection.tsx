@@ -470,16 +470,21 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
       )}
 
       {sortedTests.length > 0 && (
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="space-y-2">
           {analysis.map((entry) => (
-            <div key={entry.member} className={`rounded-xl border-2 p-4 ${memberBorder[entry.member]}`}>
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold">{entry.member}</h3>
-                {entry.bestPercent !== null && <Trophy className="w-4 h-4" />}
+            <div
+              key={entry.member}
+              className={`rounded-xl border-2 px-3 py-2 ${memberBorder[entry.member]}`}
+            >
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                <div className="flex items-center gap-1.5 font-semibold">
+                  <span>{entry.member}</span>
+                  {entry.bestPercent !== null && <Trophy className="w-3.5 h-3.5" />}
+                </div>
+                <span>Tests: {entry.testsTaken}</span>
+                <span>Avg: {entry.averagePercent !== null ? `${entry.averagePercent}%` : "-"}</span>
+                <span>Best: {entry.bestPercent !== null ? `${entry.bestPercent}%` : "-"}</span>
               </div>
-              <p className="text-sm mt-2">Tests taken: {entry.testsTaken}</p>
-              <p className="text-sm">Average: {entry.averagePercent !== null ? `${entry.averagePercent}%` : "-"}</p>
-              <p className="text-sm">Best: {entry.bestPercent !== null ? `${entry.bestPercent}%` : "-"}</p>
             </div>
           ))}
         </div>
