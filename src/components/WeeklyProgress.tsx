@@ -1,5 +1,5 @@
 import { MEMBERS, type Member } from "@/lib/gateData";
-import { getMockTestTypeLabel, getWeekDateRange, getWeeklyProgress, getWeeklyTestDisplayName, type TrackerState } from "@/lib/trackerStore";
+import { getCoverageScopeLabel, getMockTestDisplayName, getMockTestTypeLabel, getWeekDateRange, getWeeklyProgress, getWeeklyTestDisplayName, type TrackerState } from "@/lib/trackerStore";
 import { CalendarDays, ClipboardList, ExternalLink, ListTodo, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -13,7 +13,7 @@ interface Props {
 }
 
 export default function WeeklyProgress({ state }: Props) {
-  const weeks = getWeeklyProgress(state);
+  const weeks = [...getWeeklyProgress(state)].sort((a, b) => b.week - a.week);
 
   return (
     <div className="space-y-4">
@@ -122,7 +122,7 @@ export default function WeeklyProgress({ state }: Props) {
                     return (
                       <div key={idx} className="bg-muted/40 rounded-lg px-3 py-2">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs font-semibold text-foreground">{test.name}</span>
+                          <span className="text-xs font-semibold text-foreground">{getMockTestDisplayName(test)}</span>
                           <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${test.type === "subject" ? "bg-accent text-accent-foreground" : test.type === "weekly" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-primary/10 text-primary"}`}>
                             {getMockTestTypeLabel(test.type)}
                           </span>
@@ -131,6 +131,9 @@ export default function WeeklyProgress({ state }: Props) {
                               {test.source}
                             </span>
                           )}
+                          <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-muted text-muted-foreground">
+                            {getCoverageScopeLabel(test.coverageScope ?? "full")}
+                          </span>
                         </div>
                         <div className="flex flex-wrap gap-2">
                           {MEMBERS.map((member) => {
@@ -169,6 +172,9 @@ export default function WeeklyProgress({ state }: Props) {
                         <span className="text-xs font-semibold text-foreground">{getWeeklyTestDisplayName(test)}</span>
                         <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-primary/10 text-primary">
                           {test.source}
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-muted text-muted-foreground">
+                          {getCoverageScopeLabel(test.coverageScope ?? "full")}
                         </span>
                         <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-accent text-accent-foreground">
                           {test.kind === "mock" ? "Mock" : test.kind === "subject" ? "Subject" : "Quiz"}

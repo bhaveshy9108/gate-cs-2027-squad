@@ -36,6 +36,7 @@ const memberBorder: Record<Member, string> = {
 export default function WeeklyTestsSection({ state, onUpdate }: Props) {
   const currentWeek = getWeekNumber(new Date());
   const [showAdd, setShowAdd] = useState(false);
+  const [showAddSeries, setShowAddSeries] = useState(false);
   const [name, setName] = useState("");
   const [source, setSource] = useState<WeeklyTestSource>("GO Classes");
   const [kind, setKind] = useState<WeeklyTestKind>("mock");
@@ -53,7 +54,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
   const [draftScores, setDraftScores] = useState<Record<string, string>>({});
 
   const sortedTests = useMemo(
-    () => [...state.weeklyTests].sort((a, b) => a.scheduledWeek - b.scheduledWeek || a.name.localeCompare(b.name)),
+    () => [...state.weeklyTests].sort((a, b) => b.scheduledWeek - a.scheduledWeek || a.name.localeCompare(b.name)),
     [state.weeklyTests]
   );
   const analysis = useMemo(() => getWeeklyTestAnalysis(state), [state]);
@@ -70,7 +71,6 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
   }, {});
 
   const isQuizOnlySource = source === QUIZ_ONLY_SOURCE;
-  const linkedSeries = useMemo(() => state.testSeries.filter((series) => series.url.trim()), [state.testSeries]);
   const selectedSeries =
     state.testSeries.find((series) => series.id === selectedSeriesId) ??
     state.testSeries[0] ??
@@ -122,6 +122,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
     }
     setSeriesName("");
     setSeriesUrl("");
+    setShowAddSeries(false);
   };
 
   const getDraftKey = (testId: string, member: Member, field: "score" | "outOf") => `${testId}|${member}|${field}`;
@@ -175,41 +176,47 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
         <p className="text-xs text-muted-foreground">
           Add and manage the test series you use. Any series added here becomes available in both Weekly Tests and Mock Tests.
         </p>
-        {linkedSeries.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground">Quick access</p>
-            <div className="flex flex-wrap gap-2">
-              {linkedSeries.map((series) => (
-                <a
-                  key={series.id}
-                  href={series.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10"
+        <div className="flex justify-end">
+          {!showAddSeries ? (
+            <button
+              onClick={() => setShowAddSeries(true)}
+              className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg font-medium"
+            >
+              Add Series
+            </button>
+          ) : (
+            <div className="w-full rounded-lg border border-dashed border-border bg-background p-3 space-y-3">
+              <div className="grid gap-3 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)_auto]">
+                <input
+                  value={seriesName}
+                  onChange={(e) => setSeriesName(e.target.value)}
+                  placeholder="Test series name"
+                  className="w-full px-3 py-2 text-sm bg-background rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <input
+                  value={seriesUrl}
+                  onChange={(e) => setSeriesUrl(e.target.value)}
+                  placeholder="Test series link"
+                  className="w-full px-3 py-2 text-sm bg-background rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <button onClick={handleAddSeries} className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg font-medium">
+                  Save
+                </button>
+              </div>
+              <div className="flex justify-end">
+                <button
+                  onClick={() => {
+                    setShowAddSeries(false);
+                    setSeriesName("");
+                    setSeriesUrl("");
+                  }}
+                  className="px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
                 >
-                  {series.name}
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              ))}
+                  Cancel
+                </button>
+              </div>
             </div>
-          </div>
-        )}
-        <div className="grid gap-3 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)_auto]">
-          <input
-            value={seriesName}
-            onChange={(e) => setSeriesName(e.target.value)}
-            placeholder="Test series name"
-            className="w-full px-3 py-2 text-sm bg-background rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-          <input
-            value={seriesUrl}
-            onChange={(e) => setSeriesUrl(e.target.value)}
-            placeholder="Test series link"
-            className="w-full px-3 py-2 text-sm bg-background rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-          <button onClick={handleAddSeries} className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg font-medium">
-            Add Series
-          </button>
+          )}
         </div>
         {selectedSeries && (
           <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-3">

@@ -28,6 +28,9 @@ export default function OverallDashboard({ state }: Props) {
         <BarChart3 className="w-5 h-5 text-primary" />
         <h2 className="text-lg font-bold text-foreground">Overall Progress</h2>
       </div>
+      <p className="text-xs text-muted-foreground -mt-1">
+        Subject weightage below is now based on the uploaded PYQ-book distribution.
+      </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
         {MEMBERS.map((m) => {
@@ -81,7 +84,7 @@ export default function OverallDashboard({ state }: Props) {
           <thead>
             <tr className="border-b border-border">
               <th className="text-left py-2 px-3 text-muted-foreground font-medium">Subject</th>
-              <th className="text-center py-2 px-2 text-muted-foreground font-medium">Weightage</th>
+              <th className="text-center py-2 px-2 text-muted-foreground font-medium">PYQ Weightage</th>
               {MEMBERS.map((m) => (
                 <th key={m} className="text-center py-2 px-2 text-muted-foreground font-medium" colSpan={3}>
                   {m}
@@ -106,7 +109,7 @@ export default function OverallDashboard({ state }: Props) {
                 <td className="py-2 px-3 font-medium text-foreground text-xs">{sub.name}</td>
                 <td className="text-center py-2 px-2">
                   <span className="inline-block bg-primary/10 text-primary text-xs font-bold px-2 py-0.5 rounded-full">
-                    ~{sub.weightage}m
+                    ~{sub.weightage}%
                   </span>
                 </td>
                 {MEMBERS.map((m) =>
