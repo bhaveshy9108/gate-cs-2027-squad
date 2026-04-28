@@ -32,7 +32,7 @@ export default function OverallDashboard({ state }: Props) {
         <h2 className="text-lg font-bold text-foreground">Overall Progress</h2>
       </div>
       <p className="text-xs text-muted-foreground -mt-1">
-        Subject weightage below is now shown as approximate marks based on the uploaded PYQ-book distribution.
+        Subject weightage below is shown as approximate marks from the 2021-2025 GATE CSE trend.
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 mb-4">
