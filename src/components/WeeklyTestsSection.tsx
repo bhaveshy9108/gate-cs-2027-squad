@@ -57,7 +57,11 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
   const [draftScores, setDraftScores] = useState<Record<string, string>>({});
 
   const sortedTests = useMemo(
-    () => [...state.weeklyTests].sort((a, b) => b.scheduledWeek - a.scheduledWeek || a.name.localeCompare(b.name)),
+    () =>
+      [...state.weeklyTests].sort((a, b) => {
+        if (b.scheduledWeek !== a.scheduledWeek) return b.scheduledWeek - a.scheduledWeek;
+        return b.id.localeCompare(a.id);
+      }),
     [state.weeklyTests]
   );
   const analysis = useMemo(() => getWeeklyTestAnalysis(state), [state]);
