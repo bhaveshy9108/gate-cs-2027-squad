@@ -459,7 +459,7 @@ export default function Index() {
                   Personal study cockpit
                 </p>
                 <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">GATE CS 2027</h1>
-                <p className="text-sm text-muted-foreground">Built around your current room, your progress, and your next move.</p>
+                <p className="text-sm text-muted-foreground">Goal: AIR 10 MTECH CS IIT BOMBAY.</p>
               </div>
             </div>
 
@@ -500,6 +500,28 @@ export default function Index() {
       </header>
 
       <main className="relative mx-auto max-w-7xl px-4 py-6 lg:py-8">
+        {tab !== "dashboard" ? (
+          <section className="overflow-hidden rounded-[1.75rem] border border-border/70 bg-card/95 shadow-[0_24px_70px_-35px_rgba(15,23,42,0.35)] backdrop-blur">
+            <div className="border-b border-border/70 px-6 py-5 sm:px-8">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="space-y-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-muted-foreground">Goal</p>
+                  <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">AIR 10 MTECH CS IIT BOMBAY</h2>
+                  <p className="text-sm text-muted-foreground">Current section: {activeTab.label}</p>
+                </div>
+                <button
+                  onClick={() => setTab("dashboard")}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-border/70 bg-background/70 px-4 py-2 text-sm font-medium text-foreground transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
+                >
+                  <BarChart3 className="h-4 w-4" />
+                  Back to dashboard
+                </button>
+              </div>
+            </div>
+
+            <div className="px-6 py-6 sm:px-8">{renderActiveContent()}</div>
+          </section>
+        ) : (
         <section className="grid gap-5 xl:grid-cols-[1.55fr_.9fr]">
           <div className="overflow-hidden rounded-[1.75rem] border border-border/70 bg-card/95 shadow-[0_24px_70px_-35px_rgba(15,23,42,0.35)] backdrop-blur">
             <div className="border-b border-border/70 px-6 py-6 sm:px-8">
@@ -507,11 +529,11 @@ export default function Index() {
                 <div className="max-w-2xl space-y-3">
                   <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-muted/60 px-3 py-1 text-xs font-medium text-muted-foreground">
                     <Sparkles className="h-3.5 w-3.5 text-primary" />
-                    Focus mode is on
+                    Goal locked
                   </div>
-                  <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">A cleaner cockpit for one person, with less noise and more momentum.</h2>
+                  <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">AIR 10 MTECH CS IIT BOMBAY</h2>
                   <p className="max-w-xl text-sm text-muted-foreground sm:text-base">
-                    Switch between sections, track your sessions, and keep the room synced without the UI fighting you.
+                    A focused dashboard for your study path. Keep the essentials here, and use the tabs for the work itself.
                   </p>
                 </div>
 
@@ -775,6 +797,7 @@ export default function Index() {
             </div>
           </aside>
         </section>
+        )}
       </main>
     </div>
   );
