@@ -78,15 +78,15 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-[1.5rem] border border-border/70 bg-card/90 p-5 shadow-sm">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-[1.5rem] border border-border/70 bg-card/90 p-4 shadow-sm sm:p-5">
           <div className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4 text-primary" />
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">Overall</p>
           </div>
-          <div className="mt-4 flex items-end justify-between gap-3">
-            <div>
-              <p className="text-4xl font-semibold tracking-tight text-foreground">{overallPct}%</p>
+          <div className="mt-4 flex min-w-0 items-end justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">{overallPct}%</p>
               <p className="mt-1 text-sm text-muted-foreground">
                 {overallDone}/{overallTotal} tasks completed
               </p>
@@ -103,12 +103,12 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
           </div>
         </div>
 
-        <div className="rounded-[1.5rem] border border-border/70 bg-card/90 p-5 shadow-sm">
+        <div className="rounded-[1.5rem] border border-border/70 bg-card/90 p-4 shadow-sm sm:p-5">
           <div className="flex items-center gap-2">
             <Trophy className="h-4 w-4 text-primary" />
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">Best subject</p>
           </div>
-          <p className="mt-4 text-2xl font-semibold tracking-tight text-foreground">
+          <p className="mt-4 break-words text-xl font-semibold leading-tight tracking-tight text-foreground sm:text-2xl">
             {strongestSubject?.name ?? "No subject yet"}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -116,12 +116,12 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
           </p>
         </div>
 
-        <div className="rounded-[1.5rem] border border-border/70 bg-card/90 p-5 shadow-sm">
+        <div className="rounded-[1.5rem] border border-border/70 bg-card/90 p-4 shadow-sm sm:p-5">
           <div className="flex items-center gap-2">
             <Target className="h-4 w-4 text-primary" />
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">Next focus</p>
           </div>
-          <p className="mt-4 text-2xl font-semibold tracking-tight text-foreground">
+          <p className="mt-4 break-words text-xl font-semibold leading-tight tracking-tight text-foreground sm:text-2xl">
             {weakestSubject?.name ?? "Nothing to focus yet"}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -129,12 +129,12 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
           </p>
         </div>
 
-        <div className="rounded-[1.5rem] border border-border/70 bg-card/90 p-5 shadow-sm">
+        <div className="rounded-[1.5rem] border border-border/70 bg-card/90 p-4 shadow-sm sm:p-5">
           <div className="flex items-center gap-2">
             <Flame className="h-4 w-4 text-primary" />
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">Difficulty</p>
           </div>
-          <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+          <div className="mt-4 grid grid-cols-1 gap-2 text-center sm:grid-cols-3">
             <div className="rounded-2xl border border-border/70 bg-background/70 p-3">
               <p className="text-lg font-semibold text-foreground">{difficultyStats.easy}</p>
               <p className="text-[11px] text-muted-foreground">Easy</p>
@@ -160,20 +160,20 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
         </div>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[1.12fr_.88fr]">
-        <div className="rounded-[1.75rem] border border-border/70 bg-card/95 p-5 shadow-[0_24px_70px_-35px_rgba(15,23,42,0.35)]">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.12fr)_minmax(0,0.88fr)]">
+        <div className="rounded-[1.75rem] border border-border/70 bg-card/95 p-4 shadow-[0_24px_70px_-35px_rgba(15,23,42,0.35)] sm:p-5">
           <div className="flex items-center justify-between gap-3">
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <BarChart3 className="h-4 w-4 text-primary" />
                 <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">Subjects</p>
               </div>
               <h3 className="mt-2 text-xl font-semibold tracking-tight text-foreground">Interactive progress board</h3>
             </div>
-            <p className="text-xs text-muted-foreground">Click a subject to inspect it</p>
+            <p className="hidden text-xs text-muted-foreground sm:block">Click a subject to inspect it</p>
           </div>
 
-          <div className="mt-5 grid gap-3 md:grid-cols-2">
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
             {subjectSummaries.map((subject) => {
               const isSelected = subject.id === selectedSubject?.id;
               return (
@@ -181,13 +181,13 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
                   key={subject.id}
                   onClick={() => setSelectedSubjectId(subject.id)}
                   className={cn(
-                    "group rounded-3xl border p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg",
+                    "group min-w-0 rounded-3xl border p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg",
                     isSelected ? "border-primary/30 bg-primary/5 shadow-lg shadow-primary/10" : "border-border/70 bg-background/70 hover:border-primary/30"
                   )}
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-1">
-                      <p className="font-semibold text-foreground">{subject.name}</p>
+                    <div className="min-w-0 space-y-1">
+                      <p className="break-words text-sm font-semibold leading-tight text-foreground sm:text-base">{subject.name}</p>
                       <p className="text-xs text-muted-foreground">~{subject.weightage} marks</p>
                     </div>
                     <div className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
@@ -202,7 +202,7 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
                     />
                   </div>
 
-                  <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                  <div className="mt-4 grid gap-2 xl:grid-cols-3">
                     {SECTION_META.map((section) => {
                       const Icon = section.icon;
                       const value = subject.counts[section.key];
@@ -238,14 +238,14 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
         </div>
 
         <div className="space-y-5">
-          <div className="rounded-[1.75rem] border border-border/70 bg-card/95 p-5 shadow-[0_24px_70px_-35px_rgba(15,23,42,0.35)]">
+          <div className="rounded-[1.75rem] border border-border/70 bg-card/95 p-4 shadow-[0_24px_70px_-35px_rgba(15,23,42,0.35)] sm:p-5">
             <div className="flex items-center justify-between gap-3">
-              <div>
+              <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-primary" />
                   <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">Selected</p>
                 </div>
-                <h3 className="mt-2 text-xl font-semibold tracking-tight text-foreground">
+                <h3 className="mt-2 break-words text-xl font-semibold leading-tight tracking-tight text-foreground">
                   {selectedSubject?.name ?? "Pick a subject"}
                 </h3>
               </div>
@@ -262,12 +262,12 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
                   const value = selectedSubject.counts[section.key];
                   return (
                     <div key={section.key} className="rounded-2xl border border-border/70 bg-background/70 p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex min-w-0 items-center gap-2">
                           <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
                             <Icon className="h-4 w-4" />
                           </span>
-                          <div>
+                          <div className="min-w-0">
                             <p className="font-semibold text-foreground">{section.label}</p>
                             <p className="text-xs text-muted-foreground">
                               {value.done}/{value.total} topics
@@ -310,7 +310,7 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
             </div>
           </div>
 
-          <div className="rounded-[1.75rem] border border-border/70 bg-card/95 p-5 shadow-[0_24px_70px_-35px_rgba(15,23,42,0.35)]">
+          <div className="rounded-[1.75rem] border border-border/70 bg-card/95 p-4 shadow-[0_24px_70px_-35px_rgba(15,23,42,0.35)] sm:p-5">
             <div className="flex items-center gap-2">
               <ArrowRight className="h-4 w-4 text-primary" />
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">Fast reads</p>
