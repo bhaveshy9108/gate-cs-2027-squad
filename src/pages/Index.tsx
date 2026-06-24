@@ -320,7 +320,7 @@ export default function Index() {
         return (
           <div className="grid gap-5 xl:grid-cols-[1.15fr_.85fr]">
             <div className="space-y-5">
-              <OverallDashboard state={state} />
+              <OverallDashboard state={state} onOpenSection={(section) => setTab(section)} />
               <StreakCalendar state={state} />
             </div>
             <div className="space-y-5">

@@ -1,136 +1,336 @@
-import { SUBJECTS, MEMBERS, type Member } from "@/lib/gateData";
-import { type TrackerState, getSubjectProgress, getDifficultyStats } from "@/lib/trackerStore";
-import { BarChart3 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowRight, BarChart3, BookMarked, BookOpen, Flame, Sparkles, RefreshCw, Target, Trophy } from "lucide-react";
+
+import { SUBJECTS } from "@/lib/gateData";
+import { type TrackerState, getDifficultyStats, getSubjectProgress } from "@/lib/trackerStore";
 import { cn } from "@/lib/utils";
 
-const memberColor: Record<Member, string> = {
-  Bhavesh: "bg-person1",
-};
+const SECTION_META = [
+  { key: "study", label: "Study", icon: BookOpen },
+  { key: "revision", label: "Revision", icon: RefreshCw },
+  { key: "pyq", label: "PYQs", icon: BookMarked },
+] as const;
 
-const SECTIONS = [
-  { key: "study", label: "Study" },
-  { key: "revision", label: "Revision" },
-  { key: "pyq", label: "PYQs" },
-];
+type SectionKey = (typeof SECTION_META)[number]["key"];
 
 interface Props {
   state: TrackerState;
+  onOpenSection?: (section: SectionKey) => void;
 }
 
-export default function OverallDashboard({ state }: Props) {
-  const diffStats = getDifficultyStats(state);
-  const totalTagged = diffStats.easy + diffStats.medium + diffStats.hard;
+type SubjectSummary = {
+  id: string;
+  name: string;
+  weightage: number;
+  counts: Record<SectionKey, { done: number; total: number; pct: number }>;
+  overall: { done: number; total: number; pct: number };
+};
+
+export default function OverallDashboard({ state, onOpenSection }: Props) {
+  const member = state.currentMember;
+  const [selectedSubjectId, setSelectedSubjectId] = useState(SUBJECTS[0]?.id ?? "");
+
+  useEffect(() => {
+    if (!SUBJECTS.some((subject) => subject.id === selectedSubjectId)) {
+      setSelectedSubjectId(SUBJECTS[0]?.id ?? "");
+    }
+  }, [selectedSubjectId]);
+
+  const difficultyStats = useMemo(() => getDifficultyStats(state), [state]);
+  const totalTagged = difficultyStats.easy + difficultyStats.medium + difficultyStats.hard;
+
+  const subjectSummaries = useMemo<SubjectSummary[]>(
+    () =>
+      SUBJECTS.map((subject) => {
+        const counts = SECTION_META.reduce((acc, section) => {
+          const progress = getSubjectProgress(state, member, section.key, subject.id);
+          const pct = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
+          acc[section.key] = { ...progress, pct };
+          return acc;
+        }, {} as Record<SectionKey, { done: number; total: number; pct: number }>);
+
+        const overallDone = SECTION_META.reduce((sum, section) => sum + counts[section.key].done, 0);
+        const overallTotal = SECTION_META.reduce((sum, section) => sum + counts[section.key].total, 0);
+
+        return {
+          id: subject.id,
+          name: subject.name,
+          weightage: subject.weightage,
+          counts,
+          overall: {
+            done: overallDone,
+            total: overallTotal,
+            pct: overallTotal > 0 ? Math.round((overallDone / overallTotal) * 100) : 0,
+          },
+        };
+      }),
+    [state, member]
+  );
+
+  const selectedSubject = subjectSummaries.find((subject) => subject.id === selectedSubjectId) ?? subjectSummaries[0];
+  const sortedSubjects = [...subjectSummaries].sort((a, b) => a.overall.pct - b.overall.pct || a.name.localeCompare(b.name));
+  const weakestSubject = sortedSubjects[0];
+  const strongestSubject = [...subjectSummaries].sort((a, b) => b.overall.pct - a.overall.pct || a.name.localeCompare(b.name))[0];
+
+  const overallDone = subjectSummaries.reduce((sum, subject) => sum + subject.overall.done, 0);
+  const overallTotal = subjectSummaries.reduce((sum, subject) => sum + subject.overall.total, 0);
+  const overallPct = overallTotal > 0 ? Math.round((overallDone / overallTotal) * 100) : 0;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 mb-2">
-        <BarChart3 className="w-5 h-5 text-primary" />
-        <h2 className="text-lg font-bold text-foreground">Overall Progress</h2>
-      </div>
-      <p className="text-xs text-muted-foreground -mt-1">
-        Subject weightage below is shown as approximate marks from the 2021-2025 GATE CSE trend.
-      </p>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 mb-4">
-        {MEMBERS.map((m) => {
-          let totalDone = 0, totalAll = 0;
-          SECTIONS.forEach((sec) => {
-            SUBJECTS.forEach((sub) => {
-              const p = getSubjectProgress(state, m, sec.key, sub.id);
-              totalDone += p.done;
-              totalAll += p.total;
-            });
-          });
-          const pct = totalAll > 0 ? Math.round((totalDone / totalAll) * 100) : 0;
-          return (
-            <div key={m} className="bg-card border border-border rounded-xl p-4 text-center">
-              <p className="text-sm font-semibold text-foreground">{m}</p>
-              <p className="text-3xl font-bold text-primary mt-1">{pct}%</p>
-              <p className="text-xs text-muted-foreground">{totalDone}/{totalAll} tasks</p>
+    <div className="space-y-5">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-[1.5rem] border border-border/70 bg-card/90 p-5 shadow-sm">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4 text-primary" />
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">Overall</p>
+          </div>
+          <div className="mt-4 flex items-end justify-between gap-3">
+            <div>
+              <p className="text-4xl font-semibold tracking-tight text-foreground">{overallPct}%</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {overallDone}/{overallTotal} tasks completed
+              </p>
             </div>
-          );
-        })}
-      </div>
-
-      {/* Difficulty distribution */}
-      {totalTagged > 0 && (
-        <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-sm font-semibold text-foreground mb-2">Difficulty Distribution</p>
-          <div className="flex gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-accent" />
-              <span className="text-xs text-muted-foreground">Easy: {diffStats.easy}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-yellow-500" />
-              <span className="text-xs text-muted-foreground">Medium: {diffStats.medium}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-destructive" />
-              <span className="text-xs text-muted-foreground">Hard: {diffStats.hard}</span>
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <Sparkles className="h-5 w-5" />
             </div>
           </div>
-          <div className="w-full h-2 bg-muted rounded-full overflow-hidden mt-2 flex">
-            <div className="h-full bg-accent" style={{ width: `${(diffStats.easy / totalTagged) * 100}%` }} />
-            <div className="h-full bg-yellow-500" style={{ width: `${(diffStats.medium / totalTagged) * 100}%` }} />
-            <div className="h-full bg-destructive" style={{ width: `${(diffStats.hard / totalTagged) * 100}%` }} />
+          <div className="mt-4 h-2 rounded-full bg-muted">
+            <div
+              className={cn("h-full rounded-full bg-gradient-to-r from-primary to-accent transition-all duration-500")}
+              style={{ width: `${overallPct}%` }}
+            />
           </div>
         </div>
-      )}
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border">
-              <th className="text-left py-2 px-3 text-muted-foreground font-medium">Subject</th>
-              <th className="text-center py-2 px-2 text-muted-foreground font-medium">PYQ Weightage</th>
-              {MEMBERS.map((m) => (
-                <th key={m} className="text-center py-2 px-2 text-muted-foreground font-medium" colSpan={3}>
-                  {m}
-                </th>
-              ))}
-            </tr>
-            <tr className="border-b border-border">
-              <th />
-              <th />
-              {MEMBERS.map((m) =>
-                SECTIONS.map((s) => (
-                  <th key={`${m}-${s.key}`} className="text-center py-1 px-1 text-[10px] text-muted-foreground">
-                    {s.label}
-                  </th>
-                ))
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {SUBJECTS.map((sub) => (
-              <tr key={sub.id} className="border-b border-border/50 hover:bg-muted/30">
-                <td className="py-2 px-3 font-medium text-foreground text-xs">{sub.name}</td>
-                <td className="text-center py-2 px-2">
-                  <span className="inline-block bg-primary/10 text-primary text-xs font-bold px-2 py-0.5 rounded-full">
-                    ~{sub.weightage}m
-                  </span>
-                </td>
-                {MEMBERS.map((m) =>
-                  SECTIONS.map((sec) => {
-                    const p = getSubjectProgress(state, m, sec.key, sub.id);
-                    const pct = p.total > 0 ? Math.round((p.done / p.total) * 100) : 0;
-                    return (
-                      <td key={`${m}-${sec.key}`} className="text-center py-2 px-1">
-                        <div className="flex flex-col items-center gap-0.5">
-                          <div className="w-8 h-1.5 bg-muted rounded-full overflow-hidden">
-                            <div className={cn("h-full rounded-full", memberColor[m])} style={{ width: `${pct}%` }} />
+        <div className="rounded-[1.5rem] border border-border/70 bg-card/90 p-5 shadow-sm">
+          <div className="flex items-center gap-2">
+            <Trophy className="h-4 w-4 text-primary" />
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">Best subject</p>
+          </div>
+          <p className="mt-4 text-2xl font-semibold tracking-tight text-foreground">
+            {strongestSubject?.name ?? "No subject yet"}
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {strongestSubject ? `${strongestSubject.overall.pct}% complete` : "Start checking topics to unlock this card"}
+          </p>
+        </div>
+
+        <div className="rounded-[1.5rem] border border-border/70 bg-card/90 p-5 shadow-sm">
+          <div className="flex items-center gap-2">
+            <Target className="h-4 w-4 text-primary" />
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">Next focus</p>
+          </div>
+          <p className="mt-4 text-2xl font-semibold tracking-tight text-foreground">
+            {weakestSubject?.name ?? "Nothing to focus yet"}
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {weakestSubject ? `${weakestSubject.overall.pct}% complete` : "Pick a subject to see the weakest area"}
+          </p>
+        </div>
+
+        <div className="rounded-[1.5rem] border border-border/70 bg-card/90 p-5 shadow-sm">
+          <div className="flex items-center gap-2">
+            <Flame className="h-4 w-4 text-primary" />
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">Difficulty</p>
+          </div>
+          <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+            <div className="rounded-2xl border border-border/70 bg-background/70 p-3">
+              <p className="text-lg font-semibold text-foreground">{difficultyStats.easy}</p>
+              <p className="text-[11px] text-muted-foreground">Easy</p>
+            </div>
+            <div className="rounded-2xl border border-border/70 bg-background/70 p-3">
+              <p className="text-lg font-semibold text-foreground">{difficultyStats.medium}</p>
+              <p className="text-[11px] text-muted-foreground">Medium</p>
+            </div>
+            <div className="rounded-2xl border border-border/70 bg-background/70 p-3">
+              <p className="text-lg font-semibold text-foreground">{difficultyStats.hard}</p>
+              <p className="text-[11px] text-muted-foreground">Hard</p>
+            </div>
+          </div>
+          {totalTagged > 0 && (
+            <div className="mt-4 h-2 overflow-hidden rounded-full bg-muted">
+              <div className="flex h-full">
+                <div className="bg-accent" style={{ width: `${(difficultyStats.easy / totalTagged) * 100}%` }} />
+                <div className="bg-yellow-500" style={{ width: `${(difficultyStats.medium / totalTagged) * 100}%` }} />
+                <div className="bg-destructive" style={{ width: `${(difficultyStats.hard / totalTagged) * 100}%` }} />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-[1.12fr_.88fr]">
+        <div className="rounded-[1.75rem] border border-border/70 bg-card/95 p-5 shadow-[0_24px_70px_-35px_rgba(15,23,42,0.35)]">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-primary" />
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">Subjects</p>
+              </div>
+              <h3 className="mt-2 text-xl font-semibold tracking-tight text-foreground">Interactive progress board</h3>
+            </div>
+            <p className="text-xs text-muted-foreground">Click a subject to inspect it</p>
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
+            {subjectSummaries.map((subject) => {
+              const isSelected = subject.id === selectedSubject?.id;
+              return (
+                <button
+                  key={subject.id}
+                  onClick={() => setSelectedSubjectId(subject.id)}
+                  className={cn(
+                    "group rounded-3xl border p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg",
+                    isSelected ? "border-primary/30 bg-primary/5 shadow-lg shadow-primary/10" : "border-border/70 bg-background/70 hover:border-primary/30"
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <p className="font-semibold text-foreground">{subject.name}</p>
+                      <p className="text-xs text-muted-foreground">~{subject.weightage} marks</p>
+                    </div>
+                    <div className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                      {subject.overall.pct}%
+                    </div>
+                  </div>
+
+                  <div className="mt-4 h-2 rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-primary to-accent transition-all duration-500"
+                      style={{ width: `${subject.overall.pct}%` }}
+                    />
+                  </div>
+
+                  <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                    {SECTION_META.map((section) => {
+                      const Icon = section.icon;
+                      const value = subject.counts[section.key];
+                      return (
+                        <div key={section.key} className="rounded-2xl border border-border/70 bg-card/80 p-3">
+                          <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.25em] text-muted-foreground">
+                            <Icon className="h-3.5 w-3.5 text-primary" />
+                            {section.label}
                           </div>
-                          <span className="text-[10px] text-muted-foreground">{pct}%</span>
+                          <div className="mt-2 flex items-end justify-between gap-2">
+                            <p className="text-base font-semibold text-foreground">{value.pct}%</p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {value.done}/{value.total}
+                            </p>
+                          </div>
+                          <div className="mt-2 h-1.5 rounded-full bg-muted">
+                            <div
+                              className={cn(
+                                "h-full rounded-full transition-all duration-500",
+                                section.key === "study" ? "bg-primary" : section.key === "revision" ? "bg-accent" : "bg-yellow-500"
+                              )}
+                              style={{ width: `${value.pct}%` }}
+                            />
+                          </div>
                         </div>
-                      </td>
-                    );
-                  })
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                      );
+                    })}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="space-y-5">
+          <div className="rounded-[1.75rem] border border-border/70 bg-card/95 p-5 shadow-[0_24px_70px_-35px_rgba(15,23,42,0.35)]">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">Selected</p>
+                </div>
+                <h3 className="mt-2 text-xl font-semibold tracking-tight text-foreground">
+                  {selectedSubject?.name ?? "Pick a subject"}
+                </h3>
+              </div>
+              <div className="rounded-2xl bg-primary/10 px-3 py-2 text-right">
+                <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">Total</p>
+                <p className="text-lg font-semibold text-primary">{selectedSubject?.overall.pct ?? 0}%</p>
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {selectedSubject ? (
+                SECTION_META.map((section) => {
+                  const Icon = section.icon;
+                  const value = selectedSubject.counts[section.key];
+                  return (
+                    <div key={section.key} className="rounded-2xl border border-border/70 bg-background/70 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                            <Icon className="h-4 w-4" />
+                          </span>
+                          <div>
+                            <p className="font-semibold text-foreground">{section.label}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {value.done}/{value.total} topics
+                            </p>
+                          </div>
+                        </div>
+                        <p className="text-lg font-semibold text-foreground">{value.pct}%</p>
+                      </div>
+                      <div className="mt-3 h-2 rounded-full bg-muted">
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all duration-500",
+                            section.key === "study" ? "bg-primary" : section.key === "revision" ? "bg-accent" : "bg-yellow-500"
+                          )}
+                          style={{ width: `${value.pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="text-sm text-muted-foreground">Select a subject to see the deeper breakdown.</p>
+              )}
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-2">
+              {SECTION_META.map((section) => {
+                const Icon = section.icon;
+                return (
+                  <button
+                    key={section.key}
+                    onClick={() => onOpenSection?.(section.key)}
+                    className="inline-flex items-center gap-2 rounded-2xl border border-border/70 bg-background/70 px-4 py-2 text-sm font-medium text-foreground transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
+                  >
+                    <Icon className="h-4 w-4 text-primary" />
+                    Open {section.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="rounded-[1.75rem] border border-border/70 bg-card/95 p-5 shadow-[0_24px_70px_-35px_rgba(15,23,42,0.35)]">
+            <div className="flex items-center gap-2">
+              <ArrowRight className="h-4 w-4 text-primary" />
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">Fast reads</p>
+            </div>
+            <div className="mt-4 space-y-3 text-sm text-muted-foreground">
+              <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
+                <p className="font-semibold text-foreground">Momentum</p>
+                <p className="mt-1">
+                  Your strongest subject is{" "}
+                  <span className="text-foreground">{strongestSubject?.name ?? "not set yet"}</span>, while{" "}
+                  <span className="text-foreground">{weakestSubject?.name ?? "nothing yet"}</span> is the best next push.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
+                <p className="font-semibold text-foreground">Member view</p>
+                <p className="mt-1">This dashboard is now centered on {member === "Bhavesh" ? "you" : member} so the UI stays personal and calm.</p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
