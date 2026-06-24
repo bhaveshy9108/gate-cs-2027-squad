@@ -166,10 +166,11 @@ export async function loadCloudState(roomCode: string): Promise<TrackerState | n
 
 async function persistCloudState(roomCode: string, state: TrackerState) {
   const payload = cloneState(state);
+  const updatedAt = new Date().toISOString();
   const { error } = await supabase
     .from("tracker_data")
     .upsert(
-      { room_code: roomCode, data: payload, user_id: null },
+      { room_code: roomCode, data: payload, user_id: null, updated_at: updatedAt },
       { onConflict: "room_code" }
     );
 

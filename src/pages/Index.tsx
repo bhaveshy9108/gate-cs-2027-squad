@@ -48,28 +48,24 @@ export default function Index() {
   const cloudEnabled = hasCloudSync();
   const member = state.currentMember;
   const canPersistRoomRef = useRef(false);
-  const suppressNextRoomSaveRef = useRef(false);
 
   // Load shared local state and subscribe to updates from other tabs/windows.
   useEffect(() => {
     if (!roomCode) {
       canPersistRoomRef.current = false;
-      suppressNextRoomSaveRef.current = false;
       setCloudReady(true);
       return;
     }
 
     setCloudReady(false);
-    canPersistRoomRef.current = false;
-    suppressNextRoomSaveRef.current = false;
+    canPersistRoomRef.current = cloudEnabled;
 
     loadCloudState(roomCode).then((cloud) => {
+      canPersistRoomRef.current = cloudEnabled;
       if (cloud) {
         canPersistRoomRef.current = true;
-        suppressNextRoomSaveRef.current = true;
         setState(cloud);
       } else {
-        suppressNextRoomSaveRef.current = true;
         setState((local) => ({
           ...createDefaultState(),
           currentMember: local.currentMember,
@@ -96,6 +92,7 @@ export default function Index() {
   const handleJoinRoom = (code: string) => {
     saveRoomCode(code);
     setRoomCode(code);
+    canPersistRoomRef.current = cloudEnabled;
     setCloudReady(false);
     toast.success(`Joined room ${code}`);
   };

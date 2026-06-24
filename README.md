@@ -56,6 +56,22 @@ on public.tracker_data for update
 to anon, authenticated
 using (room_code is not null);
 
+create or replace function public.update_updated_at_column()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists update_tracker_data_updated_at on public.tracker_data;
+create trigger update_tracker_data_updated_at
+before update on public.tracker_data
+for each row
+execute function public.update_updated_at_column();
+
 alter publication supabase_realtime add table public.tracker_data;
 ```
 
