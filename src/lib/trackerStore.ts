@@ -247,11 +247,19 @@ function normalizeWeeklyTests(weeklyTests: unknown): WeeklyTest[] {
 export function normalizeTrackerState(raw: unknown): TrackerState {
   const base = defaultState();
   const parsed = typeof raw === "object" && raw !== null ? (raw as Partial<TrackerState>) : {};
+  const allowedMembers = new Set<Member>(MEMBERS);
   return {
     ...base,
     ...parsed,
     checklist:
-      typeof parsed.checklist === "object" && parsed.checklist !== null ? parsed.checklist : base.checklist,
+      typeof parsed.checklist === "object" && parsed.checklist !== null
+        ? Object.fromEntries(
+            Object.entries(parsed.checklist).filter(([key]) => {
+              const member = key.split("|")[0] as Member;
+              return allowedMembers.has(member);
+            })
+          )
+        : base.checklist,
     customTopics:
       typeof parsed.customTopics === "object" && parsed.customTopics !== null
         ? parsed.customTopics

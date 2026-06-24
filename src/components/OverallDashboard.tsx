@@ -5,10 +5,6 @@ import { cn } from "@/lib/utils";
 
 const memberColor: Record<Member, string> = {
   Bhavesh: "bg-person1",
-  Aryan: "bg-amber-500",
-  Avani: "bg-pink-500",
-  Akshita: "bg-emerald-500",
-  Nayan: "bg-violet-500",
 };
 
 const SECTIONS = [

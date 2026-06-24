@@ -46,14 +46,6 @@ export default function MockTestSection({ state, onUpdate }: Props) {
     switch (member) {
       case "Bhavesh":
         return "border-person1";
-      case "Aryan":
-        return "border-amber-500";
-      case "Avani":
-        return "border-pink-500";
-      case "Akshita":
-        return "border-emerald-500";
-      case "Nayan":
-        return "border-violet-500";
     }
   };
 
