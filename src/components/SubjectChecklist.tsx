@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SUBJECTS, type Member } from "@/lib/gateData";
 import {
   type TrackerState,
@@ -30,14 +30,23 @@ interface Props {
   state: TrackerState;
   member: Member;
   onUpdate: (s: TrackerState) => void;
+  focusSubjectId?: string | null;
+  focusTopicId?: string | null;
 }
 
-export default function SubjectChecklist({ section, sectionLabel, state, member, onUpdate }: Props) {
+export default function SubjectChecklist({ section, sectionLabel, state, member, onUpdate, focusSubjectId, focusTopicId }: Props) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [addingTopic, setAddingTopic] = useState<string | null>(null);
   const [newTopicName, setNewTopicName] = useState("");
   const [notesOpen, setNotesOpen] = useState<{ subjectId: string; topicId: string; topicName: string } | null>(null);
   const [diffFilter, setDiffFilter] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (focusSubjectId) {
+      setExpanded(focusSubjectId);
+      setDiffFilter(null);
+    }
+  }, [focusSubjectId]);
 
   const handleToggle = (subjectId: string, topicId: string) => {
     onUpdate(toggleTopic(state, member, section, subjectId, topicId));
@@ -125,10 +134,16 @@ export default function SubjectChecklist({ section, sectionLabel, state, member,
                   const note = getTopicNote(state, subject.id, topic.id);
                   const hasNotes = note.text || note.links.length > 0;
 
+                  const isFocused = focusTopicId === topic.id && focusSubjectId === subject.id;
+
                   return (
                     <div
                       key={topic.id}
-                      className={cn("flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group", checked ? "bg-accent/10" : "hover:bg-muted/50")}
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group",
+                        checked ? "bg-accent/10" : "hover:bg-muted/50",
+                        isFocused && "ring-2 ring-primary/25 bg-primary/5"
+                      )}
                     >
                       <label className="flex items-center gap-3 cursor-pointer flex-1 min-w-0">
                         <input

@@ -1,55 +1,103 @@
-import { useState, useEffect, useRef, type SetStateAction } from "react";
-import { type Member } from "@/lib/gateData";
-import { createDefaultState, loadState, saveState, type TrackerState } from "@/lib/trackerStore";
-import { loadCloudState, saveCloudState, getSavedRoomCode, getSavedRoomState, saveRoomCode, clearRoomCode, generateRoomCode, subscribeToRoom, hasCloudSync, publishRoomState } from "@/lib/cloudSync";
+import { useEffect, useMemo, useRef, useState, type SetStateAction } from "react";
+import { ArrowRight, BarChart3, BookMarked, BookOpen, CalendarCheck2, CalendarDays, Clock3, Cloud, GraduationCap, LineChart, RefreshCw, Search, Sparkles, Target, X, Zap } from "lucide-react";
+import { toast } from "sonner";
+
+import { MEMBERS, SUBJECTS, type Member } from "@/lib/gateData";
+import {
+  createDefaultState,
+  getAllTopics,
+  getDifficultyStats,
+  getSubjectProgress,
+  getWeekDateRange,
+  getWeekNumber,
+  getWeeklyProgress,
+  loadState,
+  saveState,
+  type TrackerState,
+} from "@/lib/trackerStore";
+import {
+  clearRoomCode,
+  generateRoomCode,
+  getSavedRoomCode,
+  getSavedRoomState,
+  hasCloudSync,
+  loadCloudState,
+  publishRoomState,
+  saveCloudState,
+  saveRoomCode,
+  subscribeToRoom,
+} from "@/lib/cloudSync";
+import { cn } from "@/lib/utils";
 import MemberSelector from "@/components/MemberSelector";
-import RoomCodeDialog from "@/components/RoomCodeDialog";
-import SubjectChecklist from "@/components/SubjectChecklist";
-import PYQSection from "@/components/PYQSection";
 import MockTestSection from "@/components/MockTestSection";
-import WeeklyTestsSection from "@/components/WeeklyTestsSection";
+import OverallDashboard from "@/components/OverallDashboard";
+import PYQSection from "@/components/PYQSection";
+import RevisionSection from "@/components/RevisionSection";
+import RoomCodeDialog from "@/components/RoomCodeDialog";
+import StreakCalendar from "@/components/StreakCalendar";
+import SubjectChecklist from "@/components/SubjectChecklist";
 import TestAnalysisSection from "@/components/TestAnalysisSection";
 import WeeklyProgress from "@/components/WeeklyProgress";
-import OverallDashboard from "@/components/OverallDashboard";
-import RevisionSection from "@/components/RevisionSection";
-import StreakCalendar from "@/components/StreakCalendar";
-import { BookOpen, BookMarked, ClipboardList, CalendarCheck2, CalendarDays, BarChart3, GraduationCap, LineChart, RefreshCw } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { toast } from "sonner";
+import WeeklyTestsSection from "@/components/WeeklyTestsSection";
+import { PYQ_SUBJECTS } from "@/lib/pyqCatalog";
 
 const TABS = [
   { id: "dashboard", label: "Dashboard", icon: BarChart3 },
   { id: "study", label: "Study", icon: BookOpen },
   { id: "revision", label: "Revision", icon: RefreshCw },
   { id: "pyq", label: "PYQs", icon: BookMarked },
-  { id: "mock", label: "Mock Tests", icon: ClipboardList },
-  { id: "weekly-tests", label: "Weekly Tests", icon: CalendarCheck2 },
+  { id: "mock", label: "Mock Tests", icon: CalendarCheck2 },
+  { id: "weekly-tests", label: "Weekly Tests", icon: CalendarDays },
   { id: "test-analysis", label: "Test Analysis", icon: LineChart },
-  { id: "weekly", label: "Weekly Progress", icon: CalendarDays },
+  { id: "weekly", label: "Weekly Progress", icon: Target },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
+
+const FOCUS_SECTIONS = [
+  { id: "study", label: "Study", icon: BookOpen, hint: "Primary checklist progress" },
+  { id: "revision", label: "Revision", icon: RefreshCw, hint: "Topics to revisit" },
+  { id: "pyq", label: "PYQs", icon: BookMarked, hint: "Previous year practice" },
+] as const;
+
+function formatDateLabel(iso: string | null) {
+  if (!iso) return "No activity yet";
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(iso));
+}
+
+function getLastActivity(state: TrackerState) {
+  let latest: string | null = null;
+  for (const entry of Object.values(state.checklist)) {
+    if (!entry.completedAt) continue;
+    if (!latest || entry.completedAt > latest) {
+      latest = entry.completedAt;
+    }
+  }
+  return latest;
+}
 
 export default function Index() {
   const [state, setState] = useState<TrackerState>(() => {
     const savedRoomCode = getSavedRoomCode();
     if (savedRoomCode) {
       const roomState = getSavedRoomState(savedRoomCode);
-      if (roomState) {
-        return roomState;
-      }
+      if (roomState) return roomState;
     }
-
     return loadState();
   });
   const [tab, setTab] = useState<TabId>("dashboard");
   const [roomCode, setRoomCode] = useState<string | null>(getSavedRoomCode);
   const [cloudReady, setCloudReady] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchTarget, setSearchTarget] = useState<{ section: TabId; subjectId: string; topicId: string } | null>(null);
   const cloudEnabled = hasCloudSync();
   const member = state.currentMember;
   const canPersistRoomRef = useRef(false);
 
-  // Load shared local state and subscribe to updates from other tabs/windows.
   useEffect(() => {
     if (!roomCode) {
       canPersistRoomRef.current = false;
@@ -82,9 +130,8 @@ export default function Index() {
     return () => {
       channel.unsubscribe();
     };
-  }, [roomCode]);
+  }, [roomCode, cloudEnabled]);
 
-  // Save to the default local store and the active shared workspace.
   useEffect(() => {
     saveState(state);
   }, [state, roomCode, cloudReady]);
@@ -134,16 +181,289 @@ export default function Index() {
 
   const setMember = (m: Member) => updateState((s) => ({ ...s, currentMember: m }));
 
-  return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 bg-card/80 backdrop-blur-lg border-b border-border">
-        <div className="max-w-5xl mx-auto px-4 py-3">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <GraduationCap className="w-6 h-6 text-primary" />
-              <h1 className="text-xl font-bold text-foreground">GATE CS 2027</h1>
+  const currentWeek = getWeekNumber(new Date());
+  const currentWeekRange = getWeekDateRange(currentWeek);
+  const difficultyStats = useMemo(() => getDifficultyStats(state), [state]);
+  const weeklyProgress = useMemo(() => getWeeklyProgress(state), [state]);
+  const lastActivity = useMemo(() => getLastActivity(state), [state]);
+
+  const sectionSummaries = useMemo(() => {
+    return FOCUS_SECTIONS.map((section) => {
+      let done = 0;
+      let total = 0;
+
+      for (const subject of SUBJECTS) {
+        const progress = getSubjectProgress(state, member, section.id, subject.id);
+        done += progress.done;
+        total += progress.total;
+      }
+
+      return {
+        ...section,
+        done,
+        total,
+        percent: total > 0 ? Math.round((done / total) * 100) : 0,
+      };
+    });
+  }, [state, member]);
+
+  const overallProgress = useMemo(() => {
+    const done = sectionSummaries.reduce((sum, section) => sum + section.done, 0);
+    const total = sectionSummaries.reduce((sum, section) => sum + section.total, 0);
+    return {
+      done,
+      total,
+      percent: total > 0 ? Math.round((done / total) * 100) : 0,
+    };
+  }, [sectionSummaries]);
+
+  const searchResults = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return [];
+
+    type SearchResult = {
+      id: string;
+      section: TabId;
+      sectionLabel: string;
+      subjectId: string;
+      subjectName: string;
+      topicId: string;
+      topicName: string;
+      detail: string;
+      score: number;
+    };
+
+    const results: SearchResult[] = [];
+
+    const addStudyResults = (section: "study" | "revision") => {
+      for (const subject of SUBJECTS) {
+        const topics = getAllTopics(state, subject.id, section);
+        for (const topic of topics) {
+          const note = state.topicNotes[`${subject.id}|${topic.id}`];
+          const haystack = [
+            subject.name,
+            topic.name,
+            section,
+            note?.text ?? "",
+            ...(note?.links ?? []),
+          ]
+            .join(" ")
+            .toLowerCase();
+
+          if (!haystack.includes(query)) continue;
+
+          const topicName = topic.name.toLowerCase();
+          const subjectName = subject.name.toLowerCase();
+          const score = topicName === query ? 0 : topicName.startsWith(query) ? 1 : subjectName.includes(query) ? 2 : note?.text?.toLowerCase().includes(query) ? 3 : 4;
+
+          results.push({
+            id: `${section}:${subject.id}:${topic.id}`,
+            section,
+            sectionLabel: section === "study" ? "Study" : "Revision",
+            subjectId: subject.id,
+            subjectName: subject.name,
+            topicId: topic.id,
+            topicName: topic.name,
+            detail: note?.text ? `Note hit · ${note.text.slice(0, 80)}` : `${section === "study" ? "Study" : "Revision"} topic`,
+            score,
+          });
+        }
+      }
+    };
+
+    addStudyResults("study");
+    addStudyResults("revision");
+
+    for (const subject of PYQ_SUBJECTS) {
+      for (const topic of subject.topics) {
+        const haystack = [subject.name, subject.volume, topic.name].join(" ").toLowerCase();
+        if (!haystack.includes(query)) continue;
+
+        const topicName = topic.name.toLowerCase();
+        const subjectName = subject.name.toLowerCase();
+        results.push({
+          id: `pyq:${subject.id}:${topic.id}`,
+          section: "pyq",
+          sectionLabel: "PYQs",
+          subjectId: subject.id,
+          subjectName: subject.name,
+          topicId: topic.id,
+          topicName: topic.name,
+          detail: `${subject.volume} · ${topic.count ?? 0} PYQs`,
+          score: topicName === query ? 0 : topicName.startsWith(query) ? 1 : subjectName.includes(query) ? 2 : 4,
+        });
+      }
+    }
+
+    return results.sort((a, b) => a.score - b.score || a.subjectName.localeCompare(b.subjectName) || a.topicName.localeCompare(b.topicName)).slice(0, 10);
+  }, [searchQuery, state]);
+
+  const recentWeek = weeklyProgress[weeklyProgress.length - 1];
+  const recentWeekCount = recentWeek ? recentWeek.items.length + recentWeek.mockTests.length + recentWeek.weeklyTests.length : 0;
+  const currentMemberLabel = member === MEMBERS[0] ? "You" : member;
+  const activeTab = TABS.find((entry) => entry.id === tab) ?? TABS[0];
+  const ActiveIcon = activeTab.icon;
+
+  const openSearchResult = (result: (typeof searchResults)[number]) => {
+    setTab(result.section);
+    setSearchTarget({
+      section: result.section,
+      subjectId: result.subjectId,
+      topicId: result.topicId,
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const renderActiveContent = () => {
+    switch (tab) {
+      case "dashboard":
+        return (
+          <div className="grid gap-5 xl:grid-cols-[1.15fr_.85fr]">
+            <div className="space-y-5">
+              <OverallDashboard state={state} />
+              <StreakCalendar state={state} />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="space-y-5">
+              <div className="rounded-[1.5rem] border border-border/70 bg-background/70 p-5 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+                    Focus map
+                  </p>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {sectionSummaries.map((section) => {
+                    const Icon = section.icon;
+                    return (
+                      <button
+                        key={section.id}
+                        onClick={() => setTab(section.id)}
+                        className="group w-full rounded-2xl border border-border/70 bg-card/80 p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                                <Icon className="h-4 w-4" />
+                              </span>
+                              <p className="font-semibold text-foreground">{section.label}</p>
+                            </div>
+                            <p className="text-xs text-muted-foreground">{section.hint}</p>
+                          </div>
+                          <span className="text-sm font-semibold text-foreground">{section.percent}%</span>
+                        </div>
+                        <div className="mt-3 h-2 rounded-full bg-muted">
+                          <div className="h-full rounded-full bg-gradient-to-r from-primary to-accent transition-all duration-300" style={{ width: `${section.percent}%` }} />
+                        </div>
+                        <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                          <span>
+                            {section.done}/{section.total} tasks
+                          </span>
+                          <span className="inline-flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                            Open
+                            <ArrowRight className="h-3.5 w-3.5" />
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="rounded-[1.5rem] border border-border/70 bg-background/70 p-5 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <Clock3 className="h-4 w-4 text-primary" />
+                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+                    Recent activity
+                  </p>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-border/70 bg-card/80 p-4">
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Latest update</p>
+                    <p className="mt-2 text-sm font-semibold text-foreground">{formatDateLabel(lastActivity)}</p>
+                  </div>
+                  <div className="rounded-2xl border border-border/70 bg-card/80 p-4">
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">This week</p>
+                    <p className="mt-2 text-sm font-semibold text-foreground">
+                      {recentWeek ? `Week ${recentWeek.week}` : "No weekly entries yet"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{recentWeekCount} items logged</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      case "study":
+        return (
+          <SubjectChecklist
+            section="study"
+            sectionLabel="Study Checklist"
+            state={state}
+            member={member}
+            onUpdate={updateState}
+            focusSubjectId={searchTarget?.section === "study" ? searchTarget.subjectId : null}
+            focusTopicId={searchTarget?.section === "study" ? searchTarget.topicId : null}
+          />
+        );
+      case "revision":
+        return (
+          <RevisionSection
+            state={state}
+            member={member}
+            onUpdate={updateState}
+            focusSubjectId={searchTarget?.section === "revision" ? searchTarget.subjectId : null}
+            focusTopicId={searchTarget?.section === "revision" ? searchTarget.topicId : null}
+          />
+        );
+      case "pyq":
+        return (
+          <PYQSection
+            state={state}
+            member={member}
+            onUpdate={updateState}
+            focusSubjectId={searchTarget?.section === "pyq" ? searchTarget.subjectId : null}
+            focusTopicId={searchTarget?.section === "pyq" ? searchTarget.topicId : null}
+          />
+        );
+      case "mock":
+        return <MockTestSection state={state} member={member} onUpdate={updateState} />;
+      case "weekly-tests":
+        return <WeeklyTestsSection state={state} onUpdate={updateState} />;
+      case "test-analysis":
+        return <TestAnalysisSection state={state} />;
+      case "weekly":
+        return <WeeklyProgress state={state} />;
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="relative min-h-screen overflow-hidden text-foreground">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -left-20 top-0 h-72 w-72 rounded-full bg-primary/20 blur-3xl" />
+        <div className="absolute right-0 top-24 h-80 w-80 rounded-full bg-accent/10 blur-3xl" />
+        <div className="absolute bottom-0 left-1/3 h-96 w-96 rounded-full bg-secondary/50 blur-3xl" />
+      </div>
+
+      <header className="sticky top-0 z-50 border-b border-border/60 bg-background/75 backdrop-blur-xl">
+        <div className="mx-auto max-w-7xl px-4 py-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-sm shadow-primary/10">
+                <GraduationCap className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-muted-foreground">
+                  Personal study cockpit
+                </p>
+                <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">GATE CS 2027</h1>
+                <p className="text-sm text-muted-foreground">Built around your current room, your progress, and your next move.</p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
               <RoomCodeDialog
                 roomCode={roomCode}
                 cloudEnabled={cloudEnabled}
@@ -154,22 +474,24 @@ export default function Index() {
               <MemberSelector current={member} onChange={setMember} />
             </div>
           </div>
-          <div className="flex gap-1 overflow-x-auto pb-1 -mb-3">
-            {TABS.map((t) => {
-              const Icon = t.icon;
+
+          <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+            {TABS.map((entry) => {
+              const Icon = entry.icon;
+              const active = tab === entry.id;
               return (
                 <button
-                  key={t.id}
-                  onClick={() => setTab(t.id)}
+                  key={entry.id}
+                  onClick={() => setTab(entry.id)}
                   className={cn(
-                    "flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-lg whitespace-nowrap transition-colors border-b-2",
-                    tab === t.id
-                      ? "border-primary text-primary bg-primary/5"
-                      : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    "group inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-all duration-200",
+                    active
+                      ? "border-primary/30 bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                      : "border-border/70 bg-card/80 text-muted-foreground hover:-translate-y-0.5 hover:border-primary/30 hover:text-foreground hover:shadow-md"
                   )}
                 >
-                  <Icon className="w-4 h-4" />
-                  {t.label}
+                  <Icon className="h-4 w-4" />
+                  {entry.label}
                 </button>
               );
             })}
@@ -177,22 +499,282 @@ export default function Index() {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-6">
-        {tab === "dashboard" && (
-          <>
-            <OverallDashboard state={state} />
-            <StreakCalendar state={state} />
-          </>
-        )}
-        {tab === "study" && (
-          <SubjectChecklist section="study" sectionLabel="Study Checklist" state={state} member={member} onUpdate={updateState} />
-        )}
-        {tab === "revision" && <RevisionSection state={state} member={member} onUpdate={updateState} />}
-        {tab === "pyq" && <PYQSection state={state} member={member} onUpdate={updateState} />}
-        {tab === "mock" && <MockTestSection state={state} member={member} onUpdate={updateState} />}
-        {tab === "weekly-tests" && <WeeklyTestsSection state={state} onUpdate={updateState} />}
-        {tab === "test-analysis" && <TestAnalysisSection state={state} />}
-        {tab === "weekly" && <WeeklyProgress state={state} />}
+      <main className="relative mx-auto max-w-7xl px-4 py-6 lg:py-8">
+        <section className="grid gap-5 xl:grid-cols-[1.55fr_.9fr]">
+          <div className="overflow-hidden rounded-[1.75rem] border border-border/70 bg-card/95 shadow-[0_24px_70px_-35px_rgba(15,23,42,0.35)] backdrop-blur">
+            <div className="border-b border-border/70 px-6 py-6 sm:px-8">
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                <div className="max-w-2xl space-y-3">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-muted/60 px-3 py-1 text-xs font-medium text-muted-foreground">
+                    <Sparkles className="h-3.5 w-3.5 text-primary" />
+                    Focus mode is on
+                  </div>
+                  <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">A cleaner cockpit for one person, with less noise and more momentum.</h2>
+                  <p className="max-w-xl text-sm text-muted-foreground sm:text-base">
+                    Switch between sections, track your sessions, and keep the room synced without the UI fighting you.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {FOCUS_SECTIONS.map((section) => {
+                    const Icon = section.icon;
+                    return (
+                      <button
+                        key={section.id}
+                        onClick={() => setTab(section.id)}
+                        className="inline-flex items-center gap-2 rounded-2xl border border-border/70 bg-background/70 px-4 py-2 text-sm font-medium text-foreground transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
+                      >
+                        <Icon className="h-4 w-4 text-primary" />
+                        {section.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-2xl border border-border/70 bg-background/75 p-4">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+                    <BarChart3 className="h-3.5 w-3.5 text-primary" />
+                    Overall
+                  </div>
+                  <p className="mt-3 text-2xl font-semibold tracking-tight">{overallProgress.percent}%</p>
+                  <p className="text-xs text-muted-foreground">
+                    {overallProgress.done}/{overallProgress.total} tasks completed
+                  </p>
+                  <div className="mt-3 h-2 rounded-full bg-muted">
+                    <div className="h-full rounded-full bg-gradient-to-r from-primary to-accent" style={{ width: `${overallProgress.percent}%` }} />
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-border/70 bg-background/75 p-4">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+                    <Target className="h-3.5 w-3.5 text-primary" />
+                    Current week
+                  </div>
+                  <p className="mt-3 text-2xl font-semibold tracking-tight">Week {currentWeek}</p>
+                  <p className="text-xs text-muted-foreground">{currentWeekRange}</p>
+                </div>
+
+                <div className="rounded-2xl border border-border/70 bg-background/75 p-4">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+                    <Cloud className="h-3.5 w-3.5 text-primary" />
+                    Sync
+                  </div>
+                  <p className="mt-3 text-2xl font-semibold tracking-tight">
+                    {roomCode ? (cloudEnabled ? (cloudReady ? "Synced" : "Connecting") : "Local") : "Idle"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{roomCode ? roomCode : "No room connected"}</p>
+                </div>
+
+                <div className="rounded-2xl border border-border/70 bg-background/75 p-4">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+                    <Zap className="h-3.5 w-3.5 text-primary" />
+                    Activity
+                  </div>
+                  <p className="mt-3 text-2xl font-semibold tracking-tight">{recentWeekCount}</p>
+                  <p className="text-xs text-muted-foreground">{formatDateLabel(lastActivity)}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-b border-border/70 px-6 py-4 sm:px-8">
+              <div className="grid gap-3 md:grid-cols-3">
+                {sectionSummaries.map((section) => {
+                  const Icon = section.icon;
+                  return (
+                    <button
+                      key={section.id}
+                      onClick={() => setTab(section.id)}
+                      className="group rounded-2xl border border-border/70 bg-background/60 p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                              <Icon className="h-4 w-4" />
+                            </span>
+                            <h3 className="font-semibold text-foreground">{section.label}</h3>
+                          </div>
+                          <p className="text-xs text-muted-foreground">{section.hint}</p>
+                        </div>
+                        <span className="text-sm font-semibold text-foreground">{section.percent}%</span>
+                      </div>
+                      <div className="mt-3 h-2 rounded-full bg-muted">
+                        <div className="h-full rounded-full bg-gradient-to-r from-primary to-accent transition-all duration-300" style={{ width: `${section.percent}%` }} />
+                      </div>
+                      <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                        <span>
+                          {section.done}/{section.total} tasks
+                        </span>
+                        <span className="inline-flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                          Open <ArrowRight className="h-3.5 w-3.5" />
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="px-6 py-6 sm:px-8">
+              {tab !== "dashboard" && (
+                <div className="mb-5 rounded-2xl border border-border/70 bg-background/60 p-4">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-muted-foreground">Current section</p>
+                      <div className="mt-1 flex items-center gap-2">
+                        <ActiveIcon className="h-4 w-4 text-primary" />
+                        <h3 className="text-xl font-semibold">{activeTab.label}</h3>
+                      </div>
+                      <p className="text-sm text-muted-foreground">A focused space for this part of the tracker, wrapped in a calmer shell.</p>
+                    </div>
+                    <button
+                      onClick={() => setTab("dashboard")}
+                      className="inline-flex items-center gap-2 rounded-xl border border-border/70 bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted/60"
+                    >
+                      <BarChart3 className="h-4 w-4" />
+                      Back to dashboard
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {renderActiveContent()}
+            </div>
+          </div>
+
+          <aside className="space-y-5">
+            <div className="sticky top-24 rounded-[1.75rem] border border-border/70 bg-card/95 p-5 shadow-[0_24px_70px_-35px_rgba(15,23,42,0.35)] backdrop-blur">
+              <div className="flex items-center gap-2">
+                <Clock3 className="h-4 w-4 text-primary" />
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">At a glance</p>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Search className="h-4 w-4 text-primary" />
+                      <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Quick search</p>
+                    </div>
+                    {searchQuery && (
+                      <button
+                        onClick={() => {
+                          setSearchQuery("");
+                          setSearchTarget(null);
+                        }}
+                        className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                        aria-label="Clear search"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="mt-3 relative">
+                    <input
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search topics, subjects, or notes"
+                      className="w-full rounded-2xl border border-border/70 bg-card px-4 py-3 pr-10 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                    <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  </div>
+
+                  <div className="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1">
+                    {searchQuery.trim() ? (
+                      searchResults.length > 0 ? (
+                        searchResults.map((result) => (
+                          <button
+                            key={result.id}
+                            onClick={() => openSearchResult(result)}
+                            className="w-full rounded-2xl border border-border/70 bg-card/90 p-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">
+                                    {result.sectionLabel}
+                                  </span>
+                                  <span className="truncate text-sm font-semibold text-foreground">{result.subjectName}</span>
+                                </div>
+                                <p className="mt-1 text-sm text-muted-foreground">{result.topicName}</p>
+                                <p className="mt-1 text-[11px] text-muted-foreground">{result.detail}</p>
+                              </div>
+                              <ArrowRight className="mt-1 h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                            </div>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="rounded-2xl border border-dashed border-border/70 bg-card/60 px-4 py-6 text-center">
+                          <p className="text-sm font-medium text-foreground">No matching topics</p>
+                          <p className="mt-1 text-xs text-muted-foreground">Try a subject like OS, a topic like caching, or a note keyword.</p>
+                        </div>
+                      )
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-border/70 bg-card/60 px-4 py-5 text-sm text-muted-foreground">
+                        Start typing to search across Study, Revision, and PYQ topics.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
+                  <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Your profile</p>
+                  <div className="mt-2 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{currentMemberLabel}</p>
+                      <p className="text-xs text-muted-foreground">Single-user workspace</p>
+                    </div>
+                    <div className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">Personal</div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
+                  <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Room status</p>
+                  <div className="mt-2 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{roomCode ? roomCode : "No room selected"}</p>
+                      <p className="text-xs text-muted-foreground">{roomCode ? (cloudEnabled ? "Cloud-backed sync" : "Local workspace") : "Create or join to start syncing"}</p>
+                    </div>
+                    <span className={cn("rounded-full px-3 py-1 text-xs font-semibold", cloudEnabled ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-700")}>
+                      {cloudEnabled ? "Cloud" : "Local"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
+                  <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Difficulty tags</p>
+                  <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                    <div className="rounded-xl border border-border/70 bg-card p-3">
+                      <p className="text-lg font-semibold text-foreground">{difficultyStats.easy}</p>
+                      <p className="text-[11px] text-muted-foreground">Easy</p>
+                    </div>
+                    <div className="rounded-xl border border-border/70 bg-card p-3">
+                      <p className="text-lg font-semibold text-foreground">{difficultyStats.medium}</p>
+                      <p className="text-[11px] text-muted-foreground">Medium</p>
+                    </div>
+                    <div className="rounded-xl border border-border/70 bg-card p-3">
+                      <p className="text-lg font-semibold text-foreground">{difficultyStats.hard}</p>
+                      <p className="text-[11px] text-muted-foreground">Hard</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
+                  <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Loadable next</p>
+                  <div className="mt-3 space-y-2 text-sm text-muted-foreground">
+                    <p>• Daily reminders and study blocks</p>
+                    <p>• Export progress to CSV or PDF</p>
+                    <p>• Compact mobile view for fast check-ins</p>
+                    <p>• Topic analytics by weak areas</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </section>
       </main>
     </div>
   );

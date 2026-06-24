@@ -22,11 +22,11 @@ export default function MemberSelector({ current, onChange }: Props) {
           key={m}
           onClick={() => onChange(m)}
           className={cn(
-            "px-4 py-2 rounded-lg font-semibold text-sm border-2 transition-all",
+            "min-w-24 px-4 py-2 rounded-2xl font-semibold text-sm border-2 transition-all duration-200",
             current === m ? memberColors[m] + " border-transparent shadow-md scale-105" : memberColorsInactive[m]
           )}
         >
-          {m}
+          {m === "Bhavesh" ? "You" : m}
         </button>
       ))}
     </div>

@@ -51,7 +51,7 @@ export default function RoomCodeDialog({ roomCode, cloudEnabled, onJoin, onCreat
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <button
-          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-border hover:bg-muted/50 transition-colors"
+          className="flex items-center gap-2 rounded-2xl border border-border/70 bg-card/80 px-3.5 py-2 text-xs font-medium transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-card hover:shadow-md"
           title={roomCode ? `${cloudEnabled ? "Cloud" : "Local"} workspace: ${roomCode}` : cloudEnabled ? "Cloud Sync" : "Local Workspace"}
         >
           {isConnectedToCloud ? (
@@ -64,21 +64,19 @@ export default function RoomCodeDialog({ roomCode, cloudEnabled, onJoin, onCreat
           {roomCode ? `${cloudEnabled ? "Cloud" : "Local"}: ${roomCode}` : "Sync"}
         </button>
       </DialogTrigger>
-      <DialogContent className="max-w-xs">
+      <DialogContent className="max-w-sm rounded-3xl border-border/70 bg-card/95 shadow-2xl">
         <DialogHeader>
-          <DialogTitle className="text-base">{cloudEnabled ? "Cloud Sync" : "Local Workspace"}</DialogTitle>
+          <DialogTitle className="text-base">{cloudEnabled ? "Cloud sync" : "Local workspace"}</DialogTitle>
         </DialogHeader>
 
         {roomCode ? (
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Connected {cloudEnabled ? "cloud" : "local"} workspace:
-            </p>
+            <p className="text-sm text-muted-foreground">You are connected to this workspace:</p>
             <div className="flex items-center gap-2">
-              <code className="flex-1 text-center text-lg font-mono font-bold tracking-widest bg-muted px-3 py-2 rounded-lg">
+              <code className="flex-1 rounded-2xl border border-border/70 bg-muted/60 px-3 py-2 text-center text-lg font-mono font-bold tracking-widest">
                 {roomCode}
               </code>
-              <button onClick={handleCopy} className="p-2 hover:bg-muted rounded-lg transition-colors">
+              <button onClick={handleCopy} className="rounded-2xl border border-border/70 p-2 transition-colors hover:bg-muted/60">
                 {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-muted-foreground" />}
               </button>
             </div>
@@ -88,13 +86,13 @@ export default function RoomCodeDialog({ roomCode, cloudEnabled, onJoin, onCreat
                 : "Use the same code in another tab or browser profile on this laptop to continue the same tracker data."}
             </p>
             {!cloudEnabled && (
-              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800">
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800">
                 Cross-device sync is currently off. Add Supabase env vars to this app build to use the same room code on different devices.
               </div>
             )}
             <button
               onClick={() => { onDisconnect(); setOpen(false); }}
-              className="w-full py-2 text-sm font-medium text-destructive border border-destructive/30 rounded-lg hover:bg-destructive/10 transition-colors"
+              className="w-full rounded-2xl border border-destructive/30 py-2 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
             >
               Disconnect
             </button>
@@ -110,11 +108,11 @@ export default function RoomCodeDialog({ roomCode, cloudEnabled, onJoin, onCreat
                   onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                   placeholder="Enter code"
                   maxLength={6}
-                  className="flex-1 px-3 py-2 text-sm font-mono tracking-widest bg-card border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground text-center uppercase"
+                  className="flex-1 rounded-2xl border border-border/70 bg-card px-3 py-2 text-center text-sm font-mono tracking-widest uppercase text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 />
                 <button
                   onClick={handleJoin}
-                  className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
+                  className="rounded-2xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
                 >
                   Join
                 </button>
@@ -129,7 +127,7 @@ export default function RoomCodeDialog({ roomCode, cloudEnabled, onJoin, onCreat
 
             <button
               onClick={handleCreate}
-              className="w-full py-2.5 text-sm font-medium bg-card border border-border rounded-lg hover:bg-muted/50 transition-colors"
+              className="w-full rounded-2xl border border-border/70 bg-card py-2.5 text-sm font-medium transition-colors hover:bg-muted/50"
             >
               {cloudEnabled ? "Create cloud workspace" : "Create new workspace"}
             </button>

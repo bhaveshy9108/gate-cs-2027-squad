@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BookMarked, ChevronDown, ChevronRight, FileText } from "lucide-react";
 import { type Member } from "@/lib/gateData";
 import { type TrackerState, getSubjectProgress, isCompleted, toggleTopic } from "@/lib/trackerStore";
@@ -9,12 +9,20 @@ interface Props {
   state: TrackerState;
   member: Member;
   onUpdate: (s: TrackerState) => void;
+  focusSubjectId?: string | null;
+  focusTopicId?: string | null;
 }
 
 const SECTION = "pyq";
 
-export default function PYQSection({ state, member, onUpdate }: Props) {
+export default function PYQSection({ state, member, onUpdate, focusSubjectId, focusTopicId }: Props) {
   const [expanded, setExpanded] = useState<string | null>(PYQ_SUBJECTS[0]?.id ?? null);
+
+  useEffect(() => {
+    if (focusSubjectId) {
+      setExpanded(focusSubjectId);
+    }
+  }, [focusSubjectId]);
 
   const summary = useMemo(() => {
     let done = 0;
@@ -120,6 +128,7 @@ export default function PYQSection({ state, member, onUpdate }: Props) {
                 <div className="grid gap-3 md:grid-cols-2">
                   {subject.topics.map((topic) => {
                     const checked = isCompleted(state, member, SECTION, subject.id, topic.id);
+                    const isFocused = focusSubjectId === subject.id && focusTopicId === topic.id;
                     return (
                       <label
                         key={topic.id}
@@ -127,7 +136,8 @@ export default function PYQSection({ state, member, onUpdate }: Props) {
                           "flex items-start gap-3 rounded-xl border px-3 py-3 cursor-pointer transition-colors",
                           checked
                             ? "border-primary/30 bg-primary/5"
-                            : "border-border bg-background hover:bg-muted/30"
+                            : "border-border bg-background hover:bg-muted/30",
+                          isFocused && "ring-2 ring-primary/25 bg-primary/5"
                         )}
                       >
                         <input

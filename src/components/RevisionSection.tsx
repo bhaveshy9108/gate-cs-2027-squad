@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SUBJECTS, type Member } from "@/lib/gateData";
 import {
   type TrackerState,
@@ -22,13 +22,22 @@ interface Props {
   state: TrackerState;
   member: Member;
   onUpdate: (s: TrackerState) => void;
+  focusSubjectId?: string | null;
+  focusTopicId?: string | null;
 }
 
-export default function RevisionSection({ state, member, onUpdate }: Props) {
+export default function RevisionSection({ state, member, onUpdate, focusSubjectId, focusTopicId }: Props) {
   const [activeRound, setActiveRound] = useState<string>("revision1");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [addingTopic, setAddingTopic] = useState<string | null>(null);
   const [newTopicName, setNewTopicName] = useState("");
+
+  useEffect(() => {
+    if (focusSubjectId) {
+      setExpanded(focusSubjectId);
+      setAddingTopic(null);
+    }
+  }, [focusSubjectId]);
 
   const handleToggle = (subjectId: string, topicId: string) => {
     onUpdate(toggleTopic(state, member, activeRound, subjectId, topicId));
@@ -100,12 +109,14 @@ export default function RevisionSection({ state, member, onUpdate }: Props) {
               <div className="px-4 pb-4 space-y-1">
                 {topics.map((topic) => {
                   const checked = isCompleted(state, member, activeRound, subject.id, topic.id);
+                  const isFocused = focusSubjectId === subject.id && focusTopicId === topic.id;
                   return (
                     <div
                       key={topic.id}
                       className={cn(
                         "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group",
-                        checked ? "bg-accent/10" : "hover:bg-muted/50"
+                        checked ? "bg-accent/10" : "hover:bg-muted/50",
+                        isFocused && "ring-2 ring-primary/25 bg-primary/5"
                       )}
                     >
                       <label className="flex items-center gap-3 cursor-pointer flex-1">
