@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, BarChart3, BookMarked, BookOpen, Flame, Sparkles, RefreshCw, Target, Trophy } from "lucide-react";
+import { ArrowRight, BarChart3, BookMarked, BookOpen, Sparkles, RefreshCw } from "lucide-react";
 
 import { SUBJECTS } from "@/lib/gateData";
 import { type TrackerState, getDifficultyStats, getSubjectProgress } from "@/lib/trackerStore";
@@ -36,9 +36,6 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
     }
   }, [selectedSubjectId]);
 
-  const difficultyStats = useMemo(() => getDifficultyStats(state), [state]);
-  const totalTagged = difficultyStats.easy + difficultyStats.medium + difficultyStats.hard;
-
   const subjectSummaries = useMemo<SubjectSummary[]>(
     () =>
       SUBJECTS.map((subject) => {
@@ -68,17 +65,13 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
   );
 
   const selectedSubject = subjectSummaries.find((subject) => subject.id === selectedSubjectId) ?? subjectSummaries[0];
-  const sortedSubjects = [...subjectSummaries].sort((a, b) => a.overall.pct - b.overall.pct || a.name.localeCompare(b.name));
-  const weakestSubject = sortedSubjects[0];
-  const strongestSubject = [...subjectSummaries].sort((a, b) => b.overall.pct - a.overall.pct || a.name.localeCompare(b.name))[0];
-
   const overallDone = subjectSummaries.reduce((sum, subject) => sum + subject.overall.done, 0);
   const overallTotal = subjectSummaries.reduce((sum, subject) => sum + subject.overall.total, 0);
   const overallPct = overallTotal > 0 ? Math.round((overallDone / overallTotal) * 100) : 0;
 
   return (
     <div className="space-y-4 sm:space-y-5">
-      <div className="grid grid-cols-2 gap-3 2xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="min-w-0 rounded-[1.5rem] border border-border/70 bg-card/90 p-3 shadow-sm sm:p-5">
           <div className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4 text-primary" />
@@ -101,59 +94,6 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
           </div>
         </div>
 
-        <div className="min-w-0 rounded-[1.5rem] border border-border/70 bg-card/90 p-3 shadow-sm sm:p-5">
-          <div className="flex items-center gap-2">
-            <Trophy className="h-4 w-4 text-primary" />
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">Best</p>
-          </div>
-          <p className="mt-4 break-words text-base font-semibold leading-snug tracking-tight text-foreground sm:text-lg lg:text-xl">
-            {strongestSubject?.name ?? "No subject yet"}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
-            {strongestSubject ? `${strongestSubject.overall.pct}% done` : "No data yet"}
-          </p>
-        </div>
-
-        <div className="min-w-0 rounded-[1.5rem] border border-border/70 bg-card/90 p-3 shadow-sm sm:p-5">
-          <div className="flex items-center gap-2">
-            <Target className="h-4 w-4 text-primary" />
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">Next</p>
-          </div>
-          <p className="mt-4 break-words text-base font-semibold leading-snug tracking-tight text-foreground sm:text-lg lg:text-xl">
-            {weakestSubject?.name ?? "Nothing to focus yet"}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground sm:text-sm">{weakestSubject ? `${weakestSubject.overall.pct}% done` : "Pick a subject"}</p>
-        </div>
-
-        <div className="min-w-0 rounded-[1.5rem] border border-border/70 bg-card/90 p-3 shadow-sm sm:p-5">
-          <div className="flex items-center gap-2">
-            <Flame className="h-4 w-4 text-primary" />
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">Difficulty</p>
-          </div>
-          <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-            <div className="rounded-2xl border border-border/70 bg-background/70 p-2">
-              <p className="text-base font-semibold text-foreground sm:text-lg">{difficultyStats.easy}</p>
-              <p className="text-[10px] text-muted-foreground sm:text-[11px]">Easy</p>
-            </div>
-            <div className="rounded-2xl border border-border/70 bg-background/70 p-2">
-              <p className="text-base font-semibold text-foreground sm:text-lg">{difficultyStats.medium}</p>
-              <p className="text-[10px] text-muted-foreground sm:text-[11px]">Medium</p>
-            </div>
-            <div className="rounded-2xl border border-border/70 bg-background/70 p-2">
-              <p className="text-base font-semibold text-foreground sm:text-lg">{difficultyStats.hard}</p>
-              <p className="text-[10px] text-muted-foreground sm:text-[11px]">Hard</p>
-            </div>
-          </div>
-          {totalTagged > 0 && (
-            <div className="mt-4 h-2 overflow-hidden rounded-full bg-muted">
-              <div className="flex h-full">
-                <div className="bg-accent" style={{ width: `${(difficultyStats.easy / totalTagged) * 100}%` }} />
-                <div className="bg-yellow-500" style={{ width: `${(difficultyStats.medium / totalTagged) * 100}%` }} />
-                <div className="bg-destructive" style={{ width: `${(difficultyStats.hard / totalTagged) * 100}%` }} />
-              </div>
-            </div>
-          )}
-        </div>
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
@@ -291,21 +231,6 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
             </div>
           </div>
 
-          <div className="hidden rounded-[1.75rem] border border-border/70 bg-card/95 p-4 shadow-[0_24px_70px_-35px_rgba(15,23,42,0.35)] sm:block sm:p-5">
-            <div className="flex items-center gap-2">
-              <ArrowRight className="h-4 w-4 text-primary" />
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">Fast reads</p>
-            </div>
-            <div className="mt-4 rounded-2xl border border-border/70 bg-background/70 p-4 text-sm text-muted-foreground">
-              <p>
-                Best: <span className="text-foreground">{strongestSubject?.name ?? "not set yet"}</span>
-              </p>
-              <p className="mt-1">
-                Next: <span className="text-foreground">{weakestSubject?.name ?? "nothing yet"}</span>
-              </p>
-              <p className="mt-1">Centered on {member === "Bhavesh" ? "you" : member}.</p>
-            </div>
-          </div>
         </div>
       </div>
     </div>
