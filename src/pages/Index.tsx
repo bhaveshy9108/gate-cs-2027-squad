@@ -53,6 +53,12 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]["id"];
 
+const FOCUS_SECTIONS = [
+  { id: "study", label: "Study", icon: BookOpen, hint: "Primary checklist progress" },
+  { id: "revision", label: "Revision", icon: RefreshCw, hint: "Topics to revisit" },
+  { id: "pyq", label: "PYQs", icon: BookMarked, hint: "Previous year practice" },
+] as const;
+
 function formatDateLabel(iso: string | null) {
   if (!iso) return "No activity yet";
   return new Intl.DateTimeFormat("en-IN", {

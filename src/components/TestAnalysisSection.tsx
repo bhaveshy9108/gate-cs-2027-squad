@@ -1,9 +1,11 @@
 import { useMemo } from "react";
 import { MEMBERS, type Member } from "@/lib/gateData";
 import {
+  getCoverageScopeLabel,
   getTestPerformanceRecords,
   getMockTestTypeLabel,
   type TestPerformanceRecord,
+  type TestCoverageScope,
   type TrackerState,
   type WeeklyTestSource,
 } from "@/lib/trackerStore";
