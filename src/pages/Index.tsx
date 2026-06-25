@@ -53,12 +53,6 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]["id"];
 
-const FOCUS_SECTIONS = [
-  { id: "study", label: "Study", icon: BookOpen, hint: "Primary checklist progress" },
-  { id: "revision", label: "Revision", icon: RefreshCw, hint: "Topics to revisit" },
-  { id: "pyq", label: "PYQs", icon: BookMarked, hint: "Previous year practice" },
-] as const;
-
 function formatDateLabel(iso: string | null) {
   if (!iso) return "No activity yet";
   return new Intl.DateTimeFormat("en-IN", {
@@ -509,26 +503,9 @@ export default function Index() {
                   <h2 className="whitespace-pre-line text-3xl font-semibold tracking-tight sm:text-4xl">
                     AIR 10{"\n"}MTECH CS IIT BOMBAY
                   </h2>
-                  <p className="max-w-xl text-sm text-muted-foreground sm:text-base">
-                    JUST REMAIN CONSISTENT AND YOU WILL RECEIVE EVERYTHING.
-                    <span className="block font-medium text-foreground">TRUST YOURSELF, BHAVESH.</span>
+                  <p className="max-w-3xl whitespace-nowrap text-sm text-muted-foreground sm:text-base">
+                    JUST REMAIN CONSISTENT AND YOU WILL RECEIVE EVERYTHING. TRUST YOURSELF, BHAVESH.
                   </p>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  {FOCUS_SECTIONS.map((section) => {
-                    const Icon = section.icon;
-                    return (
-                      <button
-                        key={section.id}
-                        onClick={() => setTab(section.id)}
-                        className="inline-flex items-center gap-2 rounded-2xl border border-border/70 bg-background/70 px-4 py-2 text-sm font-medium text-foreground transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
-                      >
-                        <Icon className="h-4 w-4 text-primary" />
-                        {section.label}
-                      </button>
-                    );
-                  })}
                 </div>
               </div>
 
@@ -567,45 +544,6 @@ export default function Index() {
                   <p className="text-xs text-muted-foreground">{roomCode ? roomCode : "No room connected"}</p>
                 </div>
 
-              </div>
-            </div>
-
-            <div className="border-b border-border/70 px-6 py-4 sm:px-8">
-              <div className="grid gap-3 md:grid-cols-3">
-                {sectionSummaries.map((section) => {
-                  const Icon = section.icon;
-                  return (
-                    <button
-                      key={section.id}
-                      onClick={() => setTab(section.id)}
-                      className="group rounded-2xl border border-border/70 bg-background/60 p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                              <Icon className="h-4 w-4" />
-                            </span>
-                            <h3 className="font-semibold text-foreground">{section.label}</h3>
-                          </div>
-                          <p className="text-xs text-muted-foreground">{section.hint}</p>
-                        </div>
-                        <span className="text-sm font-semibold text-foreground">{section.percent}%</span>
-                      </div>
-                      <div className="mt-3 h-2 rounded-full bg-muted">
-                        <div className="h-full rounded-full bg-gradient-to-r from-primary to-accent transition-all duration-300" style={{ width: `${section.percent}%` }} />
-                      </div>
-                      <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-                        <span>
-                          {section.done}/{section.total} tasks
-                        </span>
-                        <span className="inline-flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                          Open <ArrowRight className="h-3.5 w-3.5" />
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
               </div>
             </div>
 
