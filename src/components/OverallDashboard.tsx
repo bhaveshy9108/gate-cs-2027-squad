@@ -156,7 +156,7 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
         </div>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.12fr)_minmax(0,0.88fr)]">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
         <div className="rounded-[1.75rem] border border-border/70 bg-card/95 p-4 shadow-[0_24px_70px_-35px_rgba(15,23,42,0.35)] sm:p-5">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
@@ -169,7 +169,7 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
             <p className="hidden text-xs text-muted-foreground sm:block">Tap a row</p>
           </div>
 
-          <div className="mt-5 grid gap-3">
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {subjectSummaries.map((subject) => {
               const isSelected = subject.id === selectedSubject?.id;
               return (
@@ -177,18 +177,18 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
                   key={subject.id}
                   onClick={() => setSelectedSubjectId(subject.id)}
                   className={cn(
-                    "group min-w-0 rounded-3xl border p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg",
+                    "group min-w-0 rounded-3xl border p-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg",
                     isSelected ? "border-primary/30 bg-primary/5 shadow-lg shadow-primary/10" : "border-border/70 bg-background/70 hover:border-primary/30"
                   )}
                 >
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 space-y-1">
-                      <p className="break-words text-sm font-semibold leading-tight text-foreground sm:text-base">
+                      <p className="break-words text-[13px] font-semibold leading-snug text-foreground">
                         {subject.name}
                       </p>
-                      <p className="text-xs text-muted-foreground">~{subject.weightage} marks</p>
+                      <p className="text-[11px] text-muted-foreground">~{subject.weightage} marks</p>
                     </div>
-                    <div className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">{subject.overall.pct}%</div>
+                    <div className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">{subject.overall.pct}%</div>
                   </div>
 
                   <div className="mt-3 h-2 rounded-full bg-muted">
@@ -204,7 +204,7 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
                       return (
                         <span
                           key={section.key}
-                          className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-card/80 px-3 py-1 text-[11px] font-medium text-muted-foreground"
+                          className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-card/80 px-2.5 py-1 text-[10px] font-medium text-muted-foreground"
                         >
                           <span className={cn("h-1.5 w-1.5 rounded-full", section.key === "study" ? "bg-primary" : section.key === "revision" ? "bg-accent" : "bg-yellow-500")} />
                           {section.label} {value.pct}%
