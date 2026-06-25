@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type SetStateAction } from "react";
-import { ArrowRight, BarChart3, BookMarked, BookOpen, CalendarCheck2, CalendarDays, Cloud, GraduationCap, LineChart, RefreshCw, Search, Sparkles, Target, X } from "lucide-react";
+import { ArrowRight, BarChart3, BookMarked, BookOpen, CalendarCheck2, CalendarDays, Cloud, Clock3, GraduationCap, LineChart, RefreshCw, Search, Sparkles, Target, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { MEMBERS, SUBJECTS, type Member } from "@/lib/gateData";
