@@ -28,12 +28,22 @@ export interface TrackerState {
   checklist: ChecklistData;
   customTopics: Record<string, Topic[]>;
   deletedTopics: Record<string, string[]>;
+  weeklyPyqPlan: Record<string, WeeklyPyqPlanItem[]>;
   mockTests: MockTest[];
   weeklyTests: WeeklyTest[];
   testSeries: TestSeriesLink[];
   currentMember: Member;
+  lastUpdatedAt?: string;
   topicNotes: Record<string, TopicNote>; // key: `${subjectId}|${topicId}`
   topicDifficulty: Record<string, Difficulty>; // key: `${subjectId}|${topicId}`
+}
+
+export interface WeeklyPyqPlanItem {
+  subjectId: string;
+  topicId: string;
+  topicName: string;
+  count?: number;
+  addedAt: string;
 }
 
 export type MockTestType = "subject" | "full" | "weekly";
@@ -88,6 +98,7 @@ function defaultState(): TrackerState {
     checklist: {},
     customTopics: {},
     deletedTopics: {},
+    weeklyPyqPlan: {},
     mockTests: [],
     weeklyTests: [],
     testSeries: [
@@ -96,8 +107,9 @@ function defaultState(): TrackerState {
       { id: "series-goclasses", name: "GO Classes", url: "" },
       { id: "series-madeeasy", name: "MadeEasy", url: "" },
       { id: "series-zeal", name: "Zeal", url: "" },
-    ],
+    ], 
     currentMember: "Bhavesh",
+    lastUpdatedAt: undefined,
     topicNotes: {},
     topicDifficulty: {},
   };
@@ -268,10 +280,15 @@ export function normalizeTrackerState(raw: unknown): TrackerState {
       typeof parsed.deletedTopics === "object" && parsed.deletedTopics !== null
         ? parsed.deletedTopics
         : base.deletedTopics,
+    weeklyPyqPlan:
+      typeof parsed.weeklyPyqPlan === "object" && parsed.weeklyPyqPlan !== null
+        ? parsed.weeklyPyqPlan
+        : base.weeklyPyqPlan,
     mockTests: normalizeMockTests(parsed.mockTests),
     weeklyTests: normalizeWeeklyTests(parsed.weeklyTests),
     testSeries: normalizeTestSeries(parsed.testSeries, (parsed as { platformLinks?: unknown }).platformLinks),
     currentMember: MEMBERS.includes(parsed.currentMember as Member) ? (parsed.currentMember as Member) : MEMBERS[0],
+    lastUpdatedAt: typeof parsed.lastUpdatedAt === "string" ? parsed.lastUpdatedAt : base.lastUpdatedAt,
     topicNotes:
       typeof parsed.topicNotes === "object" && parsed.topicNotes !== null ? parsed.topicNotes : base.topicNotes,
     topicDifficulty:
@@ -332,6 +349,38 @@ export function loadState(): TrackerState {
 
 export function saveState(state: TrackerState) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+export function getWeeklyPyqPlan(state: TrackerState, week: number): WeeklyPyqPlanItem[] {
+  return state.weeklyPyqPlan[String(week)] ?? [];
+}
+
+export function addWeeklyPyqPlanItem(state: TrackerState, week: number, item: WeeklyPyqPlanItem): TrackerState {
+  const key = String(week);
+  const current = state.weeklyPyqPlan[key] ?? [];
+  if (current.some((entry) => entry.subjectId === item.subjectId && entry.topicId === item.topicId)) {
+    return state;
+  }
+  return {
+    ...state,
+    weeklyPyqPlan: {
+      ...state.weeklyPyqPlan,
+      [key]: [...current, item],
+    },
+  };
+}
+
+export function removeWeeklyPyqPlanItem(state: TrackerState, week: number, subjectId: string, topicId: string): TrackerState {
+  const key = String(week);
+  const current = state.weeklyPyqPlan[key] ?? [];
+  const next = current.filter((entry) => !(entry.subjectId === subjectId && entry.topicId === topicId));
+  return {
+    ...state,
+    weeklyPyqPlan: {
+      ...state.weeklyPyqPlan,
+      [key]: next,
+    },
+  };
 }
 
 export function toggleTopic(

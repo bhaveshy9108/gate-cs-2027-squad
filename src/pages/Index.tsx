@@ -6,7 +6,6 @@ import { MEMBERS, SUBJECTS, type Member } from "@/lib/gateData";
 import {
   createDefaultState,
   getAllTopics,
-  getDifficultyStats,
   getSubjectProgress,
   getWeekDateRange,
   getWeekNumber,
@@ -37,7 +36,7 @@ import RoomCodeDialog from "@/components/RoomCodeDialog";
 import StreakCalendar from "@/components/StreakCalendar";
 import SubjectChecklist from "@/components/SubjectChecklist";
 import TestAnalysisSection from "@/components/TestAnalysisSection";
-import WeeklyProgress from "@/components/WeeklyProgress";
+import WeeklyProgress, { WeeklyPyqPlanner } from "@/components/WeeklyProgress";
 import WeeklyTestsSection from "@/components/WeeklyTestsSection";
 import { PYQ_SUBJECTS } from "@/lib/pyqCatalog";
 
@@ -167,15 +166,16 @@ export default function Index() {
         typeof updater === "function"
           ? (updater as (prevState: TrackerState) => TrackerState)(previous)
           : updater;
+      const stampedState = { ...nextState, lastUpdatedAt: new Date().toISOString() };
 
       if (roomCode) {
-        publishRoomState(roomCode, nextState);
+        publishRoomState(roomCode, stampedState);
         if (cloudReady && canPersistRoomRef.current) {
-          saveCloudState(roomCode, nextState, { localAlreadyPublished: true });
+          saveCloudState(roomCode, stampedState, { localAlreadyPublished: true });
         }
       }
 
-      return nextState;
+      return stampedState;
     });
   };
 
@@ -183,9 +183,9 @@ export default function Index() {
 
   const currentWeek = getWeekNumber(new Date());
   const currentWeekRange = getWeekDateRange(currentWeek);
-  const difficultyStats = useMemo(() => getDifficultyStats(state), [state]);
   const weeklyProgress = useMemo(() => getWeeklyProgress(state), [state]);
   const lastActivity = useMemo(() => getLastActivity(state), [state]);
+  const recentActivityLabel = formatDateLabel(state.lastUpdatedAt ?? lastActivity);
 
   const sectionSummaries = useMemo(() => {
     return FOCUS_SECTIONS.map((section) => {
@@ -300,7 +300,6 @@ export default function Index() {
 
   const recentWeek = weeklyProgress[weeklyProgress.length - 1];
   const recentWeekCount = recentWeek ? recentWeek.items.length + recentWeek.mockTests.length + recentWeek.weeklyTests.length : 0;
-  const currentMemberLabel = member === MEMBERS[0] ? "You" : member;
   const activeTab = TABS.find((entry) => entry.id === tab) ?? TABS[0];
   const ActiveIcon = activeTab.icon;
 
@@ -380,7 +379,7 @@ export default function Index() {
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   <div className="rounded-2xl border border-border/70 bg-card/80 p-4">
                     <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Latest update</p>
-                    <p className="mt-2 text-sm font-semibold text-foreground">{formatDateLabel(lastActivity)}</p>
+                    <p className="mt-2 text-sm font-semibold text-foreground">{recentActivityLabel}</p>
                   </div>
                   <div className="rounded-2xl border border-border/70 bg-card/80 p-4">
                     <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">This week</p>
@@ -531,9 +530,12 @@ export default function Index() {
                     <Sparkles className="h-3.5 w-3.5 text-primary" />
                     Goal locked
                   </div>
-                  <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">AIR 10 MTECH CS IIT BOMBAY</h2>
+                  <h2 className="whitespace-pre-line text-3xl font-semibold tracking-tight sm:text-4xl">
+                    AIR 10{"\n"}MTECH CS IIT BOMBAY
+                  </h2>
                   <p className="max-w-xl text-sm text-muted-foreground sm:text-base">
-                    A focused dashboard for your study path. Keep the essentials here, and use the tabs for the work itself.
+                    JUST REMAIN CONSISTENT AND YOU WILL RECEIVE EVERYTHING.
+                    <span className="block font-medium text-foreground">TRUST YOURSELF, BHAVESH.</span>
                   </p>
                 </div>
 
@@ -742,55 +744,25 @@ export default function Index() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
-                  <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Your profile</p>
-                  <div className="mt-2 flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">{currentMemberLabel}</p>
-                      <p className="text-xs text-muted-foreground">Single-user workspace</p>
-                    </div>
-                    <div className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">Personal</div>
-                  </div>
-                </div>
+                <WeeklyPyqPlanner state={state} member={member} weekNumber={currentWeek} onUpdate={updateState} />
 
                 <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
-                  <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Room status</p>
-                  <div className="mt-2 flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">{roomCode ? roomCode : "No room selected"}</p>
-                      <p className="text-xs text-muted-foreground">{roomCode ? (cloudEnabled ? "Cloud-backed sync" : "Local workspace") : "Create or join to start syncing"}</p>
-                    </div>
-                    <span className={cn("rounded-full px-3 py-1 text-xs font-semibold", cloudEnabled ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-700")}>
-                      {cloudEnabled ? "Cloud" : "Local"}
-                    </span>
+                  <div className="flex items-center gap-2">
+                    <Clock3 className="h-4 w-4 text-primary" />
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Recent activity</p>
                   </div>
-                </div>
-
-                <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
-                  <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Difficulty tags</p>
-                  <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-                    <div className="rounded-xl border border-border/70 bg-card p-3">
-                      <p className="text-lg font-semibold text-foreground">{difficultyStats.easy}</p>
-                      <p className="text-[11px] text-muted-foreground">Easy</p>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-2xl border border-border/70 bg-card/80 p-4">
+                      <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Latest update</p>
+                      <p className="mt-2 text-sm font-semibold text-foreground">{recentActivityLabel}</p>
                     </div>
-                    <div className="rounded-xl border border-border/70 bg-card p-3">
-                      <p className="text-lg font-semibold text-foreground">{difficultyStats.medium}</p>
-                      <p className="text-[11px] text-muted-foreground">Medium</p>
+                    <div className="rounded-2xl border border-border/70 bg-card/80 p-4">
+                      <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">This week</p>
+                      <p className="mt-2 text-sm font-semibold text-foreground">
+                        {recentWeek ? `Week ${recentWeek.week}` : "No weekly entries yet"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{recentWeekCount} items logged</p>
                     </div>
-                    <div className="rounded-xl border border-border/70 bg-card p-3">
-                      <p className="text-lg font-semibold text-foreground">{difficultyStats.hard}</p>
-                      <p className="text-[11px] text-muted-foreground">Hard</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
-                  <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Loadable next</p>
-                  <div className="mt-3 space-y-2 text-sm text-muted-foreground">
-                    <p>• Daily reminders and study blocks</p>
-                    <p>• Export progress to CSV or PDF</p>
-                    <p>• Compact mobile view for fast check-ins</p>
-                    <p>• Topic analytics by weak areas</p>
                   </div>
                 </div>
               </div>
