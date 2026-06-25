@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type SetStateAction } from "react";
-import { ArrowRight, BarChart3, BookMarked, BookOpen, CalendarCheck2, CalendarDays, Clock3, Cloud, GraduationCap, LineChart, RefreshCw, Search, Sparkles, Target, X, Zap } from "lucide-react";
+import { ArrowRight, BarChart3, BookMarked, BookOpen, CalendarCheck2, CalendarDays, Cloud, GraduationCap, LineChart, RefreshCw, Search, Sparkles, Target, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { MEMBERS, SUBJECTS, type Member } from "@/lib/gateData";
@@ -184,8 +184,6 @@ export default function Index() {
   const currentWeek = getWeekNumber(new Date());
   const currentWeekRange = getWeekDateRange(currentWeek);
   const weeklyProgress = useMemo(() => getWeeklyProgress(state), [state]);
-  const lastActivity = useMemo(() => getLastActivity(state), [state]);
-  const recentActivityLabel = formatDateLabel(state.lastUpdatedAt ?? lastActivity);
 
   const sectionSummaries = useMemo(() => {
     return FOCUS_SECTIONS.map((section) => {
@@ -298,8 +296,6 @@ export default function Index() {
     return results.sort((a, b) => a.score - b.score || a.subjectName.localeCompare(b.subjectName) || a.topicName.localeCompare(b.topicName)).slice(0, 10);
   }, [searchQuery, state]);
 
-  const recentWeek = weeklyProgress[weeklyProgress.length - 1];
-  const recentWeekCount = recentWeek ? recentWeek.items.length + recentWeek.mockTests.length + recentWeek.weeklyTests.length : 0;
   const activeTab = TABS.find((entry) => entry.id === tab) ?? TABS[0];
   const ActiveIcon = activeTab.icon;
 
@@ -317,7 +313,7 @@ export default function Index() {
     switch (tab) {
       case "dashboard":
         return (
-          <div className="grid gap-5 xl:grid-cols-[1.15fr_.85fr]">
+          <div className="grid gap-5 2xl:grid-cols-[1.15fr_.85fr]">
             <div className="space-y-5">
               <OverallDashboard state={state} onOpenSection={(section) => setTab(section)} />
               <StreakCalendar state={state} />
@@ -369,27 +365,7 @@ export default function Index() {
                 </div>
               </div>
 
-              <div className="rounded-[1.5rem] border border-border/70 bg-background/70 p-5 shadow-sm">
-                <div className="flex items-center gap-2">
-                  <Clock3 className="h-4 w-4 text-primary" />
-                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
-                    Recent activity
-                  </p>
-                </div>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-border/70 bg-card/80 p-4">
-                    <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Latest update</p>
-                    <p className="mt-2 text-sm font-semibold text-foreground">{recentActivityLabel}</p>
-                  </div>
-                  <div className="rounded-2xl border border-border/70 bg-card/80 p-4">
-                    <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">This week</p>
-                    <p className="mt-2 text-sm font-semibold text-foreground">
-                      {recentWeek ? `Week ${recentWeek.week}` : "No weekly entries yet"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{recentWeekCount} items logged</p>
-                  </div>
-                </div>
-              </div>
+              
             </div>
           </div>
         );
@@ -521,7 +497,7 @@ export default function Index() {
             <div className="px-6 py-6 sm:px-8">{renderActiveContent()}</div>
           </section>
         ) : (
-        <section className="grid gap-5 xl:grid-cols-[1.55fr_.9fr]">
+        <section className="grid gap-5 2xl:grid-cols-[1.55fr_.9fr]">
           <div className="overflow-hidden rounded-[1.75rem] border border-border/70 bg-card/95 shadow-[0_24px_70px_-35px_rgba(15,23,42,0.35)] backdrop-blur">
             <div className="border-b border-border/70 px-6 py-6 sm:px-8">
               <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
@@ -591,14 +567,6 @@ export default function Index() {
                   <p className="text-xs text-muted-foreground">{roomCode ? roomCode : "No room connected"}</p>
                 </div>
 
-                <div className="rounded-2xl border border-border/70 bg-background/75 p-4">
-                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
-                    <Zap className="h-3.5 w-3.5 text-primary" />
-                    Activity
-                  </div>
-                  <p className="mt-3 text-2xl font-semibold tracking-tight">{recentWeekCount}</p>
-                  <p className="text-xs text-muted-foreground">{formatDateLabel(lastActivity)}</p>
-                </div>
               </div>
             </div>
 
@@ -745,26 +713,6 @@ export default function Index() {
                 </div>
 
                 <WeeklyPyqPlanner state={state} member={member} weekNumber={currentWeek} onUpdate={updateState} />
-
-                <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
-                  <div className="flex items-center gap-2">
-                    <Clock3 className="h-4 w-4 text-primary" />
-                    <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Recent activity</p>
-                  </div>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-2xl border border-border/70 bg-card/80 p-4">
-                      <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Latest update</p>
-                      <p className="mt-2 text-sm font-semibold text-foreground">{recentActivityLabel}</p>
-                    </div>
-                    <div className="rounded-2xl border border-border/70 bg-card/80 p-4">
-                      <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">This week</p>
-                      <p className="mt-2 text-sm font-semibold text-foreground">
-                        {recentWeek ? `Week ${recentWeek.week}` : "No weekly entries yet"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">{recentWeekCount} items logged</p>
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
           </aside>

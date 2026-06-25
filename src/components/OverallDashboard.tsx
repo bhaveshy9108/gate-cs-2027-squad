@@ -78,7 +78,7 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
 
   return (
     <div className="space-y-4 sm:space-y-5">
-      <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 2xl:grid-cols-4">
         <div className="min-w-0 rounded-[1.5rem] border border-border/70 bg-card/90 p-3 shadow-sm sm:p-5">
           <div className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4 text-primary" />
@@ -106,10 +106,12 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
             <Trophy className="h-4 w-4 text-primary" />
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">Best</p>
           </div>
-          <p className="mt-4 break-words text-lg font-semibold leading-tight tracking-tight text-foreground sm:text-2xl">
+          <p className="mt-4 break-words text-base font-semibold leading-snug tracking-tight text-foreground sm:text-lg lg:text-xl">
             {strongestSubject?.name ?? "No subject yet"}
           </p>
-          <p className="mt-1 text-xs text-muted-foreground sm:text-sm">{strongestSubject ? `${strongestSubject.overall.pct}% done` : "No data yet"}</p>
+          <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+            {strongestSubject ? `${strongestSubject.overall.pct}% done` : "No data yet"}
+          </p>
         </div>
 
         <div className="min-w-0 rounded-[1.5rem] border border-border/70 bg-card/90 p-3 shadow-sm sm:p-5">
@@ -117,7 +119,7 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
             <Target className="h-4 w-4 text-primary" />
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">Next</p>
           </div>
-          <p className="mt-4 break-words text-lg font-semibold leading-tight tracking-tight text-foreground sm:text-2xl">
+          <p className="mt-4 break-words text-base font-semibold leading-snug tracking-tight text-foreground sm:text-lg lg:text-xl">
             {weakestSubject?.name ?? "Nothing to focus yet"}
           </p>
           <p className="mt-1 text-xs text-muted-foreground sm:text-sm">{weakestSubject ? `${weakestSubject.overall.pct}% done` : "Pick a subject"}</p>
@@ -181,7 +183,9 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 space-y-1">
-                      <p className="break-words text-sm font-semibold leading-tight text-foreground sm:text-base">{subject.name}</p>
+                      <p className="break-words text-sm font-semibold leading-tight text-foreground sm:text-base">
+                        {subject.name}
+                      </p>
                       <p className="text-xs text-muted-foreground">~{subject.weightage} marks</p>
                     </div>
                     <div className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">{subject.overall.pct}%</div>
@@ -222,7 +226,7 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
                   <Sparkles className="h-4 w-4 text-primary" />
                   <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">Selected</p>
                 </div>
-                <h3 className="mt-2 break-words text-xl font-semibold leading-tight tracking-tight text-foreground">
+                <h3 className="mt-2 break-words text-lg font-semibold leading-snug tracking-tight text-foreground sm:text-xl">
                   {selectedSubject?.name ?? "Pick a subject"}
                 </h3>
               </div>

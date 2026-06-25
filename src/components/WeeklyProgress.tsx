@@ -1,5 +1,18 @@
 import { useMemo, useState } from "react";
-import { Check, CalendarDays, ClipboardList, ExternalLink, ListTodo, Plus, Search, Sparkles, Target, Trash2, Trophy } from "lucide-react";
+import {
+  CalendarDays,
+  Check,
+  ChevronDown,
+  ClipboardList,
+  ExternalLink,
+  ListTodo,
+  Plus,
+  Search,
+  Sparkles,
+  Target,
+  Trash2,
+  Trophy,
+} from "lucide-react";
 
 import { MEMBERS, type Member } from "@/lib/gateData";
 import {
@@ -10,6 +23,7 @@ import {
   getMockTestTypeLabel,
   getSubjectProgress,
   getWeekDateRange,
+  getWeekNumber,
   getWeeklyProgress,
   getWeeklyPyqPlan,
   getWeeklyTestDisplayName,
@@ -117,23 +131,31 @@ export function WeeklyPyqPlanner({ state, member, weekNumber, onUpdate }: Weekly
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        {PYQ_SUBJECTS.slice(0, 6).map((subject) => {
-          const progress = getSubjectProgress(state, member, "pyq", subject.id);
-          const active = subject.id === selectedSubject?.id;
-          return (
-            <button
-              key={subject.id}
-              onClick={() => setActiveSubjectId(subject.id)}
-              className={cn(
-                "rounded-full border px-3 py-1.5 text-xs font-medium transition-all",
-                active ? "border-primary/30 bg-primary/10 text-primary" : "border-border/70 bg-background/70 text-muted-foreground hover:border-primary/30 hover:text-foreground"
-              )}
+      <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+        <div>
+          <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-muted-foreground">Subject</label>
+          <div className="relative mt-2">
+            <select
+              value={activeSubjectId}
+              onChange={(event) => setActiveSubjectId(event.target.value)}
+              className="w-full appearance-none rounded-2xl border border-border/70 bg-card px-4 py-3 pr-11 text-sm font-medium text-foreground shadow-sm outline-none transition-all focus:border-primary/40 focus:ring-2 focus:ring-primary/10"
             >
-              {subject.name.split(" ")[0]} {progress.done}/{progress.total}
-            </button>
-          );
-        })}
+              {PYQ_SUBJECTS.map((subject) => {
+                const progress = getSubjectProgress(state, member, "pyq", subject.id);
+                return (
+                  <option key={subject.id} value={subject.id}>
+                    {subject.name} ({progress.done}/{progress.total})
+                  </option>
+                );
+              })}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          </div>
+        </div>
+        <div className="rounded-2xl border border-border/70 bg-background/70 px-4 py-3">
+          <p className="text-[11px] uppercase tracking-[0.25em] text-muted-foreground">Selection</p>
+          <p className="mt-1 text-sm font-semibold text-foreground">{selectedSubject?.name ?? "Pick a subject"}</p>
+        </div>
       </div>
 
       <div className="mt-4 rounded-2xl border border-border/70 bg-background/70 p-4">

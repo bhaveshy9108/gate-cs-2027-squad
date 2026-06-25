@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { BookMarked, ChevronDown, ChevronRight, FileText } from "lucide-react";
+import { BookMarked, Check, ChevronDown, ChevronRight, FileText, Plus } from "lucide-react";
 import { type Member } from "@/lib/gateData";
-import { type TrackerState, getSubjectProgress, isCompleted, toggleTopic } from "@/lib/trackerStore";
+import {
+  addWeeklyPyqPlanItem,
+  getSubjectProgress,
+  getWeekNumber,
+  getWeeklyPyqPlan,
+  isCompleted,
+  toggleTopic,
+  type TrackerState,
+} from "@/lib/trackerStore";
 import { PYQ_SUBJECTS } from "@/lib/pyqCatalog";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +25,9 @@ const SECTION = "pyq";
 
 export default function PYQSection({ state, member, onUpdate, focusSubjectId, focusTopicId }: Props) {
   const [expanded, setExpanded] = useState<string | null>(PYQ_SUBJECTS[0]?.id ?? null);
+  const currentWeek = getWeekNumber(new Date());
+  const weekPlan = useMemo(() => getWeeklyPyqPlan(state, currentWeek), [state, currentWeek]);
+  const plannedKeys = useMemo(() => new Set(weekPlan.map((item) => `${item.subjectId}|${item.topicId}`)), [weekPlan]);
 
   useEffect(() => {
     if (focusSubjectId) {
@@ -34,6 +45,18 @@ export default function PYQSection({ state, member, onUpdate, focusSubjectId, fo
     }
     return { done, total, pct: total > 0 ? Math.round((done / total) * 100) : 0 };
   }, [state, member]);
+
+  const addToPlan = (subjectId: string, topicId: string, topicName: string, count?: number) => {
+    onUpdate((next) =>
+      addWeeklyPyqPlanItem(next, currentWeek, {
+        subjectId,
+        topicId,
+        topicName,
+        count,
+        addedAt: new Date().toISOString(),
+      })
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -129,6 +152,7 @@ export default function PYQSection({ state, member, onUpdate, focusSubjectId, fo
                   {subject.topics.map((topic) => {
                     const checked = isCompleted(state, member, SECTION, subject.id, topic.id);
                     const isFocused = focusSubjectId === subject.id && focusTopicId === topic.id;
+                    const planned = plannedKeys.has(`${subject.id}|${topic.id}`);
                     return (
                       <label
                         key={topic.id}
@@ -161,6 +185,24 @@ export default function PYQSection({ state, member, onUpdate, focusSubjectId, fo
                                 ~{topic.count} PYQs
                               </span>
                             )}
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                addToPlan(subject.id, topic.id, topic.name, topic.count);
+                              }}
+                              className={cn(
+                                "inline-flex h-6 w-6 items-center justify-center rounded-full border text-[11px] transition-all",
+                                planned
+                                  ? "border-primary/30 bg-primary text-primary-foreground"
+                                  : "border-border bg-card text-muted-foreground hover:border-primary/30 hover:text-primary"
+                              )}
+                              aria-label={planned ? `Already in todo list: ${topic.name}` : `Add ${topic.name} to todo list`}
+                              title={planned ? "Already in this week's todo list" : "Add to this week's todo list"}
+                            >
+                              {planned ? <Check className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+                            </button>
                           </div>
                           <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
                             <FileText className="w-3 h-3" />
