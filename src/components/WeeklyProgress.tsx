@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import {
   CalendarDays,
   Check,
@@ -56,7 +56,7 @@ interface WeeklyPyqPlannerProps {
   state: TrackerState;
   member: Member;
   weekNumber: number;
-  onUpdate: (state: TrackerState) => void;
+  onUpdate: Dispatch<SetStateAction<TrackerState>>;
 }
 
 export function WeeklyPyqPlanner({ state, member, weekNumber, onUpdate }: WeeklyPyqPlannerProps) {
@@ -183,16 +183,19 @@ export function WeeklyPyqPlanner({ state, member, weekNumber, onUpdate }: Weekly
 
         <div className="mt-3 max-h-56 space-y-2 overflow-y-auto pr-1">
           {selectedSubject && availableTopics.length > 0 ? (
-            availableTopics.slice(0, 10).map((topic) => (
+            availableTopics.slice(0, 10).map((topic) => {
+              const topicCount = (topic as { count?: number }).count;
+              return (
               <button
                 key={topic.id}
-                onClick={() => addTopic(selectedSubject.id, topic.id, topic.name, topic.count)}
+                onClick={() => addTopic(selectedSubject.id, topic.id, topic.name, topicCount)}
                 className="flex w-full items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card px-3 py-2 text-left text-sm text-foreground transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-sm"
               >
                 <span className="min-w-0 truncate">{topic.name}</span>
                 <Plus className="h-4 w-4 flex-shrink-0 text-primary" />
               </button>
-            ))
+            );
+            })
           ) : (
             <div className="rounded-2xl border border-dashed border-border/70 px-3 py-5 text-center text-sm text-muted-foreground">
               No more topics to add for this subject.
@@ -360,28 +363,37 @@ export default function WeeklyProgress({ state }: Props) {
                       </span>
                     </div>
 
-                    <div className="mt-3 space-y-2">
+                    <div className="mt-3 grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(180px,1fr))]">
                       {items
                         .slice()
                         .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())
-                        .map((item) => (
-                          <div
-                            key={`${item.member}-${item.subjectName}-${item.topicName}-${item.completedAt}`}
-                            className="flex flex-col gap-2 rounded-2xl border border-border/70 bg-card px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
-                          >
-                            <div className="min-w-0">
-                              <p className="text-sm font-medium text-foreground">
-                                {item.topicName}
-                                <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                                  {item.section}
-                                </span>
-                              </p>
-                              <p className="text-[11px] text-muted-foreground">
+                        .map((item) => {
+                          const isPyq = item.section === "pyq";
+                          return (
+                            <div
+                              key={`${item.member}-${item.subjectName}-${item.topicName}-${item.completedAt}`}
+                              className={cn(
+                                "min-w-0 rounded-2xl border px-3 py-2.5 shadow-sm transition-transform hover:-translate-y-0.5",
+                                isPyq ? "border-primary/20 bg-primary/5" : "border-border/70 bg-card"
+                              )}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0 space-y-1">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p className="min-w-0 truncate text-sm font-semibold text-foreground">{item.topicName}</p>
+                                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                                      {item.section}
+                                    </span>
+                                  </div>
+                                  <p className="break-words text-[11px] leading-snug text-muted-foreground">{item.subjectName}</p>
+                                </div>
+                              </div>
+                              <p className="mt-2 text-[11px] text-muted-foreground">
                                 {item.member} • {formatTimestamp(item.completedAt)}
                               </p>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                     </div>
                   </div>
                 );
