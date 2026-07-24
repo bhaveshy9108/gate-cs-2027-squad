@@ -148,6 +148,7 @@ function createImportedWeeklyTest(draft: PdfImportDraft, seriesName: string, wee
 
 export default function WeeklyTestsSection({ state, onUpdate }: Props) {
   const currentWeek = getWeekNumber(new Date());
+  const currentMember = state.currentMember;
   const [showAdd, setShowAdd] = useState(false);
   const [showAddSeries, setShowAddSeries] = useState(false);
   const [showPdfImport, setShowPdfImport] = useState(false);
@@ -166,6 +167,12 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
   const [selectedSeriesId, setSelectedSeriesId] = useState(state.testSeries[0]?.id ?? "");
   const [editingSeriesId, setEditingSeriesId] = useState<string | null>(null);
   const [draftScores, setDraftScores] = useState<Record<string, string>>({});
+  const [seriesFilter, setSeriesFilter] = useState<string>("all");
+  const [scopeFilter, setScopeFilter] = useState<"all" | TestCoverageScope>("all");
+  const [completionFilter, setCompletionFilter] = useState<"all" | "done" | "todo">("all");
+  const [subjectFilter, setSubjectFilter] = useState("");
+  const [topicFilter, setTopicFilter] = useState("");
+  const [searchFilter, setSearchFilter] = useState("");
   const [pdfImportBusy, setPdfImportBusy] = useState(false);
   const [pdfImportError, setPdfImportError] = useState("");
   const [pdfImportFileName, setPdfImportFileName] = useState("");
@@ -206,16 +213,55 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
 
   const analysis = useMemo(() => getWeeklyTestAnalysis(state), [state]);
   const subjectTests = useMemo(() => state.weeklyTests.filter((test) => test.kind === "subject"), [state.weeklyTests]);
+  const seriesNames = useMemo(() => {
+    const names = new Set<string>();
+    state.testSeries.forEach((series) => names.add(series.name));
+    sortedTests.forEach((test) => names.add(test.source));
+    return Array.from(names).filter(Boolean);
+  }, [sortedTests, state.testSeries]);
+  const filteredTests = useMemo(() => {
+    const query = searchFilter.trim().toLowerCase();
+    const topicQuery = topicFilter.trim().toLowerCase();
+
+    return sortedTests.filter((test) => {
+      if (seriesFilter !== "all" && test.source !== seriesFilter) return false;
+      if (scopeFilter !== "all" && (test.coverageScope ?? "full") !== scopeFilter) return false;
+      if (subjectFilter && test.subjectId !== subjectFilter) return false;
+      if (topicQuery) {
+        const topicBlob = [test.topicLabel, test.notes, test.name].join(" ").toLowerCase();
+        if (!topicBlob.includes(topicQuery)) return false;
+      }
+      if (query) {
+        const haystack = [test.name, test.source, test.topicLabel, test.notes, getWeeklyTestDisplayName(test)].join(" ").toLowerCase();
+        if (!haystack.includes(query)) return false;
+      }
+
+      const status = test.statusByMember[currentMember];
+      if (completionFilter === "done" && !status?.taken) return false;
+      if (completionFilter === "todo" && status?.taken) return false;
+      return true;
+    });
+  }, [completionFilter, currentMember, scopeFilter, searchFilter, seriesFilter, sortedTests, subjectFilter, topicFilter]);
   const groupedTests = useMemo(
     () =>
-      sortedTests.reduce<Record<string, WeeklyTest[]>>((acc, test) => {
-        const key = test.scheduledWeek === currentWeek ? `Week ${test.scheduledWeek} (Current)` : `Week ${test.scheduledWeek}`;
+      filteredTests.reduce<Record<string, WeeklyTest[]>>((acc, test) => {
+        const key = test.source || "Unsorted series";
         acc[key] = acc[key] || [];
         acc[key].push(test);
         return acc;
       }, {}),
-    [currentWeek, sortedTests]
+    [filteredTests]
   );
+  const filteredStats = useMemo(() => {
+    const done = filteredTests.filter((test) => test.statusByMember[currentMember]?.taken).length;
+    return {
+      total: filteredTests.length,
+      done,
+      todo: filteredTests.length - done,
+      subjects: new Set(filteredTests.map((test) => test.subjectId).filter(Boolean)).size,
+      topics: filteredTests.filter((test) => test.coverageScope === "topic").length,
+    };
+  }, [currentMember, filteredTests]);
 
   const visiblePdfDrafts = useMemo(
     () => pdfImportDrafts.filter((draft) => !pdfImportFilterSubjectId || draft.subjectId === pdfImportFilterSubjectId),
@@ -383,6 +429,133 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
       <p className="text-xs text-muted-foreground">
         Track weekly tests, preserve imported order from PDFs, and keep scoring simple enough to update fast.
       </p>
+
+      <div className="grid gap-3 md:grid-cols-4">
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">Visible tests</p>
+          <p className="mt-2 text-2xl font-semibold text-foreground">{filteredStats.total}</p>
+          <p className="text-xs text-muted-foreground">after your current filters</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">Completed</p>
+          <p className="mt-2 text-2xl font-semibold text-emerald-600">{filteredStats.done}</p>
+          <p className="text-xs text-muted-foreground">marked done by {currentMember}</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">To do</p>
+          <p className="mt-2 text-2xl font-semibold text-primary">{filteredStats.todo}</p>
+          <p className="text-xs text-muted-foreground">still pending</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">Scope mix</p>
+          <p className="mt-2 text-2xl font-semibold text-foreground">{filteredStats.subjects + filteredStats.topics}</p>
+          <p className="text-xs text-muted-foreground">
+            {filteredStats.subjects} subject series, {filteredStats.topics} topicwise tests
+          </p>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">Test board</h3>
+            <p className="text-xs text-muted-foreground">
+              Filter by series, scope, subject, topic, or completion status.
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              setSeriesFilter("all");
+              setScopeFilter("all");
+              setCompletionFilter("all");
+              setSubjectFilter("");
+              setTopicFilter("");
+              setSearchFilter("");
+            }}
+            className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+          >
+            Reset filters
+          </button>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setSeriesFilter("all")}
+            className={
+              seriesFilter === "all"
+                ? "rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
+                : "rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+            }
+          >
+            All series
+          </button>
+          {seriesNames.map((seriesName) => (
+            <button
+              key={seriesName}
+              onClick={() => setSeriesFilter(seriesName)}
+              className={
+                seriesFilter === seriesName
+                  ? "rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
+                  : "rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+              }
+            >
+              {seriesName}
+            </button>
+          ))}
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <select
+            value={scopeFilter}
+            onChange={(e) => setScopeFilter(e.target.value as "all" | TestCoverageScope)}
+            className="rounded-lg border border-border bg-muted px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="all">All scopes</option>
+            <option value="subject">Subject wise</option>
+            <option value="topic">Topic wise</option>
+            <option value="full">Full syllabus</option>
+          </select>
+          <select
+            value={completionFilter}
+            onChange={(e) => setCompletionFilter(e.target.value as "all" | "done" | "todo")}
+            className="rounded-lg border border-border bg-muted px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="all">All status</option>
+            <option value="done">Completed</option>
+            <option value="todo">To do</option>
+          </select>
+          <select
+            value={subjectFilter}
+            onChange={(e) => setSubjectFilter(e.target.value)}
+            className="rounded-lg border border-border bg-muted px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="">All subjects</option>
+            {SUBJECTS.map((subject) => (
+              <option key={subject.id} value={subject.id}>
+                {subject.name}
+              </option>
+            ))}
+          </select>
+          <input
+            value={searchFilter}
+            onChange={(e) => setSearchFilter(e.target.value)}
+            placeholder="Search test, series, or notes"
+            className="rounded-lg border border-border bg-muted px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+          <input
+            value={topicFilter}
+            onChange={(e) => setTopicFilter(e.target.value)}
+            placeholder="Topic keyword filter"
+            className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+          <div className="rounded-lg border border-dashed border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            Showing tests in the order they were added, with series order preserved for PDF imports.
+          </div>
+        </div>
+      </div>
 
       <div className="bg-card border border-border rounded-xl p-4 space-y-3">
         <div className="flex items-center gap-2">
@@ -956,124 +1129,218 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
         </div>
       )}
 
-      {Object.entries(groupedTests).map(([label, tests]) => (
-        <div key={label} className="space-y-3">
-          <h3 className="text-sm font-semibold text-foreground">{label}</h3>
-          {tests.map((test) => (
-            <div key={test.id} className="bg-card border border-border rounded-xl p-4 space-y-3">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h4 className="font-semibold text-foreground">{getWeeklyTestDisplayName(test)}</h4>
-                    {test.topicLabel && (
-                      <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-                        {test.topicLabel}
-                      </span>
-                    )}
-                    <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-primary/10 text-primary">
-                      {test.source}
-                    </span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-muted text-muted-foreground">
-                      {getCoverageScopeLabel(test.coverageScope ?? "full")}
-                    </span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-accent text-accent-foreground">
-                      {test.kind === "mock" ? "Mock" : test.kind === "subject" ? "Subject" : "Weekly Quiz"}
-                    </span>
-                    {test.link && (
-                      <a
-                        href={test.link}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                      >
-                        Open <ExternalLink className="w-3 h-3" />
-                      </a>
-                    )}
-                  </div>
-                  {test.notes && <p className="text-xs text-muted-foreground mt-1">{test.notes}</p>}
-                </div>
-                <button
-                  onClick={() => onUpdate(deleteWeeklyTest(state, test.id))}
-                  className="p-1 text-muted-foreground transition-colors hover:text-destructive rounded"
-                  title="Delete weekly test"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
+{Object.entries(groupedTests).map(([seriesName, tests]) => {
+        const doneCount = tests.filter((test) => test.statusByMember[currentMember]?.taken).length;
+        const byScope = tests.reduce<Record<string, WeeklyTest[]>>((acc, test) => {
+          const key = test.coverageScope ?? "full";
+          acc[key] = acc[key] || [];
+          acc[key].push(test);
+          return acc;
+        }, {});
 
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                {MEMBERS.map((member) => {
-                  const status = test.statusByMember[member];
-                  return (
-                    <div
-                      key={member}
-                      className={`border-2 rounded-lg p-3 text-left transition-colors ${memberBorder[member]} ${
-                        status.taken ? "bg-muted/50" : "bg-background"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-semibold">{member}</span>
-                        <button
-                          onClick={() => onUpdate(updateWeeklyTestTaken(state, test.id, member, !status.taken))}
-                          className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium ${
-                            status.taken ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+        return (
+          <div key={seriesName} className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">{seriesName}</h3>
+                <p className="text-xs text-muted-foreground">
+                  {doneCount}/{tests.length} completed, {tests.length - doneCount} left
+                </p>
+              </div>
+              <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                {tests.length} tests
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {Object.entries(byScope).map(([scope, scopedTests]) => (
+                <div key={`${seriesName}-${scope}`} className="rounded-xl border border-border bg-card p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="text-sm font-semibold text-foreground">{getCoverageScopeLabel(scope as TestCoverageScope)}</h4>
+                    <span className="text-xs text-muted-foreground">{scopedTests.length} items</span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {scopedTests.map((test) => {
+                      const status = test.statusByMember[currentMember];
+                      const percent =
+                        status.taken && typeof status.score === "number" && typeof status.outOf === "number" && status.outOf > 0
+                          ? Math.round((status.score / status.outOf) * 100)
+                          : null;
+
+                      return (
+                        <div
+                          key={test.id}
+                          className={`rounded-xl border px-4 py-3 transition-colors ${
+                            status.taken ? "border-emerald-200 bg-emerald-50/60 dark:border-emerald-900/40 dark:bg-emerald-900/10" : "border-border bg-background"
                           }`}
                         >
-                          {status.taken && <Check className="w-3.5 h-3.5" />}
-                          {status.taken ? "Taken" : "Mark done"}
-                        </button>
-                      </div>
-                      <p className="text-xs mt-1">
-                        {status.taken && status.takenAt
-                          ? `Taken on ${new Date(status.takenAt).toLocaleDateString("en-IN", {
-                              day: "numeric",
-                              month: "short",
-                            })}`
-                          : "Not taken yet"}
-                      </p>
-                      <div className="grid grid-cols-2 gap-2 mt-3">
-                        <input
-                          value={getDraftValue(test.id, member, "score", status.score)}
-                          onChange={(e) =>
-                            setDraftScores((current) => ({
-                              ...current,
-                              [getDraftKey(test.id, member, "score")]: e.target.value,
-                            }))
-                          }
-                          onBlur={() => saveMemberScore(test, member)}
-                          onKeyDown={(e) => e.key === "Enter" && saveMemberScore(test, member)}
-                          placeholder="Score"
-                          type="number"
-                          min={0}
-                          className="w-full rounded border border-border bg-muted px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                        />
-                        <input
-                          value={getDraftValue(test.id, member, "outOf", status.outOf)}
-                          onChange={(e) =>
-                            setDraftScores((current) => ({
-                              ...current,
-                              [getDraftKey(test.id, member, "outOf")]: e.target.value,
-                            }))
-                          }
-                          onBlur={() => saveMemberScore(test, member)}
-                          onKeyDown={(e) => e.key === "Enter" && saveMemberScore(test, member)}
-                          placeholder="Out of"
-                          type="number"
-                          min={1}
-                          className="w-full rounded border border-border bg-muted px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                        />
-                      </div>
-                      {status.taken && typeof status.score === "number" && typeof status.outOf === "number" && status.outOf > 0 && (
-                        <p className="mt-2 text-xs font-medium">{Math.round((status.score / status.outOf) * 100)}%</p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                            <div className="min-w-0 space-y-2">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h4 className="font-semibold text-foreground">{getWeeklyTestDisplayName(test)}</h4>
+                                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                                  {test.source}
+                                </span>
+                                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                  {test.kind === "mock" ? "Mock" : test.kind === "subject" ? "Subject" : "Weekly Quiz"}
+                                </span>
+                                <span
+                                  className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                                    status.taken
+                                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                                      : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                                  }`}
+                                >
+                                  {status.taken ? "Completed" : "To do"}
+                                </span>
+                                {test.link && (
+                                  <a
+                                    href={test.link}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-medium text-sky-700 dark:bg-sky-900/30 dark:text-sky-300"
+                                  >
+                                    Open <ExternalLink className="w-3 h-3" />
+                                  </a>
+                                )}
+                              </div>
+                              {test.topicLabel && (
+                                <p className="text-xs text-muted-foreground">Topic: {test.topicLabel}</p>
+                              )}
+                              {test.notes && <p className="text-xs text-muted-foreground">{test.notes}</p>}
+                              {test.coverageScope === "topic" && !test.topicLabel && (
+                                <p className="text-xs text-muted-foreground">Topicwise test. Use the imported subtopic details from the PDF notes.</p>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => onUpdate(updateWeeklyTestTaken(state, test.id, currentMember, !status.taken))}
+                                className={`inline-flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-medium ${
+                                  status.taken ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                                }`}
+                              >
+                                {status.taken && <Check className="w-3.5 h-3.5" />}
+                                {status.taken ? "Mark not done" : "Mark done"}
+                              </button>
+                              <button
+                                onClick={() => onUpdate(deleteWeeklyTest(state, test.id))}
+                                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                                title="Delete weekly test"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 grid gap-3 md:grid-cols-3">
+                            <div className="rounded-lg bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                              <p className="font-medium text-foreground">Status</p>
+                              <p className="mt-1">{status.taken ? "Completed" : "Pending"}</p>
+                            </div>
+                            <div className="rounded-lg bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                              <p className="font-medium text-foreground">Score</p>
+                              <p className="mt-1">
+                                {status.taken
+                                  ? `${status.score ?? "-"} / ${status.outOf ?? "-"}${percent !== null ? ` (${percent}%)` : ""}`
+                                  : "Not entered"}
+                              </p>
+                            </div>
+                            <div className="rounded-lg bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                              <p className="font-medium text-foreground">Taken on</p>
+                              <p className="mt-1">
+                                {status.taken && status.takenAt
+                                  ? new Date(status.takenAt).toLocaleDateString("en-IN", {
+                                      day: "numeric",
+                                      month: "short",
+                                    })
+                                  : "Not yet"}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 mt-3">
+                            {MEMBERS.map((member) => {
+                              const memberStatus = test.statusByMember[member];
+                              return (
+                                <div
+                                  key={member}
+                                  className={`rounded-lg border-2 p-3 text-left transition-colors ${memberBorder[member]} ${
+                                    memberStatus.taken ? "bg-muted/50" : "bg-background"
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-sm font-semibold">{member}</span>
+                                    <button
+                                      onClick={() => onUpdate(updateWeeklyTestTaken(state, test.id, member, !memberStatus.taken))}
+                                      className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium ${
+                                        memberStatus.taken ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                                      }`}
+                                    >
+                                      {memberStatus.taken && <Check className="w-3.5 h-3.5" />}
+                                      {memberStatus.taken ? "Taken" : "Mark done"}
+                                    </button>
+                                  </div>
+                                  <p className="text-xs mt-1">
+                                    {memberStatus.taken && memberStatus.takenAt
+                                      ? `Taken on ${new Date(memberStatus.takenAt).toLocaleDateString("en-IN", {
+                                          day: "numeric",
+                                          month: "short",
+                                        })}`
+                                      : "Not taken yet"}
+                                  </p>
+                                  <div className="grid grid-cols-2 gap-2 mt-3">
+                                    <input
+                                      value={getDraftValue(test.id, member, "score", memberStatus.score)}
+                                      onChange={(e) =>
+                                        setDraftScores((current) => ({
+                                          ...current,
+                                          [getDraftKey(test.id, member, "score")]: e.target.value,
+                                        }))
+                                      }
+                                      onBlur={() => saveMemberScore(test, member)}
+                                      onKeyDown={(e) => e.key === "Enter" && saveMemberScore(test, member)}
+                                      placeholder="Score"
+                                      type="number"
+                                      min={0}
+                                      className="w-full rounded border border-border bg-muted px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                                    />
+                                    <input
+                                      value={getDraftValue(test.id, member, "outOf", memberStatus.outOf)}
+                                      onChange={(e) =>
+                                        setDraftScores((current) => ({
+                                          ...current,
+                                          [getDraftKey(test.id, member, "outOf")]: e.target.value,
+                                        }))
+                                      }
+                                      onBlur={() => saveMemberScore(test, member)}
+                                      onKeyDown={(e) => e.key === "Enter" && saveMemberScore(test, member)}
+                                      placeholder="Out of"
+                                      type="number"
+                                      min={1}
+                                      className="w-full rounded border border-border bg-muted px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                                    />
+                                  </div>
+                                  {memberStatus.taken && typeof memberStatus.score === "number" && typeof memberStatus.outOf === "number" && memberStatus.outOf > 0 && (
+                                    <p className="mt-2 text-xs font-medium">
+                                      {Math.round((memberStatus.score / memberStatus.outOf) * 100)}%
+                                    </p>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      ))}
+          </div>
+        );
+      })}
     </div>
   );
 }
