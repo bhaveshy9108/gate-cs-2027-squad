@@ -18,19 +18,14 @@ import {
   type WeeklyTestKind,
   type WeeklyTestSource,
 } from "@/lib/trackerStore";
-import { extractOrderedPdfLines } from "@/lib/pdfImport";
 import {
   BarChart3,
   CalendarCheck2,
   Check,
   ExternalLink,
-  FileUp,
-  Link2,
   Plus,
-  Search,
   Trash2,
   Trophy,
-  X,
 } from "lucide-react";
 
 interface Props {
@@ -45,30 +40,6 @@ const memberBorder: Record<Member, string> = {
   Bhavesh: "border-person1 text-person1",
 };
 
-type PdfImportDraft = {
-  id: string;
-  order: number;
-  title: string;
-  subtitle: string;
-  subjectId: string;
-  coverageScope: TestCoverageScope;
-  selected: boolean;
-};
-
-function splitPdfRow(rawTitle: string) {
-  const normalized = rawTitle.replace(/\s+/g, " ").trim();
-  const colonIndex = normalized.indexOf(":");
-
-  if (colonIndex !== -1) {
-    return {
-      title: normalized.slice(0, colonIndex).trim().replace(/[-:]+$/, "").trim(),
-      subtitle: normalized.slice(colonIndex + 1).trim(),
-    };
-  }
-
-  return { title: normalized, subtitle: "" };
-}
-
 function buildStatusByMember(totalMarks?: number | null): WeeklyTest["statusByMember"] {
   return Object.fromEntries(
     MEMBERS.map((member) => [
@@ -82,68 +53,16 @@ function buildStatusByMember(totalMarks?: number | null): WeeklyTest["statusByMe
   ) as WeeklyTest["statusByMember"];
 }
 
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 48);
+function describeWeeklyTopics(test: WeeklyTest): string[] {
+  if (test.topics?.length) return test.topics;
+  if (test.topicLabel.trim()) return [test.topicLabel.trim()];
+  if (test.notes.trim()) return [test.notes.trim()];
+  return [];
 }
 
-function inferSubjectIdFromTitle(title: string): string {
-  const lower = title.toLowerCase();
-  const mappings: Array<[string, string[]]> = [
-    ["engg-math", ["engineering mathematics", "engg math", "mathematics", "linear algebra", "calculus", "probability", "statistics", "numerical methods", "differential equations", "set theory", "graph theory", "mathematical logic"]],
-    ["discrete-math", ["discrete mathematics", "discrete math", "dm", "combinatorics", "graph theory", "set theory", "logic", "relations", "functions", "lattices"]],
-    ["dsa", ["data structures", "algorithm", "algorithms", "dsa", "sorting", "searching", "graphs", "tree", "heap", "hashing", "dynamic programming", "greedy"]],
-    ["prog", ["programming in c", "programming", "c programming", "c language", "pointers", "recursion", "functions", "structures"]],
-    ["toc", ["theory of computation", "toc", "automata", "regular language", "regular expression", "pda", "turing", "undecidability", "countability"]],
-    ["compiler", ["compiler design", "compiler", "lexical", "syntax", "parse", "parsing", "code optimization"]],
-    ["os", ["operating system", "operating systems", "os", "process", "thread", "scheduling", "deadlock", "memory management", "virtual memory", "file system"]],
-    ["dbms", ["database", "dbms", "sql", "relational algebra", "normalization", "transaction", "indexing", "b+ tree", "b tree"]],
-    ["cn", ["computer network", "computer networks", "cn", "tcp/ip", "routing", "subnet", "transport layer", "congestion", "dns", "http"]],
-    ["digital-logic", ["digital logic", "dl", "boolean", "k-map", "combinational", "sequential", "flip-flop", "counter", "number system"]],
-    ["coa", ["computer organization", "computer architecture", "coa", "pipeline", "cache", "addressing modes", "control unit", "alu"]],
-    ["aptitude", ["general aptitude", "aptitude", "analytical reasoning", "verbal", "numerical", "spatial"]],
-  ];
-
-  for (const [subjectId, keywords] of mappings) {
-    if (keywords.some((keyword) => lower.includes(keyword))) return subjectId;
-  }
-
-  const fallback = SUBJECTS.find((subject) => lower.includes(subject.name.toLowerCase()));
-  return fallback?.id ?? "";
-}
-
-function makePdfDraft(title: string, order: number): PdfImportDraft {
-  const { title: baseTitle, subtitle } = splitPdfRow(title);
-  const subjectId = inferSubjectIdFromTitle(baseTitle || title);
-  return {
-    id: `pdf-draft-${order}-${slugify(baseTitle || title) || order}`,
-    order,
-    title: baseTitle || title,
-    subtitle,
-    subjectId,
-    coverageScope: subjectId ? "subject" : subtitle ? "topic" : "full",
-    selected: true,
-  };
-}
-
-function createImportedWeeklyTest(draft: PdfImportDraft, seriesName: string, week: number, fileName: string, orderIndex: number): WeeklyTest {
-  return {
-    id: `weekly-test-${Date.now()}-${draft.order}-${orderIndex}`,
-    name: draft.title,
-    source: seriesName,
-    kind: draft.subjectId ? "subject" : "mock",
-    subjectId: draft.subjectId || undefined,
-    coverageScope: draft.coverageScope,
-    topicLabel: "",
-    link: "",
-    scheduledWeek: week,
-    seriesOrder: draft.order,
-    notes: [draft.subtitle ? `Subtopics: ${draft.subtitle}` : "", `Imported from ${fileName}`].filter(Boolean).join(" | "),
-    statusByMember: buildStatusByMember(),
-  };
+function formatWeeklyMetaValue(value: number | null | undefined, suffix = "") {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return null;
+  return `${value}${suffix}`;
 }
 
 export default function WeeklyTestsSection({ state, onUpdate }: Props) {
@@ -151,7 +70,6 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
   const currentMember = state.currentMember;
   const [showAdd, setShowAdd] = useState(false);
   const [showAddSeries, setShowAddSeries] = useState(false);
-  const [showPdfImport, setShowPdfImport] = useState(false);
   const [name, setName] = useState("");
   const [source, setSource] = useState<WeeklyTestSource>(state.testSeries[0]?.name ?? "GO Classes");
   const [kind, setKind] = useState<WeeklyTestKind>("mock");
@@ -173,13 +91,6 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
   const [subjectFilter, setSubjectFilter] = useState("");
   const [topicFilter, setTopicFilter] = useState("");
   const [searchFilter, setSearchFilter] = useState("");
-  const [pdfImportBusy, setPdfImportBusy] = useState(false);
-  const [pdfImportError, setPdfImportError] = useState("");
-  const [pdfImportFileName, setPdfImportFileName] = useState("");
-  const [pdfImportDrafts, setPdfImportDrafts] = useState<PdfImportDraft[]>([]);
-  const [pdfImportWeek, setPdfImportWeek] = useState(String(currentWeek));
-  const [pdfImportFilterSubjectId, setPdfImportFilterSubjectId] = useState("");
-  const [pdfImportBulkSubjectId, setPdfImportBulkSubjectId] = useState("");
 
   useEffect(() => {
     if (!state.testSeries.length) return;
@@ -228,11 +139,13 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
       if (scopeFilter !== "all" && (test.coverageScope ?? "full") !== scopeFilter) return false;
       if (subjectFilter && test.subjectId !== subjectFilter) return false;
       if (topicQuery) {
-        const topicBlob = [test.topicLabel, test.notes, test.name].join(" ").toLowerCase();
+        const topicBlob = [test.topicLabel, test.notes, test.name, ...(test.topics ?? [])].join(" ").toLowerCase();
         if (!topicBlob.includes(topicQuery)) return false;
       }
       if (query) {
-        const haystack = [test.name, test.source, test.topicLabel, test.notes, getWeeklyTestDisplayName(test)].join(" ").toLowerCase();
+        const haystack = [test.name, test.source, test.topicLabel, test.notes, getWeeklyTestDisplayName(test), ...(test.topics ?? [])]
+          .join(" ")
+          .toLowerCase();
         if (!haystack.includes(query)) return false;
       }
 
@@ -262,16 +175,6 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
       topics: filteredTests.filter((test) => test.coverageScope === "topic").length,
     };
   }, [currentMember, filteredTests]);
-
-  const visiblePdfDrafts = useMemo(
-    () => pdfImportDrafts.filter((draft) => !pdfImportFilterSubjectId || draft.subjectId === pdfImportFilterSubjectId),
-    [pdfImportDrafts, pdfImportFilterSubjectId]
-  );
-
-  const pdfImportSelectedCount = useMemo(
-    () => pdfImportDrafts.filter((draft) => draft.selected).length,
-    [pdfImportDrafts]
-  );
 
   const isQuizOnlySource = source === QUIZ_ONLY_SOURCE;
 
@@ -341,84 +244,6 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
     setShowAddSeries(false);
   };
 
-  const handlePdfUpload = async (file: File | null) => {
-    if (!file) return;
-
-    setPdfImportBusy(true);
-    setPdfImportError("");
-    try {
-      const lines = await extractOrderedPdfLines(file);
-      const drafts = lines
-        .map((line, index) => makePdfDraft(line, index))
-        .filter((draft) => draft.title.trim().length >= 3);
-
-      setPdfImportDrafts(drafts);
-      setPdfImportFileName(file.name);
-      setPdfImportWeek(String(currentWeek));
-      setPdfImportFilterSubjectId("");
-      setPdfImportBulkSubjectId("");
-      setShowPdfImport(true);
-    } catch (error) {
-      setPdfImportError(error instanceof Error ? error.message : "Failed to read the PDF.");
-    } finally {
-      setPdfImportBusy(false);
-    }
-  };
-
-  const updatePdfDraft = (draftId: string, updates: Partial<PdfImportDraft>) => {
-    setPdfImportDrafts((current) =>
-      current.map((draft) =>
-        draft.id === draftId
-          ? {
-              ...draft,
-              ...updates,
-              coverageScope:
-                typeof updates.subjectId === "string" && updates.subjectId
-                  ? "subject"
-                  : typeof updates.coverageScope === "string"
-                    ? updates.coverageScope
-                    : draft.coverageScope,
-            }
-          : draft
-      )
-    );
-  };
-
-  const applyBulkSubjectToVisible = () => {
-    if (!pdfImportBulkSubjectId) return;
-    setPdfImportDrafts((current) =>
-      current.map((draft) =>
-        !pdfImportFilterSubjectId || draft.subjectId === pdfImportFilterSubjectId
-          ? { ...draft, subjectId: pdfImportBulkSubjectId, coverageScope: "subject" }
-          : draft
-      )
-    );
-  };
-
-  const handleSavePdfImports = () => {
-    const selectedDrafts = pdfImportDrafts.filter((draft) => draft.selected && draft.title.trim());
-    if (!selectedDrafts.length) return;
-
-    const week = Math.max(1, parseInt(pdfImportWeek, 10) || currentWeek);
-    let nextState = state;
-
-    selectedDrafts.forEach((draft, index) => {
-      const importedTest = createImportedWeeklyTest(
-        draft,
-        selectedSeries?.name ?? "Imported PDF",
-        week,
-        pdfImportFileName || "PDF",
-        index
-      );
-      nextState = addWeeklyTest(nextState, importedTest);
-    });
-
-    onUpdate(nextState);
-    setPdfImportDrafts([]);
-    setPdfImportFileName("");
-    setPdfImportError("");
-  };
-
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 mb-2">
@@ -427,7 +252,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Track weekly tests, preserve imported order from PDFs, and keep scoring simple enough to update fast.
+        Track the planned test schedule with topics, marks, and duration so the weekly list reads like a proper study plan.
       </p>
 
       <div className="grid gap-3 md:grid-cols-4">
@@ -709,203 +534,6 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
               </div>
             )}
 
-            {showPdfImport && (
-              <div className="rounded-lg border border-dashed border-border bg-background p-3 space-y-3">
-                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">Import PDF test list</p>
-                    <p className="text-xs text-muted-foreground">
-                      The extracted rows stay in the same order as the PDF. Tag subjects before saving to weekly tests.
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Search className="h-3.5 w-3.5 text-primary" />
-                    <span>{pdfImportSelectedCount} selected</span>
-                  </div>
-                </div>
-
-                <div className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
-                  <label className="flex cursor-pointer items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 px-4 py-4 text-sm text-muted-foreground hover:border-primary/50">
-                    <span className="inline-flex items-center gap-2">
-                      <FileUp className="h-4 w-4 text-primary" />
-                      {pdfImportBusy ? "Reading PDF..." : "Choose PDF file"}
-                    </span>
-                    <input
-                      type="file"
-                      accept="application/pdf"
-                      className="hidden"
-                      onChange={async (event) => {
-                        await handlePdfUpload(event.target.files?.[0] ?? null);
-                        event.currentTarget.value = "";
-                      }}
-                      disabled={pdfImportBusy}
-                    />
-                  </label>
-
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        Week number
-                      </label>
-                      <input
-                        type="number"
-                        min={1}
-                        value={pdfImportWeek}
-                        onChange={(e) => setPdfImportWeek(e.target.value)}
-                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        Filter by subject
-                      </label>
-                      <select
-                        value={pdfImportFilterSubjectId}
-                        onChange={(e) => setPdfImportFilterSubjectId(e.target.value)}
-                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                      >
-                        <option value="">All subjects</option>
-                        {SUBJECTS.map((subject) => (
-                          <option key={subject.id} value={subject.id}>
-                            {subject.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="space-y-1 sm:col-span-2">
-                      <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        Apply one subject to visible rows
-                      </label>
-                      <div className="flex gap-2">
-                        <select
-                          value={pdfImportBulkSubjectId}
-                          onChange={(e) => setPdfImportBulkSubjectId(e.target.value)}
-                          className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                        >
-                          <option value="">Choose subject</option>
-                          {SUBJECTS.map((subject) => (
-                            <option key={subject.id} value={subject.id}>
-                              {subject.name}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          onClick={applyBulkSubjectToVisible}
-                          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                          disabled={!pdfImportBulkSubjectId}
-                        >
-                          Apply
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {pdfImportError && (
-                  <div className="rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-                    {pdfImportError}
-                  </div>
-                )}
-
-                {pdfImportFileName && (
-                  <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                    Imported file: <span className="font-medium text-foreground">{pdfImportFileName}</span>
-                  </div>
-                )}
-
-                {pdfImportDrafts.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Preview rows
-                      </p>
-                      <button
-                        onClick={() => {
-                          setPdfImportDrafts([]);
-                          setPdfImportFileName("");
-                          setPdfImportError("");
-                        }}
-                        className="rounded-lg px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
-                      >
-                        Clear
-                      </button>
-                    </div>
-                    <div className="max-h-80 space-y-2 overflow-auto pr-1">
-                      {visiblePdfDrafts.map((draft) => {
-                        const subject = SUBJECTS.find((entry) => entry.id === draft.subjectId);
-                        return (
-                          <div key={draft.id} className="rounded-lg border border-border bg-muted/20 p-3">
-                            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                              <label className="flex items-start gap-3">
-                                <input
-                                  type="checkbox"
-                                  checked={draft.selected}
-                                  onChange={(e) => updatePdfDraft(draft.id, { selected: e.target.checked })}
-                                  className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary"
-                                />
-                                <div className="min-w-0">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                                      #{draft.order + 1}
-                                    </span>
-                                    <span className="text-sm font-semibold text-foreground">{draft.title}</span>
-                                  </div>
-                                  {draft.subtitle && <p className="mt-1 text-xs text-muted-foreground">{draft.subtitle}</p>}
-                                  <p className="mt-1 text-xs text-muted-foreground">
-                                    {subject?.name ?? "Subject not detected"} · will be added in week {pdfImportWeek || currentWeek}
-                                  </p>
-                                </div>
-                              </label>
-                              <div className="grid min-w-[220px] gap-2 sm:grid-cols-2 lg:min-w-[320px]">
-                                <select
-                                  value={draft.subjectId}
-                                  onChange={(e) => updatePdfDraft(draft.id, { subjectId: e.target.value })}
-                                  className="rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                                >
-                                  <option value="">Pick subject</option>
-                                  {SUBJECTS.map((subjectOption) => (
-                                    <option key={subjectOption.id} value={subjectOption.id}>
-                                      {subjectOption.name}
-                                    </option>
-                                  ))}
-                                </select>
-                                <button
-                                  onClick={() =>
-                                    updatePdfDraft(draft.id, {
-                                      subjectId: draft.subjectId,
-                                      coverageScope: draft.subjectId ? "subject" : draft.subtitle ? "topic" : "full",
-                                    })
-                                  }
-                                  className="rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-background"
-                                >
-                                  {draft.coverageScope === "topic" ? "Topic wise" : draft.coverageScope === "subject" ? "Subject wise" : "Full syllabus"}
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-xs text-muted-foreground">
-                        {visiblePdfDrafts.length} visible rows, ordered exactly as parsed from the PDF.
-                      </p>
-                      <button
-                        onClick={handleSavePdfImports}
-                        disabled={!pdfImportSelectedCount || pdfImportBusy}
-                        className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        Save selected rows
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
       {showAdd && (
         <div className="bg-card border border-border rounded-xl p-4 space-y-3">
           <input
@@ -1159,6 +787,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                   <div className="space-y-2">
                     {scopedTests.map((test) => {
                       const status = test.statusByMember[currentMember];
+                      const topics = describeWeeklyTopics(test);
                       const percent =
                         status.taken && typeof status.score === "number" && typeof status.outOf === "number" && status.outOf > 0
                           ? Math.round((status.score / status.outOf) * 100)
@@ -1172,7 +801,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                           }`}
                         >
                           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                            <div className="min-w-0 space-y-2">
+                            <div className="min-w-0 space-y-3">
                               <div className="flex flex-wrap items-center gap-2">
                                 <h4 className="font-semibold text-foreground">{getWeeklyTestDisplayName(test)}</h4>
                                 <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
@@ -1201,16 +830,56 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                                   </a>
                                 )}
                               </div>
-                              {test.topicLabel && (
-                                <p className="text-xs text-muted-foreground">Topic: {test.topicLabel}</p>
-                              )}
-                              {test.notes && <p className="text-xs text-muted-foreground">{test.notes}</p>}
-                              {test.coverageScope === "topic" && !test.topicLabel && (
-                                <p className="text-xs text-muted-foreground">Topicwise test. Use the imported subtopic details from the PDF notes.</p>
-                              )}
+
+                              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                                <div className="rounded-lg bg-muted/30 px-3 py-2">
+                                  <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Questions</p>
+                                  <p className="mt-1 text-sm font-semibold text-foreground">
+                                    {formatWeeklyMetaValue(test.questionCount, "") ?? "—"}
+                                  </p>
+                                </div>
+                                <div className="rounded-lg bg-muted/30 px-3 py-2">
+                                  <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Marks</p>
+                                  <p className="mt-1 text-sm font-semibold text-foreground">
+                                    {formatWeeklyMetaValue(test.totalMarks, "") ?? "—"}
+                                  </p>
+                                </div>
+                                <div className="rounded-lg bg-muted/30 px-3 py-2">
+                                  <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Duration</p>
+                                  <p className="mt-1 text-sm font-semibold text-foreground">
+                                    {formatWeeklyMetaValue(test.durationMinutes, " min") ?? "—"}
+                                  </p>
+                                </div>
+                                <div className="rounded-lg bg-muted/30 px-3 py-2">
+                                  <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Week</p>
+                                  <p className="mt-1 text-sm font-semibold text-foreground">W{test.scheduledWeek}</p>
+                                </div>
+                              </div>
+
+                              <div className="flex flex-wrap gap-1.5">
+                                {topics.length > 0 ? (
+                                  topics.slice(0, 4).map((topic) => (
+                                    <span
+                                      key={`${test.id}-${topic}`}
+                                      className="max-w-full rounded-full border border-border bg-background px-2.5 py-1 text-[11px] text-foreground"
+                                    >
+                                      {topic}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">Topics will appear here once the schedule is loaded.</span>
+                                )}
+                                {topics.length > 4 && (
+                                  <span className="rounded-full border border-border bg-background px-2.5 py-1 text-[11px] text-muted-foreground">
+                                    +{topics.length - 4} more
+                                  </span>
+                                )}
+                              </div>
+
+                              {test.notes && <p className="max-w-3xl text-xs leading-5 text-muted-foreground">{test.notes}</p>}
                             </div>
 
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 self-start">
                               <button
                                 onClick={() => onUpdate(updateWeeklyTestTaken(state, test.id, currentMember, !status.taken))}
                                 className={`inline-flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-medium ${
@@ -1256,7 +925,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                             </div>
                           </div>
 
-                          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 mt-3">
+                          <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                             {MEMBERS.map((member) => {
                               const memberStatus = test.statusByMember[member];
                               return (

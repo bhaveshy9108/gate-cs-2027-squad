@@ -7,6 +7,10 @@ export interface ScheduledTestSeed {
   subjectId?: string;
   coverageScope: ScheduledCoverageScope;
   notes: string;
+  topics: string[];
+  questionCount: number;
+  totalMarks: number;
+  durationMinutes: number;
   scheduledWeek: number;
   seriesOrder: number;
 }
@@ -256,6 +260,10 @@ function expandZealRound0() {
           subjectId: group.subjectId,
           coverageScope: "topic",
           notes: note,
+          topics: [note],
+          questionCount: 20,
+          totalMarks: 40,
+          durationMinutes: 50,
           scheduledWeek: 1,
           seriesOrder: order++,
         })
@@ -269,6 +277,10 @@ function expandZealRound0() {
         subjectId: group.subjectId,
         coverageScope: "subject",
         notes: group.fullNote,
+        topics: [group.fullNote],
+        questionCount: 35,
+        totalMarks: 60,
+        durationMinutes: 120,
         scheduledWeek: 1,
         seriesOrder: order++,
       })
@@ -292,6 +304,10 @@ function buildScheduledTests(): ScheduledTestSeed[] {
         subjectId,
         coverageScope: "subject",
         notes: `${subjectName} full-subject test`,
+        topics: [`${subjectName} full syllabus`],
+        questionCount: 35,
+        totalMarks: 60,
+        durationMinutes: 120,
         scheduledWeek: 2,
         seriesOrder: 100 + zealRound1Order,
       })
@@ -306,6 +322,10 @@ function buildScheduledTests(): ScheduledTestSeed[] {
         name: entry.name,
         coverageScope: "full",
         notes: `Round 2 mock scheduled for ${entry.date}`,
+        topics: ["Full syllabus"],
+        questionCount: 65,
+        totalMarks: 100,
+        durationMinutes: 180,
         scheduledWeek: 3,
         seriesOrder: 200 + index + 1,
       })
@@ -320,6 +340,10 @@ function buildScheduledTests(): ScheduledTestSeed[] {
         subjectId,
         coverageScope: "topic",
         notes: note,
+        topics: [note],
+        questionCount: 17,
+        totalMarks: 25,
+        durationMinutes: 45,
         scheduledWeek: 10,
         seriesOrder: index + 1,
       })
@@ -334,6 +358,10 @@ function buildScheduledTests(): ScheduledTestSeed[] {
         subjectId,
         coverageScope: "subject",
         notes: subjectName,
+        topics: [subjectName],
+        questionCount: 33,
+        totalMarks: 50,
+        durationMinutes: 90,
         scheduledWeek: 11,
         seriesOrder: 25 + index,
       })
@@ -347,6 +375,10 @@ function buildScheduledTests(): ScheduledTestSeed[] {
         name: `Full Syllabus Test ${index + 1}`,
         coverageScope: "full",
         notes: `${level} level`,
+        topics: [`Full syllabus (${level})`],
+        questionCount: 65,
+        totalMarks: 100,
+        durationMinutes: 180,
         scheduledWeek: 12,
         seriesOrder: 37 + index,
       })
@@ -360,6 +392,10 @@ function buildScheduledTests(): ScheduledTestSeed[] {
         name,
         coverageScope: "full",
         notes: "Admit card gated mock test",
+        topics: ["Full syllabus"],
+        questionCount: 65,
+        totalMarks: 100,
+        durationMinutes: 180,
         scheduledWeek: 13,
         seriesOrder: 45 + index,
       })

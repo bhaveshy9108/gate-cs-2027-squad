@@ -89,6 +89,10 @@ export interface WeeklyTest {
   kind: WeeklyTestKind;
   scheduledWeek: number;
   seriesOrder?: number;
+  questionCount?: number;
+  totalMarks?: number;
+  durationMinutes?: number;
+  topics?: string[];
   notes: string;
   statusByMember: Record<Member, WeeklyTestMemberStatus>;
 }
@@ -327,6 +331,19 @@ function normalizeWeeklyTests(weeklyTests: unknown): WeeklyTest[] {
         typeof record.seriesOrder === "number" && Number.isFinite(record.seriesOrder)
           ? Math.max(0, Math.floor(record.seriesOrder))
           : undefined,
+      questionCount:
+        typeof record.questionCount === "number" && Number.isFinite(record.questionCount)
+          ? Math.max(0, Math.floor(record.questionCount))
+          : undefined,
+      totalMarks:
+        typeof record.totalMarks === "number" && Number.isFinite(record.totalMarks)
+          ? Math.max(0, record.totalMarks)
+          : undefined,
+      durationMinutes:
+        typeof record.durationMinutes === "number" && Number.isFinite(record.durationMinutes)
+          ? Math.max(0, Math.floor(record.durationMinutes))
+          : undefined,
+      topics: Array.isArray(record.topics) ? record.topics.filter((topic): topic is string => typeof topic === "string" && topic.trim()) : [],
       notes: typeof record.notes === "string" ? record.notes : "",
       statusByMember: Object.fromEntries(
         MEMBERS.map((member) => {
@@ -886,8 +903,12 @@ function seedScheduledTests(state: TrackerState): TrackerState {
       link: "",
       scheduledWeek: seed.scheduledWeek,
       seriesOrder: seed.seriesOrder,
+      questionCount: seed.questionCount,
+      totalMarks: seed.totalMarks,
+      durationMinutes: seed.durationMinutes,
+      topics: seed.topics,
       notes: seed.notes,
-      statusByMember: buildSeedStatus(),
+      statusByMember: buildSeedStatus(seed.totalMarks),
     });
   }
 

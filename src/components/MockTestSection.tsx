@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { MEMBERS, SUBJECTS, type Member } from "@/lib/gateData";
 import {
   type TrackerState,
@@ -33,14 +33,23 @@ export default function MockTestSection({ state, onUpdate }: Props) {
   const [subjectId, setSubjectId] = useState("");
   const [topicLabel, setTopicLabel] = useState("");
   const [source, setSource] = useState("GO Classes");
+  const [testTypeFilter, setTestTypeFilter] = useState<"all" | MockTestType>("all");
   const [editingScore, setEditingScore] = useState<{ testId: string; member: Member } | null>(null);
   const [scoreInput, setScoreInput] = useState("");
   const isQuizOnlySource = source === QUIZ_ONLY_SOURCE;
-  const sortedMockTests = [...state.mockTests].sort((a, b) => {
-    const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
-    if (dateDiff !== 0) return dateDiff;
-    return b.id.localeCompare(a.id);
-  });
+  const sortedMockTests = useMemo(
+    () =>
+      [...state.mockTests].sort((a, b) => {
+        const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
+        if (dateDiff !== 0) return dateDiff;
+        return b.id.localeCompare(a.id);
+      }),
+    [state.mockTests]
+  );
+  const filteredMockTests = useMemo(
+    () => sortedMockTests.filter((test) => testTypeFilter === "all" || test.type === testTypeFilter),
+    [sortedMockTests, testTypeFilter]
+  );
 
   const getMemberBorderColor = (member: Member) => {
     switch (member) {
@@ -100,8 +109,29 @@ export default function MockTestSection({ state, onUpdate }: Props) {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Weekly Tests create synced mock-test entries automatically. Score changes in either section stay aligned.
+        Weekly Tests create synced mock-test entries automatically. Use the buttons below to switch between test types.
       </p>
+
+      <div className="flex flex-wrap gap-2">
+        {[
+          { value: "all", label: "All Tests" },
+          { value: "full", label: "Full Length" },
+          { value: "subject", label: "Subject Wise" },
+          { value: "weekly", label: "Weekly Quiz" },
+        ].map((item) => (
+          <button
+            key={item.value}
+            onClick={() => setTestTypeFilter(item.value as "all" | MockTestType)}
+            className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+              testTypeFilter === item.value
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
 
       {showAdd && (
         <div className="bg-card border border-border rounded-xl p-4 space-y-3">
@@ -232,13 +262,13 @@ export default function MockTestSection({ state, onUpdate }: Props) {
         </div>
       )}
 
-      {sortedMockTests.length === 0 && !showAdd && (
+      {filteredMockTests.length === 0 && !showAdd && (
         <div className="bg-card border border-border rounded-xl p-8 text-center text-muted-foreground text-sm">
-          No mock tests added yet. Click "Add Test" to get started.
+          {sortedMockTests.length === 0 ? "No mock tests added yet. Click \"Add Test\" to get started." : "No tests match the selected type."}
         </div>
       )}
 
-      {sortedMockTests.map((test) => {
+      {filteredMockTests.map((test) => {
         const highest = getHighestScorer(test);
         const allScored = MEMBERS.every((m) => test.scores[m] !== null);
         const isLinkedWeeklyTest = Boolean(test.linkedWeeklyTestId);
