@@ -5,6 +5,8 @@ import { toast } from "sonner";
 const ROOM_CODE_KEY = "gate-tracker-room-code";
 const ROOM_STATE_PREFIX = "gate-tracker-room-state:";
 const ROOM_EVENT_PREFIX = "gate-tracker-room-updated:";
+const CLOUD_SYNC_DISABLED_UNTIL_KEY = "gate-tracker-cloud-sync-disabled-until";
+const CLOUD_SYNC_DISABLED_MS = 15 * 60 * 1000;
 
 let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 let isSaving = false;
@@ -13,7 +15,7 @@ const CLOUD_SAVE_DELAY_MS = 300;
 const CLOUD_POLL_INTERVAL_MS = 1000;
 
 export function hasCloudSync() {
-  return Boolean(supabase);
+  return Boolean(supabase) && !isCloudSyncTemporarilyDisabled();
 }
 
 interface LocalRoomSnapshot {
@@ -113,6 +115,24 @@ function normalizeCloudError(error: unknown) {
   return "Unknown cloud error";
 }
 
+function getCloudSyncDisabledUntil() {
+  const raw = localStorage.getItem(CLOUD_SYNC_DISABLED_UNTIL_KEY);
+  const value = raw ? Number(raw) : 0;
+  return Number.isFinite(value) ? value : 0;
+}
+
+function isCloudSyncTemporarilyDisabled() {
+  return getCloudSyncDisabledUntil() > Date.now();
+}
+
+function clearCloudSyncDisabledFlag() {
+  localStorage.removeItem(CLOUD_SYNC_DISABLED_UNTIL_KEY);
+}
+
+function disableCloudSyncTemporarily() {
+  localStorage.setItem(CLOUD_SYNC_DISABLED_UNTIL_KEY, String(Date.now() + CLOUD_SYNC_DISABLED_MS));
+}
+
 export function getSavedRoomCode(): string | null {
   return localStorage.getItem(ROOM_CODE_KEY);
 }
@@ -155,7 +175,7 @@ export function generateRoomCode(): string {
 export async function loadCloudState(roomCode: string): Promise<TrackerState | null> {
   const localSnapshot = getLocalRoomSnapshot(roomCode);
 
-  if (supabase) {
+  if (supabase && !isCloudSyncTemporarilyDisabled()) {
     try {
       const { data, error } = await supabase
         .from("tracker_data")
@@ -165,11 +185,16 @@ export async function loadCloudState(roomCode: string): Promise<TrackerState | n
 
       if (error) {
         console.error(`Cloud load failed for room ${roomCode}:`, error.message);
-        notifyCloudLoadFailure(roomCode, error.message);
+        if (isNetworkFetchFailure(error)) {
+          disableCloudSyncTemporarily();
+        } else {
+          notifyCloudLoadFailure(roomCode, error.message);
+        }
         return localSnapshot?.state ?? null;
       }
 
       if (!data) {
+        clearCloudSyncDisabledFlag();
         return localSnapshot?.state ?? null;
       }
 
@@ -182,13 +207,18 @@ export async function loadCloudState(roomCode: string): Promise<TrackerState | n
       }
 
       saveRoomStateLocally(roomCode, cloudState, cloudUpdatedAt);
+      clearCloudSyncDisabledFlag();
       return cloudState;
     } catch (error) {
       const reason = isNetworkFetchFailure(error)
         ? "Supabase is unreachable from this browser session. Check your live deployment env vars and network access."
         : normalizeCloudError(error);
       console.error(`Cloud load failed for room ${roomCode}:`, error);
-      notifyCloudLoadFailure(roomCode, reason);
+      if (isNetworkFetchFailure(error)) {
+        disableCloudSyncTemporarily();
+      } else {
+        notifyCloudLoadFailure(roomCode, reason);
+      }
       return localSnapshot?.state ?? null;
     }
   }
@@ -197,7 +227,7 @@ export async function loadCloudState(roomCode: string): Promise<TrackerState | n
 }
 
 async function persistCloudState(roomCode: string, state: TrackerState) {
-  if (!supabase) return;
+  if (!supabase || isCloudSyncTemporarilyDisabled()) return;
 
   try {
     const payload = cloneState(state);
@@ -211,14 +241,22 @@ async function persistCloudState(roomCode: string, state: TrackerState) {
 
     if (error) {
       console.error("Cloud save failed:", error.message);
-      toast.error(`Cloud save failed: ${error.message}`);
+      if (isNetworkFetchFailure(error)) {
+        disableCloudSyncTemporarily();
+      } else {
+        toast.error(`Cloud save failed: ${error.message}`);
+      }
     }
   } catch (error) {
     console.error("Cloud save failed:", error);
     const reason = isNetworkFetchFailure(error)
       ? "Supabase is unreachable from this browser session."
       : normalizeCloudError(error);
-    toast.error(`Cloud save failed: ${reason}`);
+    if (isNetworkFetchFailure(error)) {
+      disableCloudSyncTemporarily();
+    } else {
+      toast.error(`Cloud save failed: ${reason}`);
+    }
   }
 }
 
@@ -261,6 +299,21 @@ export function subscribeToRoom(
   roomCode: string,
   onUpdate: (state: TrackerState) => void
 ): { unsubscribe: () => void } {
+  if (!supabase || isCloudSyncTemporarilyDisabled()) {
+    const snapshotOnly = getLocalRoomSnapshot(roomCode);
+    if (snapshotOnly) {
+      try {
+        onUpdate(snapshotOnly.state);
+      } catch (error) {
+        console.error("Room sync failed:", error);
+      }
+    }
+
+    return {
+      unsubscribe: () => undefined,
+    };
+  }
+
   const roomStateKey = getRoomStateKey(roomCode);
 
   const emitLatestState = () => {
@@ -305,7 +358,24 @@ export function subscribeToRoom(
   broadcastChannel?.addEventListener("message", handleBroadcast);
 
   if (supabase) {
+    let pollInterval: number | null = null;
+    let channel: { unsubscribe: () => void } | null = null;
+
+    const stopCloudSync = () => {
+      if (pollInterval) {
+        window.clearInterval(pollInterval);
+        pollInterval = null;
+      }
+      channel?.unsubscribe();
+      channel = null;
+    };
+
     const syncFromCloud = async () => {
+      if (isCloudSyncTemporarilyDisabled()) {
+        stopCloudSync();
+        return;
+      }
+
       try {
         const { data, error } = await supabase
           .from("tracker_data")
@@ -315,6 +385,10 @@ export function subscribeToRoom(
 
         if (error) {
           console.error(`Cloud sync poll failed for room ${roomCode}:`, error.message);
+          if (isNetworkFetchFailure(error)) {
+            disableCloudSyncTemporarily();
+            stopCloudSync();
+          }
           return;
         }
 
@@ -329,10 +403,14 @@ export function subscribeToRoom(
         onUpdate(cloudState);
       } catch (error) {
         console.error(`Cloud sync poll failed for room ${roomCode}:`, error);
+        if (isNetworkFetchFailure(error)) {
+          disableCloudSyncTemporarily();
+          stopCloudSync();
+        }
       }
     };
 
-    const channel = supabase
+    channel = supabase
       .channel(`room-${roomCode}`)
       .on(
         "postgres_changes",
@@ -355,14 +433,13 @@ export function subscribeToRoom(
       )
       .subscribe();
 
-    const pollInterval = window.setInterval(() => {
+    pollInterval = window.setInterval(() => {
       void syncFromCloud();
     }, CLOUD_POLL_INTERVAL_MS);
 
     return {
       unsubscribe: () => {
-        channel.unsubscribe();
-        window.clearInterval(pollInterval);
+        stopCloudSync();
         window.removeEventListener("storage", handleStorage);
         window.removeEventListener(getRoomEventName(roomCode), handleLocalUpdate);
         broadcastChannel?.removeEventListener("message", handleBroadcast);
