@@ -31,6 +31,8 @@ export interface TrackerState {
   weeklyPyqPlan: Record<string, WeeklyPyqPlanItem[]>;
   mockTests: MockTest[];
   weeklyTests: WeeklyTest[];
+  studyTimer: StudyTimerState;
+  studySessions: StudySession[];
   testSeries: TestSeriesLink[];
   currentMember: Member;
   lastUpdatedAt?: string;
@@ -89,6 +91,28 @@ export interface WeeklyTest {
   statusByMember: Record<Member, WeeklyTestMemberStatus>;
 }
 
+export type StudyTimerStatus = "idle" | "running" | "paused";
+
+export interface StudyTimerState {
+  status: StudyTimerStatus;
+  member: Member;
+  subjectId?: string;
+  subjectName?: string;
+  startedAt?: string;
+  lastStartedAt?: string;
+  effectiveMs: number;
+}
+
+export interface StudySession {
+  id: string;
+  member: Member;
+  subjectId?: string;
+  subjectName?: string;
+  startedAt: string;
+  endedAt: string;
+  effectiveMs: number;
+}
+
 function getKey(member: string, section: string, subjectId: string, topicId: string) {
   return `${member}|${section}|${subjectId}|${topicId}`;
 }
@@ -101,6 +125,12 @@ function defaultState(): TrackerState {
     weeklyPyqPlan: {},
     mockTests: [],
     weeklyTests: [],
+    studyTimer: {
+      status: "idle",
+      member: "Bhavesh",
+      effectiveMs: 0,
+    },
+    studySessions: [],
     testSeries: [
       { id: "series-gateoverflow", name: "GateOverflow", url: "" },
       { id: "series-gateoverflow-quizzes", name: "GateOverflow Quizzes", url: "https://gateoverflow.in/view-accesslist?accesslist=36&userid=296917" },
@@ -163,6 +193,51 @@ function normalizeTestSeries(testSeries: unknown, legacyPlatformLinks?: unknown)
 
 export function createDefaultState(): TrackerState {
   return defaultState();
+}
+
+function normalizeStudyTimer(raw: unknown): StudyTimerState {
+  const base = defaultState().studyTimer;
+  const parsed = typeof raw === "object" && raw !== null ? (raw as Partial<StudyTimerState>) : {};
+  const member = MEMBERS.includes(parsed.member as Member) ? (parsed.member as Member) : base.member;
+  const status = parsed.status === "running" || parsed.status === "paused" || parsed.status === "idle" ? parsed.status : "idle";
+
+  return {
+    ...base,
+    ...parsed,
+    member,
+    status,
+    subjectId: typeof parsed.subjectId === "string" ? parsed.subjectId : undefined,
+    subjectName: typeof parsed.subjectName === "string" ? parsed.subjectName : undefined,
+    startedAt: typeof parsed.startedAt === "string" ? parsed.startedAt : undefined,
+    lastStartedAt: typeof parsed.lastStartedAt === "string" ? parsed.lastStartedAt : undefined,
+    effectiveMs: typeof parsed.effectiveMs === "number" && Number.isFinite(parsed.effectiveMs) ? Math.max(0, parsed.effectiveMs) : 0,
+  };
+}
+
+function normalizeStudySessions(raw: unknown): StudySession[] {
+  if (!Array.isArray(raw)) return [];
+
+  return raw
+    .map((session, index) => {
+      const record = typeof session === "object" && session !== null ? (session as Partial<StudySession>) : {};
+      const member = MEMBERS.includes(record.member as Member) ? (record.member as Member) : null;
+      const startedAt = typeof record.startedAt === "string" ? record.startedAt : "";
+      const endedAt = typeof record.endedAt === "string" ? record.endedAt : "";
+      const effectiveMs = typeof record.effectiveMs === "number" && Number.isFinite(record.effectiveMs) ? Math.max(0, record.effectiveMs) : 0;
+
+      if (!member || !startedAt || !endedAt) return null;
+
+      return {
+        id: typeof record.id === "string" && record.id ? record.id : `study-session-${index}`,
+        member,
+        subjectId: typeof record.subjectId === "string" ? record.subjectId : undefined,
+        subjectName: typeof record.subjectName === "string" ? record.subjectName : undefined,
+        startedAt,
+        endedAt,
+        effectiveMs,
+      };
+    })
+    .filter(Boolean) as StudySession[];
 }
 
 function normalizeMockTests(mockTests: unknown): MockTest[] {
@@ -286,6 +361,8 @@ export function normalizeTrackerState(raw: unknown): TrackerState {
         : base.weeklyPyqPlan,
     mockTests: normalizeMockTests(parsed.mockTests),
     weeklyTests: normalizeWeeklyTests(parsed.weeklyTests),
+    studyTimer: normalizeStudyTimer(parsed.studyTimer),
+    studySessions: normalizeStudySessions(parsed.studySessions),
     testSeries: normalizeTestSeries(parsed.testSeries, (parsed as { platformLinks?: unknown }).platformLinks),
     currentMember: MEMBERS.includes(parsed.currentMember as Member) ? (parsed.currentMember as Member) : MEMBERS[0],
     lastUpdatedAt: typeof parsed.lastUpdatedAt === "string" ? parsed.lastUpdatedAt : base.lastUpdatedAt,
@@ -335,6 +412,153 @@ export function getDifficultyStats(state: TrackerState): Record<Difficulty, numb
     stats[d]++;
   }
   return stats;
+}
+
+function toLocalDateKey(iso: string) {
+  const date = new Date(iso);
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).toISOString().slice(0, 10);
+}
+
+export function formatStudyDuration(ms: number): string {
+  const totalMinutes = Math.max(0, Math.round(ms / 60000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours <= 0) return `${minutes}m`;
+  if (minutes <= 0) return `${hours}h`;
+  return `${hours}h ${minutes}m`;
+}
+
+export function getCurrentStudyTimerElapsed(state: TrackerState, now = new Date()): number {
+  const timer = state.studyTimer;
+  if (timer.status !== "running") return timer.effectiveMs;
+  if (!timer.lastStartedAt) return timer.effectiveMs;
+  return timer.effectiveMs + Math.max(0, now.getTime() - new Date(timer.lastStartedAt).getTime());
+}
+
+export function startStudyTimer(state: TrackerState, member: Member, subjectId?: string, subjectName?: string): TrackerState {
+  const now = new Date().toISOString();
+  return {
+    ...state,
+    studyTimer: {
+      status: "running",
+      member,
+      subjectId,
+      subjectName,
+      startedAt: now,
+      lastStartedAt: now,
+      effectiveMs: 0,
+    },
+  };
+}
+
+export function pauseStudyTimer(state: TrackerState): TrackerState {
+  const timer = state.studyTimer;
+  if (timer.status !== "running" || !timer.lastStartedAt) return state;
+  const now = new Date().toISOString();
+  return {
+    ...state,
+    studyTimer: {
+      ...timer,
+      status: "paused",
+      effectiveMs: timer.effectiveMs + Math.max(0, new Date(now).getTime() - new Date(timer.lastStartedAt).getTime()),
+      lastStartedAt: undefined,
+    },
+  };
+}
+
+export function resumeStudyTimer(state: TrackerState): TrackerState {
+  const timer = state.studyTimer;
+  if (timer.status !== "paused") return state;
+  const now = new Date().toISOString();
+  return {
+    ...state,
+    studyTimer: {
+      ...timer,
+      status: "running",
+      lastStartedAt: now,
+    },
+  };
+}
+
+export function stopStudyTimer(state: TrackerState): TrackerState {
+  const timer = state.studyTimer;
+  if (timer.status === "idle") return state;
+  const now = new Date().toISOString();
+  const runningMs =
+    timer.status === "running" && timer.lastStartedAt
+      ? Math.max(0, new Date(now).getTime() - new Date(timer.lastStartedAt).getTime())
+      : 0;
+  const effectiveMs = timer.effectiveMs + runningMs;
+
+  const nextSessions =
+    effectiveMs > 0 && timer.startedAt
+      ? [
+          ...state.studySessions,
+          {
+            id: `study-session-${Date.now()}`,
+            member: timer.member,
+            subjectId: timer.subjectId,
+            subjectName: timer.subjectName,
+            startedAt: timer.startedAt,
+            endedAt: now,
+            effectiveMs,
+          },
+        ]
+      : state.studySessions;
+
+  return {
+    ...state,
+    studySessions: nextSessions,
+    studyTimer: {
+      status: "idle",
+      member: timer.member,
+      effectiveMs: 0,
+    },
+  };
+}
+
+export function resetStudyTimer(state: TrackerState): TrackerState {
+  return {
+    ...state,
+    studyTimer: {
+      status: "idle",
+      member: state.studyTimer.member,
+      effectiveMs: 0,
+    },
+  };
+}
+
+export function getStudyDailyTotals(state: TrackerState, days = 7): { date: string; label: string; effectiveMs: number }[] {
+  const today = new Date();
+  const buckets = new Map<string, number>();
+  for (let offset = days - 1; offset >= 0; offset -= 1) {
+    const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - offset);
+    const key = date.toISOString().slice(0, 10);
+    buckets.set(key, 0);
+  }
+
+  for (const session of state.studySessions) {
+    const key = toLocalDateKey(session.endedAt || session.startedAt);
+    if (!buckets.has(key)) continue;
+    buckets.set(key, (buckets.get(key) ?? 0) + session.effectiveMs);
+  }
+
+  const timer = state.studyTimer;
+  if (timer.status !== "idle" && timer.startedAt) {
+    const key = toLocalDateKey(timer.startedAt);
+    if (buckets.has(key)) {
+      buckets.set(key, (buckets.get(key) ?? 0) + getCurrentStudyTimerElapsed(state));
+    }
+  }
+
+  return Array.from(buckets.entries()).map(([date, effectiveMs]) => {
+    const d = new Date(`${date}T00:00:00`);
+    return {
+      date,
+      label: d.toLocaleDateString("en-IN", { weekday: "short" }),
+      effectiveMs,
+    };
+  });
 }
 
 export function loadState(): TrackerState {

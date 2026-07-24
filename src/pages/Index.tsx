@@ -34,6 +34,7 @@ import RevisionSection from "@/components/RevisionSection";
 import RoomCodeDialog from "@/components/RoomCodeDialog";
 import StreakCalendar from "@/components/StreakCalendar";
 import SubjectChecklist from "@/components/SubjectChecklist";
+import StudyTimerPanel from "@/components/StudyTimerPanel";
 import TestAnalysisSection from "@/components/TestAnalysisSection";
 import WeeklyProgress from "@/components/WeeklyProgress";
 import WeeklyPyqPlanner from "@/components/WeeklyPyqPlanner";
@@ -248,15 +249,18 @@ export default function Index() {
         );
       case "study":
         return (
-          <SubjectChecklist
-            section="study"
-            sectionLabel="Study Checklist"
-            state={state}
-            member={member}
-            onUpdate={updateState}
-            focusSubjectId={searchTarget?.section === "study" ? searchTarget.subjectId : null}
-            focusTopicId={searchTarget?.section === "study" ? searchTarget.topicId : null}
-          />
+          <div className="space-y-5">
+            <StudyTimerPanel state={state} member={member} onUpdate={updateState} />
+            <SubjectChecklist
+              section="study"
+              sectionLabel="Study Checklist"
+              state={state}
+              member={member}
+              onUpdate={updateState}
+              focusSubjectId={searchTarget?.section === "study" ? searchTarget.subjectId : null}
+              focusTopicId={searchTarget?.section === "study" ? searchTarget.topicId : null}
+            />
+          </div>
         );
       case "revision":
         return (
