@@ -87,6 +87,7 @@ export interface WeeklyTest {
   source: WeeklyTestSource;
   kind: WeeklyTestKind;
   scheduledWeek: number;
+  seriesOrder?: number;
   notes: string;
   statusByMember: Record<Member, WeeklyTestMemberStatus>;
 }
@@ -312,6 +313,10 @@ function normalizeWeeklyTests(weeklyTests: unknown): WeeklyTest[] {
         typeof record.scheduledWeek === "number" && Number.isFinite(record.scheduledWeek)
           ? Math.max(1, Math.floor(record.scheduledWeek))
           : 1,
+      seriesOrder:
+        typeof record.seriesOrder === "number" && Number.isFinite(record.seriesOrder)
+          ? Math.max(0, Math.floor(record.seriesOrder))
+          : undefined,
       notes: typeof record.notes === "string" ? record.notes : "",
       statusByMember: Object.fromEntries(
         MEMBERS.map((member) => {
@@ -829,7 +834,13 @@ export function addWeeklyTest(state: TrackerState, test: WeeklyTest): TrackerSta
 
   return {
     ...state,
-    weeklyTests: [...state.weeklyTests, { ...test, linkedMockTestId }].sort((a, b) => a.scheduledWeek - b.scheduledWeek),
+    weeklyTests: [...state.weeklyTests, { ...test, linkedMockTestId }].sort((a, b) => {
+      if (a.scheduledWeek !== b.scheduledWeek) return a.scheduledWeek - b.scheduledWeek;
+      const aOrder = typeof a.seriesOrder === "number" ? a.seriesOrder : Number.MAX_SAFE_INTEGER;
+      const bOrder = typeof b.seriesOrder === "number" ? b.seriesOrder : Number.MAX_SAFE_INTEGER;
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      return b.id.localeCompare(a.id);
+    }),
     mockTests: [...state.mockTests, linkedMockTest],
   };
 }
