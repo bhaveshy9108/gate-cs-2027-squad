@@ -34,6 +34,7 @@ import RevisionSection from "@/components/RevisionSection";
 import RoomCodeDialog from "@/components/RoomCodeDialog";
 import StreakCalendar from "@/components/StreakCalendar";
 import SubjectChecklist from "@/components/SubjectChecklist";
+import StudyTimerFloating from "@/components/StudyTimerFloating";
 import StudyTimerPanel from "@/components/StudyTimerPanel";
 import TestAnalysisSection from "@/components/TestAnalysisSection";
 import WeeklyProgress from "@/components/WeeklyProgress";
@@ -354,6 +355,12 @@ export default function Index() {
           </div>
         </div>
       </header>
+
+      <StudyTimerFloating
+        state={state}
+        onUpdate={updateState}
+        onOpenStudy={() => setTab("study")}
+      />
 
       <main className="relative mx-auto max-w-7xl px-4 py-6 lg:py-8">
         {tab !== "dashboard" ? (
