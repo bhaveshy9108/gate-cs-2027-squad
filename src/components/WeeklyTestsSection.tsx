@@ -588,14 +588,10 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
               Close Series Editor
             </button>
           )}
+        </div>
 
-          <button
-            onClick={() => setShowPdfImport((current) => !current)}
-            className="inline-flex items-center gap-2 rounded-lg border border-primary/25 bg-primary/10 px-4 py-2 text-sm font-medium text-primary"
-          >
-            <FileUp className="h-4 w-4" />
-            {showPdfImport ? "Hide PDF Import" : "Import PDF"}
-          </button>
+        <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          Zeal and Made Easy tests are loaded automatically into the synced schedule board.
         </div>
 
         {showAddSeries && (

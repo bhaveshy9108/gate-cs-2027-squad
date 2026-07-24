@@ -1,5 +1,6 @@
 import { SUBJECTS, MEMBERS, type Member, type Topic } from "./gateData";
 import { getPyqSubjectById } from "./pyqCatalog";
+import { getScheduledTests } from "./testSchedules";
 
 const STORAGE_KEY = "gate-cs-2027-tracker";
 
@@ -118,6 +119,12 @@ function getKey(member: string, section: string, subjectId: string, topicId: str
   return `${member}|${section}|${subjectId}|${topicId}`;
 }
 
+function normalizeSeriesName(name: string): string {
+  const trimmed = name.trim();
+  if (trimmed.replace(/\s+/g, "").toLowerCase() === "madeeasy") return "Made Easy";
+  return trimmed;
+}
+
 function defaultState(): TrackerState {
   return {
     checklist: {},
@@ -136,7 +143,7 @@ function defaultState(): TrackerState {
       { id: "series-gateoverflow", name: "GateOverflow", url: "" },
       { id: "series-gateoverflow-quizzes", name: "GateOverflow Quizzes", url: "https://gateoverflow.in/view-accesslist?accesslist=36&userid=296917" },
       { id: "series-goclasses", name: "GO Classes", url: "" },
-      { id: "series-madeeasy", name: "MadeEasy", url: "" },
+      { id: "series-madeeasy", name: "Made Easy", url: "" },
       { id: "series-zeal", name: "Zeal", url: "" },
     ], 
     currentMember: "Bhavesh",
@@ -152,7 +159,7 @@ function normalizeTestSeries(testSeries: unknown, legacyPlatformLinks?: unknown)
     ? testSeries
         .map((entry, index) => {
           const record = typeof entry === "object" && entry !== null ? (entry as Partial<TestSeriesLink>) : {};
-          const name = typeof record.name === "string" ? record.name.trim() : "";
+          const name = typeof record.name === "string" ? normalizeSeriesName(record.name) : "";
           if (!name) return null;
           return {
             id: typeof record.id === "string" && record.id ? record.id : `series-${index}-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
@@ -193,7 +200,7 @@ function normalizeTestSeries(testSeries: unknown, legacyPlatformLinks?: unknown)
 }
 
 export function createDefaultState(): TrackerState {
-  return defaultState();
+  return seedScheduledTests(defaultState());
 }
 
 function normalizeStudyTimer(raw: unknown): StudyTimerState {
@@ -304,7 +311,10 @@ function normalizeWeeklyTests(weeklyTests: unknown): WeeklyTest[] {
       topicLabel: typeof record.topicLabel === "string" ? record.topicLabel : "",
       link: typeof record.link === "string" ? record.link : "",
       name: record.name ?? `Weekly Test ${index + 1}`,
-      source: typeof record.source === "string" && record.source.trim() ? record.source : "GO Classes",
+      source:
+        typeof record.source === "string" && record.source.trim()
+          ? normalizeSeriesName(record.source)
+          : "GO Classes",
       kind:
         record.kind === "subject" || record.kind === "quiz" || record.kind === "mock"
           ? record.kind
@@ -340,7 +350,7 @@ export function normalizeTrackerState(raw: unknown): TrackerState {
   const base = defaultState();
   const parsed = typeof raw === "object" && raw !== null ? (raw as Partial<TrackerState>) : {};
   const allowedMembers = new Set<Member>(MEMBERS);
-  return {
+  return seedScheduledTests({
     ...base,
     ...parsed,
     checklist:
@@ -377,7 +387,7 @@ export function normalizeTrackerState(raw: unknown): TrackerState {
       typeof parsed.topicDifficulty === "object" && parsed.topicDifficulty !== null
         ? parsed.topicDifficulty
         : base.topicDifficulty,
-  };
+  });
 }
 
 // Notes helpers
@@ -843,6 +853,45 @@ export function addWeeklyTest(state: TrackerState, test: WeeklyTest): TrackerSta
     }),
     mockTests: [...state.mockTests, linkedMockTest],
   };
+}
+
+function buildSeedStatus(totalMarks = 100): WeeklyTest["statusByMember"] {
+  return Object.fromEntries(
+    MEMBERS.map((member) => [
+      member,
+      {
+        taken: false,
+        score: null,
+        outOf: totalMarks,
+      },
+    ])
+  ) as WeeklyTest["statusByMember"];
+}
+
+function seedScheduledTests(state: TrackerState): TrackerState {
+  const existingIds = new Set(state.weeklyTests.map((test) => test.id));
+  let nextState = state;
+
+  for (const seed of getScheduledTests()) {
+    if (existingIds.has(seed.id)) continue;
+    existingIds.add(seed.id);
+    nextState = addWeeklyTest(nextState, {
+      id: seed.id,
+      name: seed.name,
+      source: seed.source,
+      kind: seed.coverageScope === "full" ? "mock" : "subject",
+      subjectId: seed.subjectId,
+      coverageScope: seed.coverageScope,
+      topicLabel: "",
+      link: "",
+      scheduledWeek: seed.scheduledWeek,
+      seriesOrder: seed.seriesOrder,
+      notes: seed.notes,
+      statusByMember: buildSeedStatus(),
+    });
+  }
+
+  return nextState;
 }
 
 export function deleteWeeklyTest(state: TrackerState, testId: string): TrackerState {
