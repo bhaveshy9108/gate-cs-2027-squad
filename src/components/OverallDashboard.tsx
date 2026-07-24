@@ -197,7 +197,7 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
         </div>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
+      <div className="grid gap-5">
         <div className="rounded-[1.75rem] border border-border/70 bg-card/95 p-4 shadow-[0_24px_70px_-35px_rgba(15,23,42,0.35)] sm:p-5">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
@@ -210,7 +210,7 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
             <p className="hidden text-xs text-muted-foreground sm:block">Tap a row</p>
           </div>
 
-          <div className="mt-5 grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {subjectSummaries.map((subject) => {
               const isSelected = subject.id === selectedSubject?.id;
               return (
@@ -218,13 +218,13 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
                   key={subject.id}
                   onClick={() => setSelectedSubjectId(subject.id)}
                   className={cn(
-                    "group min-w-0 rounded-3xl border p-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg",
+                    "group flex min-h-[8.5rem] min-w-0 flex-col rounded-3xl border p-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg",
                     isSelected ? "border-primary/30 bg-primary/5 shadow-lg shadow-primary/10" : "border-border/70 bg-background/70 hover:border-primary/30"
                   )}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 space-y-1">
-                      <p className="break-words text-[13px] font-semibold leading-snug text-foreground">
+                      <p className="line-clamp-2 break-words text-[13px] font-semibold leading-snug text-foreground">
                         {subject.name}
                       </p>
                       <p className="text-[11px] text-muted-foreground">~{subject.weightage} marks</p>
@@ -239,12 +239,12 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
                     />
                   </div>
 
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {SECTION_META.map((section) => {
-                          const value = subject.counts[section.key];
-                          return (
-                            <span
-                              key={section.key}
+                  <div className="mt-auto flex flex-wrap gap-2 pt-3">
+                    {SECTION_META.map((section) => {
+                      const value = subject.counts[section.key];
+                      return (
+                        <span
+                          key={section.key}
                               className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-card/80 px-2.5 py-1 text-[10px] font-medium text-muted-foreground"
                             >
                               <span className={cn("h-1.5 w-1.5 rounded-full", section.key === "study" ? "bg-primary" : section.key === "revision" ? "bg-accent" : "bg-yellow-500")} />
@@ -257,79 +257,6 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
               );
             })}
           </div>
-        </div>
-
-        <div className="space-y-5">
-          <div className="rounded-[1.75rem] border border-border/70 bg-card/95 p-4 shadow-[0_24px_70px_-35px_rgba(15,23,42,0.35)] sm:p-5">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-primary" />
-                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">Selected</p>
-                </div>
-                <h3 className="mt-2 break-words text-lg font-semibold leading-snug tracking-tight text-foreground sm:text-xl">
-                  {selectedSubject?.name ?? "Pick a subject"}
-                </h3>
-              </div>
-              <div className="rounded-2xl bg-primary/10 px-3 py-2 text-right">
-                <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">Total</p>
-                <p className="text-lg font-semibold text-primary">{selectedSubject?.overall.pct ?? 0}%</p>
-              </div>
-            </div>
-
-            <div className="mt-4 grid gap-2 sm:grid-cols-3">
-              {selectedSubject ? (
-                SECTION_META.map((section) => {
-                  const Icon = section.icon;
-                  const value = selectedSubject.counts[section.key];
-                  return (
-                    <div key={section.key} className="rounded-2xl border border-border/70 bg-background/70 p-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <span className="inline-flex h-7 w-7 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                            <Icon className="h-3.5 w-3.5" />
-                          </span>
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-foreground">{section.label}</p>
-                            <p className="text-[11px] text-muted-foreground">{value.done}/{value.total} topics</p>
-                          </div>
-                        </div>
-                        <p className="text-sm font-semibold text-foreground">{value.pct}%</p>
-                      </div>
-                      <div className="mt-3 h-2 rounded-full bg-muted">
-                        <div
-                          className={cn(
-                            "h-full rounded-full transition-all duration-500",
-                            section.key === "study" ? "bg-primary" : section.key === "revision" ? "bg-accent" : "bg-yellow-500"
-                          )}
-                          style={{ width: `${value.pct}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <p className="text-sm text-muted-foreground">Select a subject to see the deeper breakdown.</p>
-              )}
-            </div>
-
-            <div className="mt-5 flex flex-wrap gap-2">
-              {SECTION_META.map((section) => {
-                const Icon = section.icon;
-                return (
-                  <button
-                    key={section.key}
-                    onClick={() => onOpenSection?.(section.key)}
-                    className="inline-flex items-center gap-2 rounded-2xl border border-border/70 bg-background/70 px-3 py-2 text-sm font-medium text-foreground transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md sm:px-4"
-                  >
-                    <Icon className="h-4 w-4 text-primary" />
-                    Open {section.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
         </div>
       </div>
     </div>
