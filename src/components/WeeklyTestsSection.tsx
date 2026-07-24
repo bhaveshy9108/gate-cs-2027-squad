@@ -49,10 +49,25 @@ type PdfImportDraft = {
   id: string;
   order: number;
   title: string;
+  subtitle: string;
   subjectId: string;
   coverageScope: TestCoverageScope;
   selected: boolean;
 };
+
+function splitPdfRow(rawTitle: string) {
+  const normalized = rawTitle.replace(/\s+/g, " ").trim();
+  const colonIndex = normalized.indexOf(":");
+
+  if (colonIndex !== -1) {
+    return {
+      title: normalized.slice(0, colonIndex).trim().replace(/[-:]+$/, "").trim(),
+      subtitle: normalized.slice(colonIndex + 1).trim(),
+    };
+  }
+
+  return { title: normalized, subtitle: "" };
+}
 
 function buildStatusByMember(totalMarks?: number | null): WeeklyTest["statusByMember"] {
   return Object.fromEntries(
@@ -101,13 +116,15 @@ function inferSubjectIdFromTitle(title: string): string {
 }
 
 function makePdfDraft(title: string, order: number): PdfImportDraft {
-  const subjectId = inferSubjectIdFromTitle(title);
+  const { title: baseTitle, subtitle } = splitPdfRow(title);
+  const subjectId = inferSubjectIdFromTitle(baseTitle || title);
   return {
-    id: `pdf-draft-${order}-${slugify(title) || order}`,
+    id: `pdf-draft-${order}-${slugify(baseTitle || title) || order}`,
     order,
-    title,
+    title: baseTitle || title,
+    subtitle,
     subjectId,
-    coverageScope: subjectId ? "subject" : "full",
+    coverageScope: subjectId ? "subject" : subtitle ? "topic" : "full",
     selected: true,
   };
 }
@@ -119,12 +136,12 @@ function createImportedWeeklyTest(draft: PdfImportDraft, seriesName: string, wee
     source: seriesName,
     kind: draft.subjectId ? "subject" : "mock",
     subjectId: draft.subjectId || undefined,
-    coverageScope: draft.subjectId ? "subject" : "full",
+    coverageScope: draft.coverageScope,
     topicLabel: "",
     link: "",
     scheduledWeek: week,
     seriesOrder: draft.order,
-    notes: `Imported from ${fileName}`,
+    notes: [draft.subtitle ? `Subtopics: ${draft.subtitle}` : "", `Imported from ${fileName}`].filter(Boolean).join(" | "),
     statusByMember: buildStatusByMember(),
   };
 }
@@ -664,6 +681,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                                     </span>
                                     <span className="text-sm font-semibold text-foreground">{draft.title}</span>
                                   </div>
+                                  {draft.subtitle && <p className="mt-1 text-xs text-muted-foreground">{draft.subtitle}</p>}
                                   <p className="mt-1 text-xs text-muted-foreground">
                                     {subject?.name ?? "Subject not detected"} · will be added in week {pdfImportWeek || currentWeek}
                                   </p>
@@ -686,12 +704,12 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                                   onClick={() =>
                                     updatePdfDraft(draft.id, {
                                       subjectId: draft.subjectId,
-                                      coverageScope: draft.subjectId ? "subject" : "full",
+                                      coverageScope: draft.subjectId ? "subject" : draft.subtitle ? "topic" : "full",
                                     })
                                   }
                                   className="rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-background"
                                 >
-                                  {draft.coverageScope === "subject" ? "Subject wise" : "Full syllabus"}
+                                  {draft.coverageScope === "topic" ? "Topic wise" : draft.coverageScope === "subject" ? "Subject wise" : "Full syllabus"}
                                 </button>
                               </div>
                             </div>
