@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type SetStateAction } from "react";
-import { ArrowRight, BarChart3, BookMarked, BookOpen, CalendarCheck2, CalendarDays, Cloud, Clock3, GraduationCap, LineChart, RefreshCw, Search, Sparkles, Target, X } from "lucide-react";
+import { ArrowRight, BarChart3, BookMarked, BookOpen, CalendarCheck2, CalendarDays, Clock3, GraduationCap, LineChart, RefreshCw, Search, Sparkles, Target, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { MEMBERS, SUBJECTS, type Member } from "@/lib/gateData";
 import {
   createDefaultState,
   getAllTopics,
-  getSubjectProgress,
   getWeekDateRange,
   getWeekNumber,
   getWeeklyProgress,
@@ -180,25 +179,6 @@ export default function Index() {
   const currentWeekRange = getWeekDateRange(currentWeek);
   const weeklyProgress = useMemo(() => getWeeklyProgress(state), [state]);
 
-  const overallProgress = useMemo(() => {
-    let done = 0;
-    let total = 0;
-
-    for (const sectionId of ["study", "revision", "pyq"] as const) {
-      for (const subject of SUBJECTS) {
-        const progress = getSubjectProgress(state, member, sectionId, subject.id);
-        done += progress.done;
-        total += progress.total;
-      }
-    }
-
-    return {
-      done,
-      total,
-      percent: total > 0 ? Math.round((done / total) * 100) : 0,
-    };
-  }, [state, member]);
-
   const searchResults = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return [];
@@ -217,45 +197,6 @@ export default function Index() {
 
     const results: SearchResult[] = [];
 
-    const addStudyResults = (section: "study" | "revision") => {
-      for (const subject of SUBJECTS) {
-        const topics = getAllTopics(state, subject.id, section);
-        for (const topic of topics) {
-          const note = state.topicNotes[`${subject.id}|${topic.id}`];
-          const haystack = [
-            subject.name,
-            topic.name,
-            section,
-            note?.text ?? "",
-            ...(note?.links ?? []),
-          ]
-            .join(" ")
-            .toLowerCase();
-
-          if (!haystack.includes(query)) continue;
-
-          const topicName = topic.name.toLowerCase();
-          const subjectName = subject.name.toLowerCase();
-          const score = topicName === query ? 0 : topicName.startsWith(query) ? 1 : subjectName.includes(query) ? 2 : note?.text?.toLowerCase().includes(query) ? 3 : 4;
-
-          results.push({
-            id: `${section}:${subject.id}:${topic.id}`,
-            section,
-            sectionLabel: section === "study" ? "Study" : "Revision",
-            subjectId: subject.id,
-            subjectName: subject.name,
-            topicId: topic.id,
-            topicName: topic.name,
-            detail: note?.text ? `Note hit · ${note.text.slice(0, 80)}` : `${section === "study" ? "Study" : "Revision"} topic`,
-            score,
-          });
-        }
-      }
-    };
-
-    addStudyResults("study");
-    addStudyResults("revision");
-
     for (const subject of PYQ_SUBJECTS) {
       for (const topic of subject.topics) {
         const haystack = [subject.name, subject.volume, topic.name].join(" ").toLowerCase();
@@ -266,7 +207,7 @@ export default function Index() {
         results.push({
           id: `pyq:${subject.id}:${topic.id}`,
           section: "pyq",
-          sectionLabel: "PYQs",
+          sectionLabel: "PYQ",
           subjectId: subject.id,
           subjectName: subject.name,
           topicId: topic.id,
@@ -452,21 +393,7 @@ export default function Index() {
                   </div>
                 </div>
 
-                <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                  <div className="rounded-2xl border border-border/70 bg-background/75 p-4">
-                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
-                      <BarChart3 className="h-3.5 w-3.5 text-primary" />
-                      Overall
-                    </div>
-                    <p className="mt-3 text-2xl font-semibold tracking-tight">{overallProgress.percent}%</p>
-                    <p className="text-xs text-muted-foreground">
-                      {overallProgress.done}/{overallProgress.total} tasks completed
-                    </p>
-                    <div className="mt-3 h-2 rounded-full bg-muted">
-                      <div className="h-full rounded-full bg-gradient-to-r from-primary to-accent" style={{ width: `${overallProgress.percent}%` }} />
-                    </div>
-                  </div>
-
+                <div className="mt-6 grid gap-3 sm:grid-cols-1">
                   <div className="rounded-2xl border border-border/70 bg-background/75 p-4">
                     <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
                       <Target className="h-3.5 w-3.5 text-primary" />
@@ -474,17 +401,6 @@ export default function Index() {
                     </div>
                     <p className="mt-3 text-2xl font-semibold tracking-tight">Week {currentWeek}</p>
                     <p className="text-xs text-muted-foreground">{currentWeekRange}</p>
-                  </div>
-
-                  <div className="rounded-2xl border border-border/70 bg-background/75 p-4 sm:col-span-2 xl:col-span-1">
-                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
-                      <Cloud className="h-3.5 w-3.5 text-primary" />
-                      Sync
-                    </div>
-                    <p className="mt-3 text-2xl font-semibold tracking-tight">
-                      {roomCode ? (cloudEnabled ? (cloudReady ? "Synced" : "Connecting") : "Local") : "Idle"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{roomCode ? roomCode : "No room connected"}</p>
                   </div>
                 </div>
               </div>
@@ -548,7 +464,7 @@ export default function Index() {
                       <input
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search topics, subjects, or notes"
+                        placeholder="Search PYQ topics"
                         className="w-full rounded-2xl border border-border/70 bg-card px-4 py-3 pr-10 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                       />
                       <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -571,12 +487,11 @@ export default function Index() {
                                     </span>
                                     <span className="truncate text-sm font-semibold text-foreground">{result.subjectName}</span>
                                   </div>
-                                  <p className="mt-1 text-sm text-muted-foreground">{result.topicName}</p>
-                                  <p className="mt-1 text-[11px] text-muted-foreground">{result.detail}</p>
-                                </div>
-                                <ArrowRight className="mt-1 h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                                <p className="mt-1 text-sm text-muted-foreground">{result.topicName}</p>
                               </div>
-                            </button>
+                              <ArrowRight className="mt-1 h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                            </div>
+                          </button>
                           ))
                         ) : (
                           <div className="rounded-2xl border border-dashed border-border/70 bg-card/60 px-4 py-6 text-center">
@@ -585,9 +500,7 @@ export default function Index() {
                           </div>
                         )
                       ) : (
-                        <div className="rounded-2xl border border-dashed border-border/70 bg-card/60 px-4 py-5 text-sm text-muted-foreground">
-                          Start typing to search across Study, Revision, and PYQ topics.
-                        </div>
+                        null
                       )}
                     </div>
                   </div>

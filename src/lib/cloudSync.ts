@@ -8,6 +8,7 @@ const ROOM_EVENT_PREFIX = "gate-tracker-room-updated:";
 
 let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 let isSaving = false;
+let lastCloudErrorAt: Record<string, number> = {};
 const CLOUD_SAVE_DELAY_MS = 300;
 const CLOUD_POLL_INTERVAL_MS = 1000;
 
@@ -90,6 +91,28 @@ function dispatchRoomUpdate(roomCode: string) {
   window.dispatchEvent(new CustomEvent(getRoomEventName(roomCode)));
 }
 
+function isNetworkFetchFailure(error: unknown) {
+  if (error instanceof Error) {
+    return /failed to fetch|networkerror|network request failed/i.test(error.message);
+  }
+
+  return false;
+}
+
+function notifyCloudLoadFailure(roomCode: string, reason: string) {
+  const now = Date.now();
+  const lastShown = lastCloudErrorAt[roomCode] ?? 0;
+  if (now - lastShown < 10_000) return;
+
+  lastCloudErrorAt[roomCode] = now;
+  toast.error(`Cloud load failed for room ${roomCode}: ${reason}`);
+}
+
+function normalizeCloudError(error: unknown) {
+  if (error instanceof Error && error.message) return error.message;
+  return "Unknown cloud error";
+}
+
 export function getSavedRoomCode(): string | null {
   return localStorage.getItem(ROOM_CODE_KEY);
 }
@@ -133,50 +156,69 @@ export async function loadCloudState(roomCode: string): Promise<TrackerState | n
   const localSnapshot = getLocalRoomSnapshot(roomCode);
 
   if (supabase) {
-    const { data, error } = await supabase
-      .from("tracker_data")
-      .select("data,updated_at")
-      .eq("room_code", roomCode)
-      .maybeSingle();
+    try {
+      const { data, error } = await supabase
+        .from("tracker_data")
+        .select("data,updated_at")
+        .eq("room_code", roomCode)
+        .maybeSingle();
 
-    if (error) {
-      console.error(`Cloud load failed for room ${roomCode}:`, error.message);
-      toast.error(`Cloud load failed for room ${roomCode}: ${error.message}`);
+      if (error) {
+        console.error(`Cloud load failed for room ${roomCode}:`, error.message);
+        notifyCloudLoadFailure(roomCode, error.message);
+        return localSnapshot?.state ?? null;
+      }
+
+      if (!data) {
+        return localSnapshot?.state ?? null;
+      }
+
+      const cloudState = normalizeTrackerState(data.data);
+      const cloudUpdatedAt = data.updated_at ?? new Date(0).toISOString();
+
+      if (localSnapshot && localSnapshot.updatedAt > cloudUpdatedAt) {
+        void persistCloudState(roomCode, localSnapshot.state);
+        return localSnapshot.state;
+      }
+
+      saveRoomStateLocally(roomCode, cloudState, cloudUpdatedAt);
+      return cloudState;
+    } catch (error) {
+      const reason = isNetworkFetchFailure(error)
+        ? "Supabase is unreachable from this browser session. Check your live deployment env vars and network access."
+        : normalizeCloudError(error);
+      console.error(`Cloud load failed for room ${roomCode}:`, error);
+      notifyCloudLoadFailure(roomCode, reason);
       return localSnapshot?.state ?? null;
     }
-
-    if (!data) {
-      return localSnapshot?.state ?? null;
-    }
-
-    const cloudState = normalizeTrackerState(data.data);
-    const cloudUpdatedAt = data.updated_at ?? new Date(0).toISOString();
-
-    if (localSnapshot && localSnapshot.updatedAt > cloudUpdatedAt) {
-      void persistCloudState(roomCode, localSnapshot.state);
-      return localSnapshot.state;
-    }
-
-    saveRoomStateLocally(roomCode, cloudState, cloudUpdatedAt);
-    return cloudState;
   }
 
   return localSnapshot?.state ?? null;
 }
 
 async function persistCloudState(roomCode: string, state: TrackerState) {
-  const payload = cloneState(state);
-  const updatedAt = new Date().toISOString();
-  const { error } = await supabase
-    .from("tracker_data")
-    .upsert(
-      { room_code: roomCode, data: payload, user_id: null, updated_at: updatedAt },
-      { onConflict: "room_code" }
-    );
+  if (!supabase) return;
 
-  if (error) {
-    console.error("Cloud save failed:", error.message);
-    toast.error(`Cloud save failed: ${error.message}`);
+  try {
+    const payload = cloneState(state);
+    const updatedAt = new Date().toISOString();
+    const { error } = await supabase
+      .from("tracker_data")
+      .upsert(
+        { room_code: roomCode, data: payload as any, user_id: null, updated_at: updatedAt },
+        { onConflict: "room_code" }
+      );
+
+    if (error) {
+      console.error("Cloud save failed:", error.message);
+      toast.error(`Cloud save failed: ${error.message}`);
+    }
+  } catch (error) {
+    console.error("Cloud save failed:", error);
+    const reason = isNetworkFetchFailure(error)
+      ? "Supabase is unreachable from this browser session."
+      : normalizeCloudError(error);
+    toast.error(`Cloud save failed: ${reason}`);
   }
 }
 
@@ -264,26 +306,30 @@ export function subscribeToRoom(
 
   if (supabase) {
     const syncFromCloud = async () => {
-      const { data, error } = await supabase
-        .from("tracker_data")
-        .select("data,updated_at")
-        .eq("room_code", roomCode)
-        .maybeSingle();
+      try {
+        const { data, error } = await supabase
+          .from("tracker_data")
+          .select("data,updated_at")
+          .eq("room_code", roomCode)
+          .maybeSingle();
 
-      if (error) {
-        console.error(`Cloud sync poll failed for room ${roomCode}:`, error.message);
-        return;
+        if (error) {
+          console.error(`Cloud sync poll failed for room ${roomCode}:`, error.message);
+          return;
+        }
+
+        if (!data) return;
+
+        const localSnapshot = getLocalRoomSnapshot(roomCode);
+        const cloudUpdatedAt = data.updated_at ?? new Date(0).toISOString();
+        if (localSnapshot && localSnapshot.updatedAt >= cloudUpdatedAt) return;
+
+        const cloudState = normalizeTrackerState(data.data);
+        saveRoomStateLocally(roomCode, cloudState, cloudUpdatedAt);
+        onUpdate(cloudState);
+      } catch (error) {
+        console.error(`Cloud sync poll failed for room ${roomCode}:`, error);
       }
-
-      if (!data) return;
-
-      const localSnapshot = getLocalRoomSnapshot(roomCode);
-      const cloudUpdatedAt = data.updated_at ?? new Date(0).toISOString();
-      if (localSnapshot && localSnapshot.updatedAt >= cloudUpdatedAt) return;
-
-      const cloudState = normalizeTrackerState(data.data);
-      saveRoomStateLocally(roomCode, cloudState, cloudUpdatedAt);
-      onUpdate(cloudState);
     };
 
     const channel = supabase
@@ -299,9 +345,10 @@ export function subscribeToRoom(
         (payload) => {
           if (isSaving) return;
 
-          const newData = payload.new?.data ? normalizeTrackerState(payload.new.data) : null;
+          const newRow = payload.new as any;
+          const newData = newRow?.data ? normalizeTrackerState(newRow.data) : null;
           if (newData) {
-            saveRoomStateLocally(roomCode, newData, payload.new?.updated_at);
+            saveRoomStateLocally(roomCode, newData, newRow?.updated_at);
             onUpdate(newData);
           }
         }

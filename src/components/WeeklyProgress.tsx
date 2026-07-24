@@ -52,6 +52,20 @@ function formatTimestamp(iso: string) {
   })}`;
 }
 
+function getWeekDates(week: number) {
+  const start = new Date(2026, 3, 6);
+  const weekStart = new Date(start.getTime() + (week - 1) * 7 * 24 * 60 * 60 * 1000);
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(weekStart);
+    date.setDate(weekStart.getDate() + index);
+    return date;
+  });
+}
+
+function formatShortDate(date: Date) {
+  return date.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+}
+
 interface WeeklyPyqPlannerProps {
   state: TrackerState;
   member: Member;
@@ -186,15 +200,15 @@ export function WeeklyPyqPlanner({ state, member, weekNumber, onUpdate }: Weekly
             availableTopics.slice(0, 10).map((topic) => {
               const topicCount = (topic as { count?: number }).count;
               return (
-              <button
-                key={topic.id}
-                onClick={() => addTopic(selectedSubject.id, topic.id, topic.name, topicCount)}
-                className="flex w-full items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card px-3 py-2 text-left text-sm text-foreground transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-sm"
-              >
-                <span className="min-w-0 truncate">{topic.name}</span>
-                <Plus className="h-4 w-4 flex-shrink-0 text-primary" />
-              </button>
-            );
+                <button
+                  key={topic.id}
+                  onClick={() => addTopic(selectedSubject.id, topic.id, topic.name, topicCount)}
+                  className="flex w-full items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card px-3 py-2 text-left text-sm text-foreground transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-sm"
+                >
+                  <span className="min-w-0 truncate">{topic.name}</span>
+                  <Plus className="h-4 w-4 flex-shrink-0 text-primary" />
+                </button>
+              );
             })
           ) : (
             <div className="rounded-2xl border border-dashed border-border/70 px-3 py-5 text-center text-sm text-muted-foreground">
@@ -270,6 +284,14 @@ export function WeeklyPyqPlanner({ state, member, weekNumber, onUpdate }: Weekly
 export default function WeeklyProgress({ state }: Props) {
   const weeks = [...getWeeklyProgress(state)].sort((a, b) => b.week - a.week);
   const currentWeekLabel = getWeekDateRange(getWeekNumber(new Date()));
+  const currentWeek = getWeekNumber(new Date());
+  const weekDates = getWeekDates(currentWeek);
+  const today = new Date();
+  const todayLabel = today.toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 
   return (
     <div className="space-y-4">
@@ -321,6 +343,28 @@ export default function WeeklyProgress({ state }: Props) {
                     {wp.mockTests.length > 0 && ` | ${wp.mockTests.length} mock test${wp.mockTests.length > 1 ? "s" : ""}`}
                     {wp.weeklyTests.length > 0 && ` | ${wp.weeklyTests.length} weekly test${wp.weeklyTests.length > 1 ? "s" : ""} scheduled`}
                   </p>
+                  {wp.week === currentWeek && (
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      <div className="flex items-center gap-2">
+                        {weekDates.map((date, index) => {
+                          const isPastOrToday = date.getTime() <= new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+                          const isToday = date.toDateString() === today.toDateString();
+                          return (
+                            <div
+                              key={date.toISOString()}
+                              className={cn(
+                                "h-2.5 w-2.5 rounded-full transition-all",
+                                isPastOrToday ? "bg-slate-900 dark:bg-slate-100" : "bg-slate-300 dark:bg-slate-700",
+                                isToday && "h-3.5 w-3.5 ring-2 ring-primary/30"
+                              )}
+                              title={date.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}
+                            />
+                          );
+                        })}
+                      </div>
+                      <span className="text-xs font-medium text-muted-foreground">Today: {todayLabel}</span>
+                    </div>
+                  )}
                 </div>
 
                 {memberCounts.length > 0 && (
