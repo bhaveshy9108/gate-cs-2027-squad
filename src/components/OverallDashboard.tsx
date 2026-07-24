@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, BarChart3, BookMarked, BookOpen, Sparkles, RefreshCw } from "lucide-react";
+import { ArrowRight, BarChart3, BookMarked, BookOpen, CalendarDays, Clock3, Sparkles, RefreshCw, Target } from "lucide-react";
 
 import { SUBJECTS } from "@/lib/gateData";
 import { type TrackerState, getDifficultyStats, getSubjectProgress } from "@/lib/trackerStore";
@@ -25,6 +25,74 @@ type SubjectSummary = {
   counts: Record<SectionKey, { done: number; total: number; pct: number }>;
   overall: { done: number; total: number; pct: number };
 };
+
+type ProgressSnapshot = {
+  label: string;
+  value: number;
+  description: string;
+  icon: typeof Clock3;
+};
+
+function getLocalStartOfDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function getWeekStart(date: Date) {
+  const day = date.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  const start = new Date(date);
+  start.setDate(date.getDate() + diff);
+  return getLocalStartOfDay(start);
+}
+
+function getMonthStart(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function getProgressSnapshots(state: TrackerState, member: string): ProgressSnapshot[] {
+  const now = new Date();
+  const todayStart = getLocalStartOfDay(now);
+  const weekStart = getWeekStart(now);
+  const monthStart = getMonthStart(now);
+
+  const entries = Object.entries(state.checklist).filter(([key, entry]) => {
+    if (!entry.completed || !entry.completedAt || !key.startsWith(`${member}|`)) return false;
+    const completedAt = new Date(entry.completedAt);
+    return Number.isFinite(completedAt.getTime());
+  });
+
+  const counts = entries.reduce(
+    (acc, [, entry]) => {
+      const completedAt = new Date(entry.completedAt ?? "");
+      if (completedAt >= todayStart) acc.today++;
+      if (completedAt >= weekStart) acc.week++;
+      if (completedAt >= monthStart) acc.month++;
+      return acc;
+    },
+    { today: 0, week: 0, month: 0 }
+  );
+
+  return [
+    {
+      label: "Today",
+      value: counts.today,
+      description: counts.today === 1 ? "completion" : "completions",
+      icon: Clock3,
+    },
+    {
+      label: "This week",
+      value: counts.week,
+      description: counts.week === 1 ? "completion" : "completions",
+      icon: CalendarDays,
+    },
+    {
+      label: "This month",
+      value: counts.month,
+      description: counts.month === 1 ? "completion" : "completions",
+      icon: Target,
+    },
+  ];
+}
 
 export default function OverallDashboard({ state, onOpenSection }: Props) {
   const member = state.currentMember;
@@ -68,21 +136,26 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
   const overallDone = subjectSummaries.reduce((sum, subject) => sum + subject.overall.done, 0);
   const overallTotal = subjectSummaries.reduce((sum, subject) => sum + subject.overall.total, 0);
   const overallPct = overallTotal > 0 ? Math.round((overallDone / overallTotal) * 100) : 0;
+  const progressSnapshots = useMemo(() => getProgressSnapshots(state, member), [state, member]);
+  const totalDifficultyCount = Object.values(getDifficultyStats(state)).reduce((sum, value) => sum + value, 0);
+  const weakestSubject = subjectSummaries
+    .filter((subject) => subject.overall.total > 0)
+    .sort((a, b) => a.overall.pct - b.overall.pct)[0];
 
   return (
     <div className="space-y-4 sm:space-y-5">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="min-w-0 rounded-[1.5rem] border border-border/70 bg-card/90 p-3 shadow-sm sm:p-5">
-          <div className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4 text-primary" />
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">Overall</p>
-          </div>
-          <div className="mt-4 flex min-w-0 items-end justify-between gap-3">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+        <div className="min-w-0 rounded-[1.5rem] border border-border/70 bg-card/90 p-4 shadow-sm sm:p-5">
+          <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">{overallPct}%</p>
-              <p className="mt-1 text-xs text-muted-foreground sm:text-sm">{overallDone}/{overallTotal} done</p>
+              <div className="flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-primary" />
+                <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-muted-foreground">Overall</p>
+              </div>
+              <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">{overallPct}%</p>
+              <p className="mt-1 text-sm text-muted-foreground">{overallDone}/{overallTotal} tasks done</p>
             </div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
               <Sparkles className="h-5 w-5" />
             </div>
           </div>
@@ -92,8 +165,36 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
               style={{ width: `${overallPct}%` }}
             />
           </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <span className="rounded-full border border-border/70 bg-background/70 px-3 py-1 text-xs text-muted-foreground">
+              {subjectSummaries.length} subjects tracked
+            </span>
+            <span className="rounded-full border border-border/70 bg-background/70 px-3 py-1 text-xs text-muted-foreground">
+              {totalDifficultyCount} difficulty tags
+            </span>
+            {weakestSubject ? (
+              <span className="rounded-full border border-border/70 bg-background/70 px-3 py-1 text-xs text-muted-foreground">
+                Focus: {weakestSubject.name} {weakestSubject.overall.pct}%
+              </span>
+            ) : null}
+          </div>
         </div>
 
+        <div className="grid gap-3 sm:grid-cols-3">
+          {progressSnapshots.map((snapshot) => {
+            const Icon = snapshot.icon;
+            return (
+              <div key={snapshot.label} className="rounded-[1.35rem] border border-border/70 bg-card/90 p-4 shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-muted-foreground">{snapshot.label}</p>
+                  <Icon className="h-4 w-4 text-primary" />
+                </div>
+                <p className="mt-3 text-3xl font-semibold tracking-tight text-foreground">{snapshot.value}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{snapshot.description}</p>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
@@ -104,12 +205,12 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
                 <BarChart3 className="h-4 w-4 text-primary" />
                 <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">Subjects</p>
               </div>
-              <h3 className="mt-2 text-xl font-semibold tracking-tight text-foreground">Subjects</h3>
+              <h3 className="mt-2 text-lg font-semibold tracking-tight text-foreground sm:text-xl">Subjects</h3>
             </div>
             <p className="hidden text-xs text-muted-foreground sm:block">Tap a row</p>
           </div>
 
-          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <div className="mt-5 grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
             {subjectSummaries.map((subject) => {
               const isSelected = subject.id === selectedSubject?.id;
               return (
@@ -138,16 +239,16 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
                     />
                   </div>
 
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {SECTION_META.map((section) => {
-                      const value = subject.counts[section.key];
-                      return (
-                        <span
-                          key={section.key}
-                          className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-card/80 px-2.5 py-1 text-[10px] font-medium text-muted-foreground"
-                        >
-                          <span className={cn("h-1.5 w-1.5 rounded-full", section.key === "study" ? "bg-primary" : section.key === "revision" ? "bg-accent" : "bg-yellow-500")} />
-                          {section.label} {value.pct}%
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {SECTION_META.map((section) => {
+                          const value = subject.counts[section.key];
+                          return (
+                            <span
+                              key={section.key}
+                              className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-card/80 px-2.5 py-1 text-[10px] font-medium text-muted-foreground"
+                            >
+                              <span className={cn("h-1.5 w-1.5 rounded-full", section.key === "study" ? "bg-primary" : section.key === "revision" ? "bg-accent" : "bg-yellow-500")} />
+                              {section.label} {value.pct}%
                         </span>
                       );
                     })}
@@ -176,26 +277,24 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
               </div>
             </div>
 
-            <div className="mt-4 space-y-2 sm:space-y-3">
+            <div className="mt-4 grid gap-2 sm:grid-cols-3">
               {selectedSubject ? (
                 SECTION_META.map((section) => {
                   const Icon = section.icon;
                   const value = selectedSubject.counts[section.key];
                   return (
-                    <div key={section.key} className="rounded-2xl border border-border/70 bg-background/70 p-3 sm:p-4">
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div key={section.key} className="rounded-2xl border border-border/70 bg-background/70 p-3">
+                      <div className="flex items-center justify-between gap-2">
                         <div className="flex min-w-0 items-center gap-2">
-                          <span className="inline-flex h-7 w-7 items-center justify-center rounded-xl bg-primary/10 text-primary sm:h-8 sm:w-8">
-                            <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                          <span className="inline-flex h-7 w-7 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                            <Icon className="h-3.5 w-3.5" />
                           </span>
                           <div className="min-w-0">
-                            <p className="text-sm font-semibold text-foreground sm:text-base">{section.label}</p>
-                            <p className="text-[11px] text-muted-foreground sm:text-xs">
-                              {value.done}/{value.total} topics
-                            </p>
+                            <p className="text-sm font-semibold text-foreground">{section.label}</p>
+                            <p className="text-[11px] text-muted-foreground">{value.done}/{value.total} topics</p>
                           </div>
                         </div>
-                        <p className="text-base font-semibold text-foreground sm:text-lg">{value.pct}%</p>
+                        <p className="text-sm font-semibold text-foreground">{value.pct}%</p>
                       </div>
                       <div className="mt-3 h-2 rounded-full bg-muted">
                         <div
