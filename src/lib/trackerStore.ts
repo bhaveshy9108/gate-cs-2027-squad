@@ -528,6 +528,13 @@ export function resetStudyTimer(state: TrackerState): TrackerState {
   };
 }
 
+export function deleteStudySession(state: TrackerState, sessionId: string): TrackerState {
+  return {
+    ...state,
+    studySessions: state.studySessions.filter((session) => session.id !== sessionId),
+  };
+}
+
 export function getStudyDailyTotals(state: TrackerState, days = 7): { date: string; label: string; effectiveMs: number }[] {
   const today = new Date();
   const buckets = new Map<string, number>();

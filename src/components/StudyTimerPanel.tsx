@@ -8,6 +8,7 @@ import {
   RotateCcw,
   Square,
   TimerReset,
+  Trash2,
 } from "lucide-react";
 import {
   Bar,
@@ -21,6 +22,7 @@ import {
 
 import { SUBJECTS, type Member } from "@/lib/gateData";
 import {
+  deleteStudySession,
   formatStudyDuration,
   getCurrentStudyTimerElapsed,
   getStudyDailyTotals,
@@ -92,6 +94,14 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
   const resume = () => onUpdate(resumeStudyTimer(state));
   const stop = () => onUpdate(stopStudyTimer(state));
   const reset = () => onUpdate(resetStudyTimer(state));
+  const deleteSession = (sessionId: string) => {
+    const session = state.studySessions.find((entry) => entry.id === sessionId);
+    const confirmed = window.confirm(
+      `Delete this study session${session?.subjectName ? ` for ${session.subjectName}` : ""}? This only removes the session record.`
+    );
+    if (!confirmed) return;
+    onUpdate(deleteStudySession(state, sessionId));
+  };
 
   const statusLabel =
     timer.status === "running" ? "Running" : timer.status === "paused" ? "Paused" : "Ready to start";
@@ -273,8 +283,18 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
                     {new Date(session.startedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} · {formatShortClock(session.startedAt)} - {formatShortClock(session.endedAt)}
                   </p>
                 </div>
-                <div className="rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
-                  {formatStudyDuration(session.effectiveMs)}
+                <div className="flex items-center gap-2">
+                  <div className="rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
+                    {formatStudyDuration(session.effectiveMs)}
+                  </div>
+                  <button
+                    onClick={() => deleteSession(session.id)}
+                    className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-background px-3 py-1 text-xs font-medium text-muted-foreground transition-all hover:border-destructive/30 hover:text-destructive"
+                    title="Delete session"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete
+                  </button>
                 </div>
               </div>
             ))
