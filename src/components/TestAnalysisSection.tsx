@@ -116,6 +116,56 @@ function getSubjectBreakdown(records: TestPerformanceRecord[]) {
   });
 }
 
+function getTopicBreakdown(records: TestPerformanceRecord[]) {
+  const topics = Array.from(
+    new Map(
+      records
+        .filter((record) => record.coverageScope === "topic" && record.topicLabel)
+        .map((record) => [
+          `${record.subjectId ?? "none"}|${record.topicLabel}`,
+          {
+            subjectName: record.subjectName,
+            topicLabel: record.topicLabel as string,
+          },
+        ])
+    ).entries()
+  );
+
+  return topics.map(([topicKey, meta]) => {
+    const topicRecords = records.filter(
+      (record) =>
+        record.coverageScope === "topic" &&
+        `${record.subjectId ?? "none"}|${record.topicLabel ?? ""}` === topicKey
+    );
+    const memberAverages = Object.fromEntries(
+      MEMBERS.map((member) => {
+        const percents = topicRecords
+          .map((record) => getPercent(record.scores[member], record.totalMarks))
+          .filter((percent): percent is number => percent !== null);
+        return [member, percents.length ? Math.round(percents.reduce((sum, percent) => sum + percent, 0) / percents.length) : null];
+      })
+    ) as Record<Member, number | null>;
+
+    return { topicKey, ...meta, count: topicRecords.length, memberAverages };
+  });
+}
+
+function getCoverageBreakdown(records: TestPerformanceRecord[]) {
+  return (["full", "subject", "topic"] as TestCoverageScope[]).map((scope) => {
+    const scopedRecords = records.filter((record) => (record.coverageScope ?? "full") === scope);
+    const memberAverages = Object.fromEntries(
+      MEMBERS.map((member) => {
+        const percents = scopedRecords
+          .map((record) => getPercent(record.scores[member], record.totalMarks))
+          .filter((percent): percent is number => percent !== null);
+        return [member, percents.length ? Math.round(percents.reduce((sum, percent) => sum + percent, 0) / percents.length) : null];
+      })
+    ) as Record<Member, number | null>;
+
+    return { scope, count: scopedRecords.length, memberAverages };
+  });
+}
+
 export default function TestAnalysisSection({ state }: Props) {
   const records = useMemo(
     () =>
@@ -126,8 +176,10 @@ export default function TestAnalysisSection({ state }: Props) {
   );
   const memberSummaries = useMemo(() => getMemberSummaries(records), [records]);
   const typeBreakdown = useMemo(() => getTypeBreakdown(records), [records]);
+  const coverageBreakdown = useMemo(() => getCoverageBreakdown(records), [records]);
   const sourceBreakdown = useMemo(() => getSourceBreakdown(records), [records]);
   const subjectBreakdown = useMemo(() => getSubjectBreakdown(records), [records]);
+  const topicBreakdown = useMemo(() => getTopicBreakdown(records), [records]);
 
   return (
     <div className="space-y-4">
@@ -204,6 +256,31 @@ export default function TestAnalysisSection({ state }: Props) {
             <div className="bg-card border border-border rounded-xl p-4 space-y-3">
               <div className="flex items-center gap-2">
                 <Target className="w-4 h-4 text-primary" />
+                <h3 className="font-semibold text-foreground">By Coverage</h3>
+              </div>
+              {coverageBreakdown.map((entry) => (
+                <div key={entry.scope} className="rounded-lg bg-muted/40 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-foreground">{getCoverageScopeLabel(entry.scope)}</span>
+                    <span className="text-xs text-muted-foreground">{entry.count} tests</span>
+                  </div>
+                  <div className="grid gap-2 md:grid-cols-2">
+                    {MEMBERS.map((member) => (
+                      <div key={member} className="text-xs text-muted-foreground">
+                        <span className="font-medium text-foreground">{member}:</span>{" "}
+                        {entry.memberAverages[member] !== null ? `${entry.memberAverages[member]}% avg` : "-"}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4 text-primary" />
                 <h3 className="font-semibold text-foreground">By Platform</h3>
               </div>
               {sourceBreakdown.length === 0 && (
@@ -258,6 +335,36 @@ export default function TestAnalysisSection({ state }: Props) {
 
           <div className="bg-card border border-border rounded-xl p-4 space-y-3">
             <div className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-primary" />
+              <h3 className="font-semibold text-foreground">Topic-wise Comparison</h3>
+            </div>
+            {topicBreakdown.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                Use the Topic Wise option and enter topic names to unlock chapter-level analysis here.
+              </p>
+            )}
+            {topicBreakdown.map((entry) => (
+              <div key={entry.topicKey} className="rounded-lg bg-muted/40 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-foreground">
+                    {entry.subjectName ? `${entry.subjectName} | ${entry.topicLabel}` : entry.topicLabel}
+                  </span>
+                  <span className="text-xs text-muted-foreground">{entry.count} tests</span>
+                </div>
+                <div className="grid gap-2 md:grid-cols-2">
+                  {MEMBERS.map((member) => (
+                    <div key={member} className="text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground">{member}:</span>{" "}
+                      {entry.memberAverages[member] !== null ? `${entry.memberAverages[member]}% avg` : "-"}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+            <div className="flex items-center gap-2">
               <LineChart className="w-4 h-4 text-primary" />
               <h3 className="font-semibold text-foreground">Recent Test History</h3>
             </div>
@@ -274,6 +381,9 @@ export default function TestAnalysisSection({ state }: Props) {
                         {record.source}
                       </span>
                     )}
+                    <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-muted text-muted-foreground">
+                      {getCoverageScopeLabel(record.coverageScope ?? "full")}
+                    </span>
                     <span className="text-[10px] text-muted-foreground">{record.date}</span>
                   </div>
                   <div className="grid gap-2 md:grid-cols-2">

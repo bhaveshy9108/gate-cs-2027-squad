@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { BookMarked, Check, ChevronDown, ChevronRight, FileText, Plus } from "lucide-react";
 import { type Member } from "@/lib/gateData";
 import {
@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 interface Props {
   state: TrackerState;
   member: Member;
-  onUpdate: (s: TrackerState) => void;
+  onUpdate: Dispatch<SetStateAction<TrackerState>>;
   focusSubjectId?: string | null;
   focusTopicId?: string | null;
 }
