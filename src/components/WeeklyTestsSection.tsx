@@ -22,7 +22,9 @@ import {
   CalendarCheck2,
   Check,
   ExternalLink,
+  Link2,
   Plus,
+  X,
   Trash2,
   Trophy,
 } from "lucide-react";
