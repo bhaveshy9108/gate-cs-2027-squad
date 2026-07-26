@@ -26,6 +26,7 @@ import {
   deleteStudySession,
   formatStudyDuration,
   getCurrentStudyTimerElapsed,
+  getStudyDaySummaries,
   getStudyDailyTotals,
   pauseStudyTimer,
   resetStudyTimer,
@@ -104,6 +105,7 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
 
   const weekTotalMs = chartData.reduce((sum, entry) => sum + entry.effectiveMs, 0);
   const todayMs = chartData[chartData.length - 1]?.effectiveMs ?? 0;
+  const daySummaries = getStudyDaySummaries(state, 7);
   const recentSessions = [...state.studySessions]
     .filter((session) => session.member === member)
     .sort((a, b) => new Date(b.endedAt).getTime() - new Date(a.endedAt).getTime())
@@ -340,6 +342,44 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
             {recentSessions.length} sessions
             <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", showRecentSessions ? "rotate-180" : "")} />
           </button>
+        </div>
+
+        <div className="mt-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">Day wise summary</p>
+              <p className="mt-2 text-sm text-muted-foreground">Effective study, break time, and total time by day.</p>
+            </div>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            {daySummaries.map((day) => (
+              <div key={day.date} className="rounded-2xl border border-border/70 bg-background/70 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{day.label}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{day.sessionCount} sessions</p>
+                  </div>
+                  <div className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                    {formatStudyDuration(day.totalMs)}
+                  </div>
+                </div>
+                <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
+                  <div className="rounded-xl bg-card px-3 py-2">
+                    <p className="text-muted-foreground">Effective</p>
+                    <p className="mt-1 font-semibold text-foreground">{formatStudyDuration(day.effectiveMs)}</p>
+                  </div>
+                  <div className="rounded-xl bg-card px-3 py-2">
+                    <p className="text-muted-foreground">Break</p>
+                    <p className="mt-1 font-semibold text-foreground">{formatStudyDuration(day.breakMs)}</p>
+                  </div>
+                  <div className="rounded-xl bg-card px-3 py-2">
+                    <p className="text-muted-foreground">Total</p>
+                    <p className="mt-1 font-semibold text-foreground">{formatStudyDuration(day.totalMs)}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {showRecentSessions && (

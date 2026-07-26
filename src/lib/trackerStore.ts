@@ -714,6 +714,46 @@ export function updateStudySessionSubject(
   };
 }
 
+export interface StudyDaySummary {
+  date: string;
+  label: string;
+  effectiveMs: number;
+  breakMs: number;
+  totalMs: number;
+  sessionCount: number;
+}
+
+export function getStudyDaySummaries(state: TrackerState, days = 7): StudyDaySummary[] {
+  const today = new Date();
+  const buckets = new Map<string, StudyDaySummary>();
+
+  for (let offset = days - 1; offset >= 0; offset -= 1) {
+    const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - offset);
+    const key = toLocalDateKey(date);
+    buckets.set(key, {
+      date: key,
+      label: date.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" }),
+      effectiveMs: 0,
+      breakMs: 0,
+      totalMs: 0,
+      sessionCount: 0,
+    });
+  }
+
+  for (const session of state.studySessions) {
+    const key = session.dayKey || toLocalDateKey(session.endedAt || session.startedAt);
+    const bucket = buckets.get(key);
+    if (!bucket) continue;
+    const totalMs = Math.max(0, new Date(session.endedAt).getTime() - new Date(session.startedAt).getTime());
+    bucket.effectiveMs += session.effectiveMs;
+    bucket.breakMs += Math.max(0, totalMs - session.effectiveMs);
+    bucket.totalMs += totalMs;
+    bucket.sessionCount += 1;
+  }
+
+  return Array.from(buckets.values());
+}
+
 export function getStudyDailyTotals(state: TrackerState, days = 7): { date: string; label: string; effectiveMs: number }[] {
   const today = new Date();
   const buckets = new Map<string, number>();
