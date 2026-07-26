@@ -56,6 +56,15 @@ function formatStudyAxisLabel(dateKey: string) {
   return date.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 }
 
+function formatStudyAxisTick(dateKey: string) {
+  const [year, month, day] = dateKey.split("-").map((value) => Number(value));
+  const date = new Date(year, month - 1, day);
+  return {
+    weekday: date.toLocaleDateString("en-IN", { weekday: "short" }),
+    shortDate: date.toLocaleDateString("en-IN", { day: "numeric", month: "short" }),
+  };
+}
+
 export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
   const timer = state.studyTimer;
   const [selectedSubjectId, setSelectedSubjectId] = useState(timer.subjectId ?? SUBJECTS[0]?.id ?? "");
@@ -80,6 +89,10 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
       getStudyDailyTotals(state, 7).map((entry) => ({
         ...entry,
         axisLabel: formatStudyAxisLabel(entry.date),
+        tickLabel: (() => {
+          const tick = formatStudyAxisTick(entry.date);
+          return `${tick.weekday} | ${tick.shortDate}`;
+        })(),
         hours: Number((entry.effectiveMs / 3600000).toFixed(2)),
       })),
     [state]
@@ -246,7 +259,29 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData} margin={{ top: 10, right: 10, bottom: 0, left: -10 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" vertical={false} />
-                  <XAxis dataKey="axisLabel" tickLine={false} axisLine={false} fontSize={12} />
+                  <XAxis
+                    dataKey="tickLabel"
+                    tickLine={false}
+                    axisLine={false}
+                    fontSize={11}
+                    interval={0}
+                    minTickGap={8}
+                    tick={({ x, y, payload }) => {
+                      const [weekday, shortDate] = String(payload.value).split(" | ");
+                      return (
+                        <g transform={`translate(${x},${y})`}>
+                          <text x={0} y={0} textAnchor="middle" fill="currentColor" fontSize={11}>
+                            <tspan x={0} dy={12}>
+                              {weekday}
+                            </tspan>
+                            <tspan x={0} dy={12}>
+                              {shortDate}
+                            </tspan>
+                          </text>
+                        </g>
+                      );
+                    }}
+                  />
                   <YAxis tickLine={false} axisLine={false} fontSize={12} tickFormatter={(value) => `${value}h`} />
                   <Tooltip
                     formatter={(value) => [formatStudyDuration((value as number) * 3600000), "Effective study"]}
