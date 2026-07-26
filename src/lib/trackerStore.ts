@@ -116,6 +116,7 @@ export interface StudySession {
   subjectName?: string;
   startedAt: string;
   endedAt: string;
+  dayKey: string;
   effectiveMs: number;
 }
 
@@ -235,9 +236,17 @@ function normalizeStudySessions(raw: unknown): StudySession[] {
       const member = MEMBERS.includes(record.member as Member) ? (record.member as Member) : null;
       const startedAt = typeof record.startedAt === "string" ? record.startedAt : "";
       const endedAt = typeof record.endedAt === "string" ? record.endedAt : "";
+      const dayKey =
+        typeof record.dayKey === "string" && record.dayKey
+          ? record.dayKey
+          : endedAt
+            ? toLocalDateKey(endedAt)
+            : startedAt
+              ? toLocalDateKey(startedAt)
+              : "";
       const effectiveMs = typeof record.effectiveMs === "number" && Number.isFinite(record.effectiveMs) ? Math.max(0, record.effectiveMs) : 0;
 
-      if (!member || !startedAt || !endedAt) return null;
+      if (!member || !startedAt || !endedAt || !dayKey) return null;
 
       return {
         id: typeof record.id === "string" && record.id ? record.id : `study-session-${index}`,
@@ -246,6 +255,7 @@ function normalizeStudySessions(raw: unknown): StudySession[] {
         subjectName: typeof record.subjectName === "string" ? record.subjectName : undefined,
         startedAt,
         endedAt,
+        dayKey,
         effectiveMs,
       };
     })
@@ -542,6 +552,7 @@ export function stopStudyTimer(state: TrackerState): TrackerState {
             subjectName: timer.subjectName,
             startedAt: timer.startedAt,
             endedAt: now,
+            dayKey: toLocalDateKey(now),
             effectiveMs,
           },
         ]
@@ -586,7 +597,7 @@ export function getStudyDailyTotals(state: TrackerState, days = 7): { date: stri
   }
 
   for (const session of state.studySessions) {
-    const key = toLocalDateKey(session.endedAt || session.startedAt);
+    const key = session.dayKey || toLocalDateKey(session.endedAt || session.startedAt);
     if (!buckets.has(key)) continue;
     buckets.set(key, (buckets.get(key) ?? 0) + session.effectiveMs);
   }

@@ -144,8 +144,8 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
 
   return (
     <div className="space-y-4 sm:space-y-5">
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
-        <div className="min-w-0 rounded-[1.5rem] border border-border/70 bg-card/90 p-4 shadow-sm sm:p-5">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <div className="min-w-0 rounded-[1.5rem] border border-border/70 bg-card/90 p-4 shadow-sm sm:p-5 xl:col-span-2">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
@@ -180,7 +180,7 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-3 xl:col-span-3">
           {progressSnapshots.map((snapshot) => {
             const Icon = snapshot.icon;
             return (
