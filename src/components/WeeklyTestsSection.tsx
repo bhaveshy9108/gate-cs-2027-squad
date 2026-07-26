@@ -810,6 +810,13 @@ export default function WeeklyTestsSection({ state, onUpdate, onOpenSection }: P
                     {scopedTests.map((test) => {
                       const status = test.statusByMember[currentMember];
                       const topics = describeWeeklyTopics(test);
+                      const marksLabel =
+                        status.taken &&
+                        typeof status.score === "number" &&
+                        typeof status.outOf === "number" &&
+                        status.outOf > 0
+                          ? `${status.score}/${status.outOf}`
+                          : formatWeeklyMetaValue(test.totalMarks) ?? "—";
                       const percent =
                         status.taken &&
                         typeof status.score === "number" &&
@@ -982,7 +989,7 @@ export default function WeeklyTestsSection({ state, onUpdate, onOpenSection }: P
                               </div>
                               <div className="rounded-lg bg-muted/30 px-3 py-2">
                                 <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Marks</p>
-                                <p className="mt-1 text-sm font-semibold text-foreground">{formatWeeklyMetaValue(test.totalMarks) ?? "—"}</p>
+                                <p className="mt-1 text-sm font-semibold text-foreground">{marksLabel}</p>
                               </div>
                               <div className="rounded-lg bg-muted/30 px-3 py-2">
                                 <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Duration</p>
