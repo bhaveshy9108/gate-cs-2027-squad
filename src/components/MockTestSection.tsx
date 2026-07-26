@@ -50,7 +50,14 @@ export default function MockTestSection({ state, onUpdate }: Props) {
     [state.mockTests]
   );
   const filteredMockTests = useMemo(
-    () => sortedMockTests.filter((test) => testTypeFilter === "all" || test.type === testTypeFilter),
+    () =>
+      sortedMockTests.filter((test) => {
+        if (testTypeFilter === "all") return true;
+        if (testTypeFilter === "full") {
+          return test.type === "full" || test.source === "GateOverflow" || test.source === "FLT's";
+        }
+        return test.type === testTypeFilter;
+      }),
     [sortedMockTests, testTypeFilter]
   );
 
@@ -289,7 +296,8 @@ export default function MockTestSection({ state, onUpdate }: Props) {
         const highest = getHighestScorer(test);
         const allScored = MEMBERS.every((m) => test.scores[m] !== null);
         const isLinkedWeeklyTest = Boolean(test.linkedWeeklyTestId);
-        const sourceLabel = test.type === "full" && test.source === "GateOverflow" ? "FLT's" : test.source;
+        const sourceLabel =
+          test.type === "full" || test.source === "GateOverflow" || test.source === "FLT's" ? "FLT's" : test.source;
 
         return (
           <div key={test.id} className="bg-card border border-border rounded-xl p-4">
