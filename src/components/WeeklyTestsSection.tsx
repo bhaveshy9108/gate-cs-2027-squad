@@ -817,6 +817,9 @@ export default function WeeklyTestsSection({ state, onUpdate, onOpenSection }: P
                         status.outOf > 0
                           ? `${status.score}/${status.outOf}`
                           : formatWeeklyMetaValue(test.totalMarks) ?? "—";
+                      const durationLabel = formatWeeklyMetaValue(test.durationMinutes, " min") ?? "—";
+                      const correctLabel =
+                        typeof status.correctQuestions === "number" ? String(status.correctQuestions) : "—";
                       const percent =
                         status.taken &&
                         typeof status.score === "number" &&
@@ -993,13 +996,11 @@ export default function WeeklyTestsSection({ state, onUpdate, onOpenSection }: P
                               </div>
                               <div className="rounded-lg bg-muted/30 px-3 py-2">
                                 <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Duration</p>
-                                <p className="mt-1 text-sm font-semibold text-foreground">
-                                  {formatWeeklyMetaValue(test.durationMinutes, " min") ?? "—"}
-                                </p>
+                                <p className="mt-1 text-sm font-semibold text-foreground">{durationLabel}</p>
                               </div>
                               <div className="rounded-lg bg-muted/30 px-3 py-2">
                                 <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Correct Questions</p>
-                                <p className="mt-1 text-sm font-semibold text-foreground">{status.correctQuestions ?? "—"}</p>
+                                <p className="mt-1 text-sm font-semibold text-foreground">{correctLabel}</p>
                               </div>
                             </div>
                           )}
