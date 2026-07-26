@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type SetStateAction } from "react
 import { ArrowRight, BarChart3, BookMarked, BookOpen, CalendarCheck2, CalendarDays, Clock3, GraduationCap, LineChart, RefreshCw, Search, Sparkles, Target, X } from "lucide-react";
 import { toast } from "sonner";
 
-import { MEMBERS, SUBJECTS, type Member } from "@/lib/gateData";
+import { SUBJECTS } from "@/lib/gateData";
 import {
   createDefaultState,
   getAllTopics,
@@ -26,7 +26,6 @@ import {
   subscribeToRoom,
 } from "@/lib/cloudSync";
 import { cn } from "@/lib/utils";
-import MemberSelector from "@/components/MemberSelector";
 import MockTestSection from "@/components/MockTestSection";
 import OverallDashboard from "@/components/OverallDashboard";
 import PYQSection from "@/components/PYQSection";
@@ -175,8 +174,6 @@ export default function Index() {
     });
   };
 
-  const setMember = (m: Member) => updateState((s) => ({ ...s, currentMember: m }));
-
   const currentWeek = getWeekNumber(new Date());
   const currentWeekRange = getWeekDateRange(currentWeek);
   const weeklyProgress = useMemo(() => getWeeklyProgress(state), [state]);
@@ -288,7 +285,7 @@ export default function Index() {
       case "weekly-tests":
         return <WeeklyTestsSection state={state} onUpdate={updateState} />;
       case "test-analysis":
-        return <TestAnalysisSection state={state} />;
+        return <TestAnalysisSection state={state} onUpdate={updateState} />;
       case "weekly":
         return <WeeklyProgress state={state} />;
       default:
@@ -328,7 +325,6 @@ export default function Index() {
                 onCreate={handleCreateRoom}
                 onDisconnect={handleDisconnect}
               />
-              <MemberSelector current={member} onChange={setMember} />
             </div>
           </div>
 

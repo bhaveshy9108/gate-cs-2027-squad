@@ -69,6 +69,7 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
   const timer = state.studyTimer;
   const [selectedSubjectId, setSelectedSubjectId] = useState(timer.subjectId ?? SUBJECTS[0]?.id ?? "");
   const [now, setNow] = useState(() => Date.now());
+  const [showRecentSessions, setShowRecentSessions] = useState(false);
 
   useEffect(() => {
     if (timer.subjectId && timer.subjectId !== selectedSubjectId) {
@@ -84,6 +85,8 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
 
   const activeSubject = SUBJECTS.find((subject) => subject.id === (timer.subjectId ?? selectedSubjectId)) ?? null;
   const effectiveMs = getCurrentStudyTimerElapsed(state, new Date(now));
+  const breakMs = getCurrentStudyTimerBreakElapsed(state, new Date(now));
+  const totalElapsedMs = effectiveMs + breakMs;
   const chartData = useMemo(
     () =>
       getStudyDailyTotals(state, 7).map((entry) => ({
@@ -152,14 +155,24 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
         <div className="mt-5 grid gap-3 md:grid-cols-3">
           <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
             <p className="text-[11px] uppercase tracking-[0.25em] text-muted-foreground">Current session</p>
-            <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">{formatStudyDuration(effectiveMs)}</p>
-            <p className="mt-1 text-xs text-muted-foreground">Counts only active study time</p>
+            <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
+              {formatStudyDuration(effectiveMs)} / {formatStudyDuration(totalElapsedMs)}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">Active time / total time including breaks</p>
+          </div>
+          <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
+            <p className="text-[11px] uppercase tracking-[0.25em] text-muted-foreground">Breaks</p>
+            <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">{formatStudyDuration(breakMs)}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Paused time in the current session</p>
           </div>
           <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
             <p className="text-[11px] uppercase tracking-[0.25em] text-muted-foreground">Today</p>
             <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">{formatStudyDuration(todayMs)}</p>
             <p className="mt-1 text-xs text-muted-foreground">Effective study so far</p>
           </div>
+        </div>
+
+        <div className="mt-3 grid gap-3 md:grid-cols-3">
           <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
             <p className="text-[11px] uppercase tracking-[0.25em] text-muted-foreground">This week</p>
             <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">{formatStudyDuration(weekTotalMs)}</p>
@@ -173,8 +186,14 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
               <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-muted-foreground">Subject</label>
               <select
                 value={timer.status === "idle" ? selectedSubjectId : timer.subjectId ?? selectedSubjectId}
-                onChange={(event) => setSelectedSubjectId(event.target.value)}
-                disabled={timer.status !== "idle"}
+                onChange={(event) => {
+                  const nextSubjectId = event.target.value;
+                  setSelectedSubjectId(nextSubjectId);
+                  const nextSubject = SUBJECTS.find((subject) => subject.id === nextSubjectId);
+                  if (timer.status !== "idle") {
+                    onUpdate(updateStudyTimerSubject(state, nextSubject?.id, nextSubject?.name));
+                  }
+                }}
                 className="mt-2 w-full rounded-2xl border border-border/70 bg-card px-4 py-3 text-sm font-medium text-foreground outline-none transition-all focus:border-primary/40 focus:ring-2 focus:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {SUBJECTS.map((subject) => (
@@ -184,7 +203,7 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
                 ))}
               </select>
               <p className="mt-2 text-xs text-muted-foreground">
-                The timer is attached to the subject you started with.
+                You can change the subject even while the timer is running or paused.
               </p>
             </div>
 
@@ -313,38 +332,52 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">Recent sessions</p>
             <h3 className="mt-2 text-lg font-semibold tracking-tight text-foreground">Your latest effective study blocks</h3>
           </div>
-          <p className="text-xs text-muted-foreground">{recentSessions.length} shown</p>
+          <button
+            onClick={() => setShowRecentSessions((current) => !current)}
+            className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground"
+          >
+            {recentSessions.length} sessions
+            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", showRecentSessions ? "rotate-180" : "")} />
+          </button>
         </div>
 
-        <div className="mt-4 space-y-3">
-          {recentSessions.length > 0 ? (
-            recentSessions.map((session) => (
-              <div key={session.id} className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-background/70 p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <p className="font-semibold text-foreground">{session.subjectName ?? "Study session"}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {new Date(session.startedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} · {formatShortClock(session.startedAt)} - {formatShortClock(session.endedAt)}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
-                    {formatStudyDuration(session.effectiveMs)}
+        {showRecentSessions && (
+          <div className="mt-4 space-y-3">
+            {recentSessions.length > 0 ? (
+              recentSessions.map((session) => {
+                const totalSessionMs = session.effectiveMs + (session.breakMs ?? 0);
+                return (
+                  <div key={session.id} className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-background/70 p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-foreground">{session.subjectName ?? "Study session"}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {new Date(session.startedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} · {formatShortClock(session.startedAt)} - {formatShortClock(session.endedAt)}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
+                        {formatStudyDuration(session.effectiveMs)} / {formatStudyDuration(totalSessionMs)}
+                      </div>
+                      <div className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+                        Break {formatStudyDuration(session.breakMs ?? 0)}
+                      </div>
+                      <button
+                        onClick={() => deleteSession(session.id)}
+                        className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-background px-3 py-1 text-xs font-medium text-muted-foreground transition-all hover:border-destructive/30 hover:text-destructive"
+                        title="Delete session"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Delete
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    onClick={() => deleteSession(session.id)}
-                    className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-background px-3 py-1 text-xs font-medium text-muted-foreground transition-all hover:border-destructive/30 hover:text-destructive"
-                    title="Delete session"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))
-          ) : (
-            <p className="text-sm text-muted-foreground">Start your first session to build the effective study graph.</p>
-          )}
-        </div>
+                );
+              })
+            ) : (
+              <p className="text-sm text-muted-foreground">Start your first session to build the effective study graph.</p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

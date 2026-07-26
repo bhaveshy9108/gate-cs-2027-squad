@@ -25,6 +25,22 @@ export interface TestSeriesLink {
   url: string;
 }
 
+export type TestAnalysisChecklistKey = "reviewed" | "mistakes" | "revised" | "notesUpdated";
+
+export interface TestAnalysisChecklist {
+  reviewed: boolean;
+  mistakes: boolean;
+  revised: boolean;
+  notesUpdated: boolean;
+}
+
+const DEFAULT_TEST_ANALYSIS_CHECKLIST: TestAnalysisChecklist = {
+  reviewed: false,
+  mistakes: false,
+  revised: false,
+  notesUpdated: false,
+};
+
 export interface TrackerState {
   checklist: ChecklistData;
   customTopics: Record<string, Topic[]>;
@@ -35,6 +51,7 @@ export interface TrackerState {
   studyTimer: StudyTimerState;
   studySessions: StudySession[];
   testSeries: TestSeriesLink[];
+  testAnalysisChecklist: Record<string, TestAnalysisChecklist>;
   currentMember: Member;
   lastUpdatedAt?: string;
   topicNotes: Record<string, TopicNote>; // key: `${subjectId}|${topicId}`
@@ -108,6 +125,8 @@ export interface StudyTimerState {
   subjectName?: string;
   startedAt?: string;
   lastStartedAt?: string;
+  lastPausedAt?: string;
+  breakMs: number;
   effectiveMs: number;
 }
 
@@ -119,6 +138,7 @@ export interface StudySession {
   startedAt: string;
   endedAt: string;
   dayKey: string;
+  breakMs: number;
   effectiveMs: number;
 }
 
@@ -143,6 +163,7 @@ function defaultState(): TrackerState {
     studyTimer: {
       status: "idle",
       member: "Bhavesh",
+      breakMs: 0,
       effectiveMs: 0,
     },
     studySessions: [],
@@ -154,6 +175,7 @@ function defaultState(): TrackerState {
       { id: "series-madeeasy", name: "Made Easy", url: "" },
       { id: "series-zeal", name: "Zeal", url: "" },
     ], 
+    testAnalysisChecklist: {},
     currentMember: "Bhavesh",
     lastUpdatedAt: undefined,
     topicNotes: {},
@@ -226,6 +248,8 @@ function normalizeStudyTimer(raw: unknown): StudyTimerState {
     subjectName: typeof parsed.subjectName === "string" ? parsed.subjectName : undefined,
     startedAt: typeof parsed.startedAt === "string" ? parsed.startedAt : undefined,
     lastStartedAt: typeof parsed.lastStartedAt === "string" ? parsed.lastStartedAt : undefined,
+    lastPausedAt: typeof parsed.lastPausedAt === "string" ? parsed.lastPausedAt : undefined,
+    breakMs: typeof parsed.breakMs === "number" && Number.isFinite(parsed.breakMs) ? Math.max(0, parsed.breakMs) : 0,
     effectiveMs: typeof parsed.effectiveMs === "number" && Number.isFinite(parsed.effectiveMs) ? Math.max(0, parsed.effectiveMs) : 0,
   };
 }
@@ -259,6 +283,7 @@ function normalizeStudySessions(raw: unknown): StudySession[] {
         startedAt,
         endedAt,
         dayKey,
+        breakMs: typeof record.breakMs === "number" && Number.isFinite(record.breakMs) ? Math.max(0, record.breakMs) : 0,
         effectiveMs,
       };
     })
@@ -307,6 +332,26 @@ function normalizeMockTests(mockTests: unknown): MockTest[] {
       ) as Record<Member, number | null>,
     };
   });
+}
+
+function normalizeTestAnalysisChecklist(raw: unknown): Record<string, TestAnalysisChecklist> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+
+  return Object.fromEntries(
+    Object.entries(raw as Record<string, unknown>).map(([testId, value]) => {
+      const entry = value && typeof value === "object" && !Array.isArray(value) ? (value as Partial<TestAnalysisChecklist>) : {};
+      return [
+        testId,
+        {
+          ...DEFAULT_TEST_ANALYSIS_CHECKLIST,
+          reviewed: Boolean(entry.reviewed),
+          mistakes: Boolean(entry.mistakes),
+          revised: Boolean(entry.revised),
+          notesUpdated: Boolean(entry.notesUpdated),
+        },
+      ];
+    })
+  );
 }
 
 function normalizeWeeklyTests(weeklyTests: unknown): WeeklyTest[] {
@@ -413,6 +458,7 @@ export function normalizeTrackerState(raw: unknown): TrackerState {
     studyTimer: normalizeStudyTimer(parsed.studyTimer),
     studySessions: normalizeStudySessions(parsed.studySessions),
     testSeries: normalizeTestSeries(parsed.testSeries, (parsed as { platformLinks?: unknown }).platformLinks),
+    testAnalysisChecklist: normalizeTestAnalysisChecklist(parsed.testAnalysisChecklist),
     currentMember: MEMBERS.includes(parsed.currentMember as Member) ? (parsed.currentMember as Member) : MEMBERS[0],
     lastUpdatedAt: typeof parsed.lastUpdatedAt === "string" ? parsed.lastUpdatedAt : base.lastUpdatedAt,
     topicNotes:
@@ -493,6 +539,13 @@ export function getCurrentStudyTimerElapsed(state: TrackerState, now = new Date(
   return timer.effectiveMs + Math.max(0, now.getTime() - new Date(timer.lastStartedAt).getTime());
 }
 
+export function getCurrentStudyTimerBreakElapsed(state: TrackerState, now = new Date()): number {
+  const timer = state.studyTimer;
+  if (timer.status !== "paused") return timer.breakMs;
+  if (!timer.lastPausedAt) return timer.breakMs;
+  return timer.breakMs + Math.max(0, now.getTime() - new Date(timer.lastPausedAt).getTime());
+}
+
 export function startStudyTimer(state: TrackerState, member: Member, subjectId?: string, subjectName?: string): TrackerState {
   const now = new Date().toISOString();
   return {
@@ -504,6 +557,8 @@ export function startStudyTimer(state: TrackerState, member: Member, subjectId?:
       subjectName,
       startedAt: now,
       lastStartedAt: now,
+      lastPausedAt: undefined,
+      breakMs: 0,
       effectiveMs: 0,
     },
   };
@@ -520,6 +575,7 @@ export function pauseStudyTimer(state: TrackerState): TrackerState {
       status: "paused",
       effectiveMs: timer.effectiveMs + Math.max(0, new Date(now).getTime() - new Date(timer.lastStartedAt).getTime()),
       lastStartedAt: undefined,
+      lastPausedAt: now,
     },
   };
 }
@@ -533,7 +589,10 @@ export function resumeStudyTimer(state: TrackerState): TrackerState {
     studyTimer: {
       ...timer,
       status: "running",
+      breakMs:
+        timer.breakMs + (timer.lastPausedAt ? Math.max(0, new Date(now).getTime() - new Date(timer.lastPausedAt).getTime()) : 0),
       lastStartedAt: now,
+      lastPausedAt: undefined,
     },
   };
 }
@@ -547,6 +606,11 @@ export function stopStudyTimer(state: TrackerState): TrackerState {
       ? Math.max(0, new Date(now).getTime() - new Date(timer.lastStartedAt).getTime())
       : 0;
   const effectiveMs = timer.effectiveMs + runningMs;
+  const breakMs =
+    timer.breakMs +
+    (timer.status === "paused" && timer.lastPausedAt
+      ? Math.max(0, new Date(now).getTime() - new Date(timer.lastPausedAt).getTime())
+      : 0);
 
   const nextSessions =
     effectiveMs > 0 && timer.startedAt
@@ -560,6 +624,7 @@ export function stopStudyTimer(state: TrackerState): TrackerState {
             startedAt: timer.startedAt,
             endedAt: now,
             dayKey: toLocalDateKey(now),
+            breakMs,
             effectiveMs,
           },
         ]
@@ -571,7 +636,10 @@ export function stopStudyTimer(state: TrackerState): TrackerState {
     studyTimer: {
       status: "idle",
       member: timer.member,
+      breakMs: 0,
       effectiveMs: 0,
+      lastStartedAt: undefined,
+      lastPausedAt: undefined,
     },
   };
 }
@@ -582,7 +650,33 @@ export function resetStudyTimer(state: TrackerState): TrackerState {
     studyTimer: {
       status: "idle",
       member: state.studyTimer.member,
+      breakMs: 0,
       effectiveMs: 0,
+      lastStartedAt: undefined,
+      lastPausedAt: undefined,
+    },
+  };
+}
+
+export function updateStudyTimerSubject(state: TrackerState, subjectId?: string, subjectName?: string): TrackerState {
+  const timer = state.studyTimer;
+  if (timer.status === "idle") {
+    return {
+      ...state,
+      studyTimer: {
+        ...timer,
+        subjectId,
+        subjectName,
+      },
+    };
+  }
+
+  return {
+    ...state,
+    studyTimer: {
+      ...timer,
+      subjectId,
+      subjectName,
     },
   };
 }
@@ -1275,6 +1369,35 @@ export function getTestPerformanceRecords(state: TrackerState): TestPerformanceR
       scores: mockTest.scores,
     };
   });
+}
+
+export function getTestAnalysisChecklist(state: TrackerState, testId: string): TestAnalysisChecklist {
+  return {
+    ...DEFAULT_TEST_ANALYSIS_CHECKLIST,
+    ...(state.testAnalysisChecklist[testId] ?? {}),
+  };
+}
+
+export function isTestAnalysisComplete(state: TrackerState, testId: string): boolean {
+  return Object.values(getTestAnalysisChecklist(state, testId)).every(Boolean);
+}
+
+export function toggleTestAnalysisChecklistItem(
+  state: TrackerState,
+  testId: string,
+  key: TestAnalysisChecklistKey
+): TrackerState {
+  const existing = getTestAnalysisChecklist(state, testId);
+  return {
+    ...state,
+    testAnalysisChecklist: {
+      ...state.testAnalysisChecklist,
+      [testId]: {
+        ...existing,
+        [key]: !existing[key],
+      },
+    },
+  };
 }
 
 export function getWeekNumber(date: Date): number {
