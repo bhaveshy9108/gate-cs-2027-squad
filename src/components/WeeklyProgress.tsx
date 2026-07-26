@@ -282,7 +282,16 @@ export function WeeklyPyqPlanner({ state, member, weekNumber, onUpdate }: Weekly
 }
 
 export default function WeeklyProgress({ state }: Props) {
-  const weeks = [...getWeeklyProgress(state)].sort((a, b) => b.week - a.week);
+  const member = state.currentMember;
+  const weeks = [...getWeeklyProgress(state)]
+    .map((wp) => ({
+      ...wp,
+      items: wp.items.filter((item) => item.member === member),
+      mockTests: wp.mockTests.filter((test) => test.scores[member] !== null),
+      weeklyTests: wp.weeklyTests.filter((test) => test.memberStatus[member]?.taken),
+    }))
+    .filter((wp) => wp.items.length > 0 || wp.mockTests.length > 0 || wp.weeklyTests.length > 0)
+    .sort((a, b) => b.week - a.week);
   const currentWeekLabel = getWeekDateRange(getWeekNumber(new Date()));
   const currentWeek = getWeekNumber(new Date());
   const weekDates = getWeekDates(currentWeek);
@@ -341,7 +350,7 @@ export default function WeeklyProgress({ state }: Props) {
                   <p className="text-xs text-muted-foreground">
                     {getWeekDateRange(wp.week)} | {wp.items.length} topics completed
                     {wp.mockTests.length > 0 && ` | ${wp.mockTests.length} mock test${wp.mockTests.length > 1 ? "s" : ""}`}
-                    {wp.weeklyTests.length > 0 && ` | ${wp.weeklyTests.length} weekly test${wp.weeklyTests.length > 1 ? "s" : ""} scheduled`}
+                     {wp.weeklyTests.length > 0 && ` | ${wp.weeklyTests.length} weekly test${wp.weeklyTests.length > 1 ? "s" : ""} completed`}
                   </p>
                   {wp.week === currentWeek && (
                     <div className="mt-3 flex flex-wrap items-center gap-3">

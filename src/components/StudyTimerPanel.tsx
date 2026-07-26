@@ -3,6 +3,7 @@ import {
   BarChart3,
   CalendarDays,
   Clock3,
+  ChevronDown,
   Pause,
   Play,
   RotateCcw,
@@ -25,12 +26,14 @@ import {
   deleteStudySession,
   formatStudyDuration,
   getCurrentStudyTimerElapsed,
+  getCurrentStudyTimerBreakElapsed,
   getStudyDailyTotals,
   pauseStudyTimer,
   resetStudyTimer,
   resumeStudyTimer,
   startStudyTimer,
   stopStudyTimer,
+  updateStudyTimerSubject,
   type TrackerState,
 } from "@/lib/trackerStore";
 import { cn } from "@/lib/utils";
