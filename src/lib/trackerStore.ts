@@ -417,9 +417,15 @@ function normalizeWeeklyTests(weeklyTests: unknown): WeeklyTest[] {
               takenAt: typeof status?.takenAt === "string" ? status.takenAt : undefined,
               score: typeof status?.score === "number" ? status.score : status?.score === null ? null : null,
               outOf: typeof status?.outOf === "number" ? status.outOf : status?.outOf === null ? null : null,
+              correctQuestions:
+                typeof status?.correctQuestions === "number"
+                  ? status.correctQuestions
+                  : status?.correctQuestions === null
+                    ? null
+                    : null,
             },
           ];
-        })
+        }) 
       ) as Record<Member, WeeklyTestMemberStatus>,
     };
   });

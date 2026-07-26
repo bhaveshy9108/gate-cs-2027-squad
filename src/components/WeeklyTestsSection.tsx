@@ -89,6 +89,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
   const [selectedSeriesId, setSelectedSeriesId] = useState(state.testSeries[0]?.id ?? "");
   const [editingSeriesId, setEditingSeriesId] = useState<string | null>(null);
   const [draftScores, setDraftScores] = useState<Record<string, string>>({});
+  const [editingTestId, setEditingTestId] = useState<string | null>(null);
   const [seriesFilter, setSeriesFilter] = useState<string>("all");
   const [scopeFilter, setScopeFilter] = useState<"all" | TestCoverageScope>("all");
   const [completionFilter, setCompletionFilter] = useState<"all" | "done" | "todo">("all");
@@ -838,6 +839,13 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                               </p>
                             </div>
                             <button
+                              onClick={() => setEditingTestId((current) => (current === test.id ? null : test.id))}
+                              className="rounded-lg border border-border bg-background px-3 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground"
+                              title="Edit test details"
+                            >
+                              {editingTestId === test.id ? "Done" : "Edit"}
+                            </button>
+                            <button
                               onClick={() => onUpdate(deleteWeeklyTest(state, test.id))}
                               className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
                               title="Delete weekly test"
@@ -846,52 +854,79 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                             </button>
                           </div>
 
-                          <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                            <div className="rounded-lg bg-muted/30 px-3 py-2">
-                              <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Questions</p>
-                              <input
-                                type="number"
-                                min={1}
-                                value={test.questionCount ?? ""}
-                                onChange={(e) =>
-                                  onUpdate(
-                                    updateWeeklyTestMeta(state, test.id, {
-                                      questionCount: e.target.value.trim() ? parseInt(e.target.value, 10) : null,
-                                    })
-                                  )
-                                }
-                                placeholder="—"
-                                className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1 text-sm font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                              />
+                          {editingTestId === test.id ? (
+                            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                              <div className="rounded-lg bg-muted/30 px-3 py-2">
+                                <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Questions</p>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  value={test.questionCount ?? ""}
+                                  onChange={(e) =>
+                                    onUpdate(
+                                      updateWeeklyTestMeta(state, test.id, {
+                                        questionCount: e.target.value.trim() ? parseInt(e.target.value, 10) : null,
+                                      })
+                                    )
+                                  }
+                                  placeholder="—"
+                                  className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1 text-sm font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                />
+                              </div>
+                              <div className="rounded-lg bg-muted/30 px-3 py-2">
+                                <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Marks</p>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  value={test.totalMarks ?? ""}
+                                  onChange={(e) =>
+                                    onUpdate(
+                                      updateWeeklyTestMeta(state, test.id, {
+                                        totalMarks: e.target.value.trim() ? parseFloat(e.target.value) : null,
+                                      })
+                                    )
+                                  }
+                                  placeholder="—"
+                                  className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1 text-sm font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                />
+                              </div>
+                              <div className="rounded-lg bg-muted/30 px-3 py-2">
+                                <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Duration</p>
+                                <p className="mt-1 text-sm font-semibold text-foreground">
+                                  {formatWeeklyMetaValue(test.durationMinutes, " min") ?? "—"}
+                                </p>
+                              </div>
+                              <div className="rounded-lg bg-muted/30 px-3 py-2">
+                                <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Week</p>
+                                <p className="mt-1 text-sm font-semibold text-foreground">W{test.scheduledWeek}</p>
+                              </div>
                             </div>
-                            <div className="rounded-lg bg-muted/30 px-3 py-2">
-                              <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Marks</p>
-                              <input
-                                type="number"
-                                min={1}
-                                value={test.totalMarks ?? ""}
-                                onChange={(e) =>
-                                  onUpdate(
-                                    updateWeeklyTestMeta(state, test.id, {
-                                      totalMarks: e.target.value.trim() ? parseFloat(e.target.value) : null,
-                                    })
-                                  )
-                                }
-                                placeholder="—"
-                                className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1 text-sm font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                              />
+                          ) : (
+                            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+                              <div className="rounded-lg bg-muted/30 px-3 py-2">
+                                <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Questions</p>
+                                <p className="mt-1 text-sm font-semibold text-foreground">{formatWeeklyMetaValue(test.questionCount) ?? "—"}</p>
+                              </div>
+                              <div className="rounded-lg bg-muted/30 px-3 py-2">
+                                <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Marks</p>
+                                <p className="mt-1 text-sm font-semibold text-foreground">{formatWeeklyMetaValue(test.totalMarks) ?? "—"}</p>
+                              </div>
+                              <div className="rounded-lg bg-muted/30 px-3 py-2">
+                                <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Duration</p>
+                                <p className="mt-1 text-sm font-semibold text-foreground">
+                                  {formatWeeklyMetaValue(test.durationMinutes, " min") ?? "—"}
+                                </p>
+                              </div>
+                              <div className="rounded-lg bg-muted/30 px-3 py-2">
+                                <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Week</p>
+                                <p className="mt-1 text-sm font-semibold text-foreground">W{test.scheduledWeek}</p>
+                              </div>
+                              <div className="rounded-lg bg-muted/30 px-3 py-2">
+                                <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Correct</p>
+                                <p className="mt-1 text-sm font-semibold text-foreground">{status.correctQuestions ?? "—"}</p>
+                              </div>
                             </div>
-                            <div className="rounded-lg bg-muted/30 px-3 py-2">
-                              <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Duration</p>
-                              <p className="mt-1 text-sm font-semibold text-foreground">
-                                {formatWeeklyMetaValue(test.durationMinutes, " min") ?? "—"}
-                              </p>
-                            </div>
-                            <div className="rounded-lg bg-muted/30 px-3 py-2">
-                              <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Week</p>
-                              <p className="mt-1 text-sm font-semibold text-foreground">W{test.scheduledWeek}</p>
-                            </div>
-                          </div>
+                          )}
 
                           {test.notes && <p className="mt-3 text-xs leading-5 text-muted-foreground">{test.notes}</p>}
 
@@ -962,6 +997,9 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                               <span className="text-xs font-medium text-foreground">
                                 {status.score ?? 0}/{status.outOf ?? 0} ({percent}%)
                               </span>
+                            )}
+                            {typeof status.correctQuestions === "number" && (
+                              <span className="text-xs font-medium text-muted-foreground">Correct {status.correctQuestions}</span>
                             )}
                           </div>
                         </div>

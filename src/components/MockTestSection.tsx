@@ -38,6 +38,7 @@ export default function MockTestSection({ state, onUpdate }: Props) {
   const [testTypeFilter, setTestTypeFilter] = useState<"all" | MockTestType>("all");
   const [editingScore, setEditingScore] = useState<{ testId: string; member: Member } | null>(null);
   const [scoreInput, setScoreInput] = useState("");
+  const [editingTestId, setEditingTestId] = useState<string | null>(null);
   const isQuizOnlySource = source === QUIZ_ONLY_SOURCE;
   const sortedMockTests = useMemo(
     () =>
@@ -323,6 +324,13 @@ export default function MockTestSection({ state, onUpdate }: Props) {
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">{test.date}</span>
                 <button
+                  onClick={() => setEditingTestId((current) => (current === test.id ? null : test.id))}
+                  className="rounded-lg border border-border bg-background px-3 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground"
+                  title="Edit test details"
+                >
+                  {editingTestId === test.id ? "Done" : "Edit"}
+                </button>
+                <button
                   onClick={() => onUpdate(deleteMockTest(state, test.id))}
                   className="p-1 text-muted-foreground hover:text-destructive transition-colors rounded"
                   title={isLinkedWeeklyTest ? "Delete linked weekly + mock test" : "Delete test"}
@@ -392,42 +400,55 @@ export default function MockTestSection({ state, onUpdate }: Props) {
                 );
               })}
             </div>
-            <div className="mt-3 grid gap-2 md:grid-cols-2">
-              <label className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                <span className="block uppercase tracking-[0.25em]">Questions</span>
-                <input
-                  type="number"
-                  min={1}
-                  value={test.questionCount ?? ""}
-                  onChange={(e) =>
-                    onUpdate(
-                      updateMockTestMeta(state, test.id, {
-                        questionCount: e.target.value.trim() ? parseInt(e.target.value, 10) : null,
-                      })
-                    )
-                  }
-                  placeholder="No. of questions"
-                  className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1 text-sm font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </label>
-              <label className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                <span className="block uppercase tracking-[0.25em]">Marks</span>
-                <input
-                  type="number"
-                  min={1}
-                  value={test.totalMarks}
-                  onChange={(e) =>
-                    onUpdate(
-                      updateMockTestMeta(state, test.id, {
-                        totalMarks: e.target.value.trim() ? parseFloat(e.target.value) : null,
-                      })
-                    )
-                  }
-                  placeholder="Total marks"
-                  className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1 text-sm font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </label>
-            </div>
+            {editingTestId === test.id ? (
+              <div className="mt-3 grid gap-2 md:grid-cols-2">
+                <label className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                  <span className="block uppercase tracking-[0.25em]">Questions</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={test.questionCount ?? ""}
+                    onChange={(e) =>
+                      onUpdate(
+                        updateMockTestMeta(state, test.id, {
+                          questionCount: e.target.value.trim() ? parseInt(e.target.value, 10) : null,
+                        })
+                      )
+                    }
+                    placeholder="No. of questions"
+                    className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1 text-sm font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </label>
+                <label className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                  <span className="block uppercase tracking-[0.25em]">Marks</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={test.totalMarks}
+                    onChange={(e) =>
+                      onUpdate(
+                        updateMockTestMeta(state, test.id, {
+                          totalMarks: e.target.value.trim() ? parseFloat(e.target.value) : null,
+                        })
+                      )
+                    }
+                    placeholder="Total marks"
+                    className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1 text-sm font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </label>
+              </div>
+            ) : (
+              <div className="mt-3 grid gap-2 md:grid-cols-2">
+                <div className="rounded-lg bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                  <span className="block uppercase tracking-[0.25em]">Questions</span>
+                  <p className="mt-1 text-sm font-semibold text-foreground">{test.questionCount ?? "—"}</p>
+                </div>
+                <div className="rounded-lg bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                  <span className="block uppercase tracking-[0.25em]">Marks</span>
+                  <p className="mt-1 text-sm font-semibold text-foreground">{test.totalMarks}</p>
+                </div>
+              </div>
+            )}
           </div>
         );
       })}
