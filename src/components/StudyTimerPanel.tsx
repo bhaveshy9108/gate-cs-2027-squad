@@ -50,6 +50,12 @@ function formatShortClock(iso?: string) {
   });
 }
 
+function formatStudyAxisLabel(dateKey: string) {
+  const [year, month, day] = dateKey.split("-").map((value) => Number(value));
+  const date = new Date(year, month - 1, day);
+  return date.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+}
+
 export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
   const timer = state.studyTimer;
   const [selectedSubjectId, setSelectedSubjectId] = useState(timer.subjectId ?? SUBJECTS[0]?.id ?? "");
@@ -73,6 +79,7 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
     () =>
       getStudyDailyTotals(state, 7).map((entry) => ({
         ...entry,
+        axisLabel: formatStudyAxisLabel(entry.date),
         hours: Number((entry.effectiveMs / 3600000).toFixed(2)),
       })),
     [state]
@@ -239,10 +246,11 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData} margin={{ top: 10, right: 10, bottom: 0, left: -10 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" vertical={false} />
-                  <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
+                  <XAxis dataKey="axisLabel" tickLine={false} axisLine={false} fontSize={12} />
                   <YAxis tickLine={false} axisLine={false} fontSize={12} tickFormatter={(value) => `${value}h`} />
                   <Tooltip
                     formatter={(value) => [formatStudyDuration((value as number) * 3600000), "Effective study"]}
+                    labelFormatter={(value) => `Date: ${value}`}
                     labelClassName="text-xs font-medium"
                     contentStyle={{
                       borderRadius: 16,
