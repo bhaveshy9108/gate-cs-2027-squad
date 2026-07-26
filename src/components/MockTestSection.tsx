@@ -400,55 +400,6 @@ export default function MockTestSection({ state, onUpdate }: Props) {
                 );
               })}
             </div>
-            {editingTestId === test.id ? (
-              <div className="mt-3 grid gap-2 md:grid-cols-2">
-                <label className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                  <span className="block uppercase tracking-[0.25em]">Questions</span>
-                  <input
-                    type="number"
-                    min={1}
-                    value={test.questionCount ?? ""}
-                    onChange={(e) =>
-                      onUpdate(
-                        updateMockTestMeta(state, test.id, {
-                          questionCount: e.target.value.trim() ? parseInt(e.target.value, 10) : null,
-                        })
-                      )
-                    }
-                    placeholder="No. of questions"
-                    className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1 text-sm font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </label>
-                <label className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                  <span className="block uppercase tracking-[0.25em]">Marks</span>
-                  <input
-                    type="number"
-                    min={1}
-                    value={test.totalMarks}
-                    onChange={(e) =>
-                      onUpdate(
-                        updateMockTestMeta(state, test.id, {
-                          totalMarks: e.target.value.trim() ? parseFloat(e.target.value) : null,
-                        })
-                      )
-                    }
-                    placeholder="Total marks"
-                    className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1 text-sm font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </label>
-              </div>
-            ) : (
-              <div className="mt-3 grid gap-2 md:grid-cols-2">
-                <div className="rounded-lg bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                  <span className="block uppercase tracking-[0.25em]">Questions</span>
-                  <p className="mt-1 text-sm font-semibold text-foreground">{test.questionCount ?? "—"}</p>
-                </div>
-                <div className="rounded-lg bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                  <span className="block uppercase tracking-[0.25em]">Marks</span>
-                  <p className="mt-1 text-sm font-semibold text-foreground">{test.totalMarks}</p>
-                </div>
-              </div>
-            )}
           </div>
         );
       })}
