@@ -727,7 +727,7 @@ export function getStudyDaySummaries(state: TrackerState, days = 7): StudyDaySum
   const today = new Date();
   const buckets = new Map<string, StudyDaySummary>();
 
-  for (let offset = days - 1; offset >= 0; offset -= 1) {
+  for (let offset = 0; offset < days; offset += 1) {
     const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - offset);
     const key = toLocalDateKey(date);
     buckets.set(key, {
