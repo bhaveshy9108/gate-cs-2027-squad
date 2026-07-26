@@ -283,7 +283,7 @@ export default function Index() {
       case "mock":
         return <MockTestSection state={state} member={member} onUpdate={updateState} />;
       case "weekly-tests":
-        return <WeeklyTestsSection state={state} onUpdate={updateState} />;
+        return <WeeklyTestsSection state={state} onUpdate={updateState} onOpenSection={(section) => setTab(section)} />;
       case "test-analysis":
         return <TestAnalysisSection state={state} onUpdate={updateState} />;
       case "weekly":

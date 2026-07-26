@@ -1210,7 +1210,7 @@ export function updateWeeklyTestScore(
 export function updateWeeklyTestMeta(
   state: TrackerState,
   testId: string,
-  updates: Partial<Pick<WeeklyTest, "questionCount" | "totalMarks" | "durationMinutes">>
+  updates: Partial<Pick<WeeklyTest, "questionCount" | "totalMarks" | "durationMinutes" | "link">>
 ): TrackerState {
   const nextTotalMarks =
     typeof updates.totalMarks === "number" && Number.isFinite(updates.totalMarks) && updates.totalMarks > 0
@@ -1235,6 +1235,12 @@ export function updateWeeklyTestMeta(
               : updates.durationMinutes === null
                 ? undefined
                 : test.durationMinutes,
+          link:
+            typeof updates.link === "string"
+              ? updates.link.trim()
+                ? updates.link.trim()
+                : undefined
+              : test.link,
           statusByMember:
             typeof nextTotalMarks === "number"
               ? Object.fromEntries(

@@ -33,6 +33,7 @@ import {
 interface Props {
   state: TrackerState;
   onUpdate: (state: TrackerState) => void;
+  onOpenSection?: (section: "test-analysis") => void;
 }
 
 const kinds: WeeklyTestKind[] = ["mock", "subject", "quiz"];
@@ -79,7 +80,7 @@ function formatTestCardDate(date: string) {
   });
 }
 
-export default function WeeklyTestsSection({ state, onUpdate }: Props) {
+export default function WeeklyTestsSection({ state, onUpdate, onOpenSection }: Props) {
   const currentWeek = getWeekNumber(new Date());
   const currentMember = state.currentMember;
   const [showAdd, setShowAdd] = useState(false);
@@ -218,6 +219,11 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
         Number.isFinite(parsedCorrect as number) ? parsedCorrect : null
       )
     );
+  };
+
+  const openTestLink = (url?: string) => {
+    if (!url) return;
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   const handleAdd = () => {
@@ -861,6 +867,15 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                             >
                               {editingTestId === test.id ? "Done" : "Edit"}
                             </button>
+                            {test.link && (
+                              <button
+                                onClick={() => openTestLink(test.link)}
+                                className="rounded-lg border border-border bg-background p-2 text-muted-foreground transition-colors hover:border-primary/30 hover:text-primary"
+                                title="Open test link"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                             <button
                               onClick={() => onUpdate(deleteWeeklyTest(state, test.id))}
                               className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
@@ -871,7 +886,30 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                           </div>
 
                           {editingTestId === test.id ? (
-                            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                            <div className="mt-3 space-y-2">
+                              <div className="rounded-lg bg-muted/30 px-3 py-2">
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Test Link</p>
+                                  {test.link && (
+                                    <button
+                                      type="button"
+                                      onClick={() => openTestLink(test.link)}
+                                      className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:text-primary"
+                                    >
+                                      <ExternalLink className="h-3 w-3" />
+                                      Open
+                                    </button>
+                                  )}
+                                </div>
+                                <input
+                                  type="url"
+                                  value={test.link ?? ""}
+                                  onChange={(e) => onUpdate(updateWeeklyTestMeta(state, test.id, { link: e.target.value }))}
+                                  placeholder="Paste the test link here"
+                                  className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1 text-sm font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                />
+                              </div>
+                              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                               <div className="rounded-lg bg-muted/30 px-3 py-2">
                                 <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Total Questions</p>
                                 <input
@@ -934,6 +972,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                                   className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1 text-sm font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                                 />
                               </div>
+                              </div>
                             </div>
                           ) : (
                             <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
@@ -962,7 +1001,13 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
 
                           <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-muted/30 px-3 py-3">
                             <button
-                              onClick={() => onUpdate(updateWeeklyTestTaken(state, test.id, currentMember, !status.taken))}
+                              onClick={() => {
+                                const nextTaken = !status.taken;
+                                onUpdate(updateWeeklyTestTaken(state, test.id, currentMember, nextTaken));
+                                if (nextTaken) {
+                                  onOpenSection?.("test-analysis");
+                                }
+                              }}
                               className={`inline-flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-medium ${
                                 status.taken ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
                               }`}
