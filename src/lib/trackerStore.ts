@@ -62,6 +62,7 @@ export interface MockTest {
   name: string;
   date: string;
   type: MockTestType;
+  questionCount?: number;
   totalMarks: number;
   notes: string;
   scores: Record<Member, number | null>;
@@ -75,6 +76,7 @@ export interface WeeklyTestMemberStatus {
   takenAt?: string;
   score?: number | null;
   outOf?: number | null;
+  correctQuestions?: number | null;
 }
 
 export interface WeeklyTest {
@@ -148,6 +150,7 @@ function defaultState(): TrackerState {
       { id: "series-gateoverflow", name: "GateOverflow", url: "" },
       { id: "series-gateoverflow-quizzes", name: "GateOverflow Quizzes", url: "https://gateoverflow.in/view-accesslist?accesslist=36&userid=296917" },
       { id: "series-goclasses", name: "GO Classes", url: "" },
+      { id: "series-flts", name: "FLT's", url: "" },
       { id: "series-madeeasy", name: "Made Easy", url: "" },
       { id: "series-zeal", name: "Zeal", url: "" },
     ], 
@@ -290,6 +293,10 @@ function normalizeMockTests(mockTests: unknown): MockTest[] {
         record.type === "subject" || record.type === "full" || record.type === "weekly"
           ? record.type
           : "full",
+      questionCount:
+        typeof record.questionCount === "number" && Number.isFinite(record.questionCount) && record.questionCount > 0
+          ? Math.floor(record.questionCount)
+          : undefined,
       totalMarks: typeof record.totalMarks === "number" ? record.totalMarks : 100,
       notes: typeof record.notes === "string" ? record.notes : "",
       scores: Object.fromEntries(
@@ -871,6 +878,7 @@ export function addWeeklyTest(state: TrackerState, test: WeeklyTest): TrackerSta
     name: getWeeklyTestDisplayName(test),
     date: new Date().toISOString().split("T")[0],
     type: getMockTypeFromWeeklyKind(test.kind),
+    questionCount: test.questionCount,
     totalMarks,
     notes: `${test.source}${test.notes ? ` - ${test.notes}` : ""}`,
     scores: Object.fromEntries(
@@ -965,7 +973,7 @@ export function updateWeeklyTestTaken(
                   taken: true,
                   takenAt: test.statusByMember[member]?.takenAt ?? new Date().toISOString(),
                 }
-              : { taken: false, score: null, outOf: null },
+              : { taken: false, score: null, outOf: null, correctQuestions: null },
           },
         }
       : test
@@ -995,7 +1003,8 @@ export function updateWeeklyTestScore(
   testId: string,
   member: Member,
   score: number | null,
-  outOf: number | null
+  outOf: number | null,
+  correctQuestions: number | null = null
 ): TrackerState {
   const nextWeeklyTests = state.weeklyTests.map((test) =>
     test.id === testId
@@ -1009,8 +1018,10 @@ export function updateWeeklyTestScore(
               takenAt: test.statusByMember[member]?.takenAt ?? new Date().toISOString(),
               score,
               outOf,
+              correctQuestions,
             },
           },
+          totalMarks: typeof outOf === "number" && outOf > 0 ? outOf : test.totalMarks,
         }
       : test
   );
@@ -1033,6 +1044,127 @@ export function updateWeeklyTestScore(
     ...state,
     weeklyTests: nextWeeklyTests,
     mockTests: nextMockTests,
+  };
+}
+
+export function updateWeeklyTestMeta(
+  state: TrackerState,
+  testId: string,
+  updates: Partial<Pick<WeeklyTest, "questionCount" | "totalMarks" | "durationMinutes">>
+): TrackerState {
+  const nextTotalMarks =
+    typeof updates.totalMarks === "number" && Number.isFinite(updates.totalMarks) && updates.totalMarks > 0
+      ? updates.totalMarks
+      : updates.totalMarks === null
+        ? undefined
+        : undefined;
+  const nextWeeklyTests = state.weeklyTests.map((test) =>
+    test.id === testId
+      ? {
+          ...test,
+          questionCount:
+            typeof updates.questionCount === "number" && Number.isFinite(updates.questionCount) && updates.questionCount > 0
+              ? Math.floor(updates.questionCount)
+              : updates.questionCount === null
+                ? undefined
+                : test.questionCount,
+          totalMarks: nextTotalMarks ?? test.totalMarks,
+          durationMinutes:
+            typeof updates.durationMinutes === "number" && Number.isFinite(updates.durationMinutes) && updates.durationMinutes > 0
+              ? Math.floor(updates.durationMinutes)
+              : updates.durationMinutes === null
+                ? undefined
+                : test.durationMinutes,
+          statusByMember:
+            typeof nextTotalMarks === "number"
+              ? Object.fromEntries(
+                  MEMBERS.map((member) => [
+                    member,
+                    {
+                      ...test.statusByMember[member],
+                      outOf: nextTotalMarks,
+                    },
+                  ])
+                ) as WeeklyTest["statusByMember"]
+              : test.statusByMember,
+        }
+      : test
+  );
+
+  const nextMockTests = state.mockTests.map((test) =>
+    test.linkedWeeklyTestId === testId
+      ? {
+          ...test,
+          questionCount: nextWeeklyTests.find((weeklyTest) => weeklyTest.id === testId)?.questionCount ?? test.questionCount,
+          totalMarks: nextWeeklyTests.find((weeklyTest) => weeklyTest.id === testId)?.totalMarks ?? test.totalMarks,
+        }
+      : test
+  );
+
+  return {
+    ...state,
+    weeklyTests: nextWeeklyTests,
+    mockTests: nextMockTests,
+  };
+}
+
+export function updateMockTestMeta(
+  state: TrackerState,
+  testId: string,
+  updates: Partial<Pick<MockTest, "questionCount" | "totalMarks">>
+): TrackerState {
+  const nextQuestionCount =
+    typeof updates.questionCount === "number" && Number.isFinite(updates.questionCount) && updates.questionCount > 0
+      ? Math.floor(updates.questionCount)
+      : updates.questionCount === null
+        ? undefined
+        : undefined;
+  const nextTotalMarks =
+    typeof updates.totalMarks === "number" && Number.isFinite(updates.totalMarks) && updates.totalMarks > 0
+      ? Math.floor(updates.totalMarks)
+      : updates.totalMarks === null
+        ? undefined
+        : undefined;
+
+  const nextMockTests = state.mockTests.map((test) =>
+    test.id === testId
+      ? {
+          ...test,
+          questionCount: nextQuestionCount ?? test.questionCount,
+          totalMarks: nextTotalMarks ?? test.totalMarks,
+        }
+      : test
+  );
+
+  const linkedWeeklyTestId = state.mockTests.find((test) => test.id === testId)?.linkedWeeklyTestId;
+  const nextWeeklyTests = linkedWeeklyTestId
+    ? state.weeklyTests.map((test) =>
+        test.id === linkedWeeklyTestId
+          ? {
+              ...test,
+              questionCount: nextQuestionCount ?? test.questionCount,
+              statusByMember:
+                typeof nextTotalMarks === "number"
+                  ? Object.fromEntries(
+                      MEMBERS.map((member) => [
+                        member,
+                        {
+                          ...test.statusByMember[member],
+                          outOf: nextTotalMarks,
+                        },
+                      ])
+                    ) as WeeklyTest["statusByMember"]
+                  : test.statusByMember,
+              totalMarks: nextTotalMarks ?? test.totalMarks,
+            }
+          : test
+      )
+    : state.weeklyTests;
+
+  return {
+    ...state,
+    mockTests: nextMockTests,
+    weeklyTests: nextWeeklyTests,
   };
 }
 
@@ -1104,7 +1236,7 @@ export function getHighestScorer(test: MockTest): { member: Member; score: numbe
 export function getMockTestTypeLabel(type: MockTestType): string {
   if (type === "subject") return "Subject Wise";
   if (type === "weekly") return "Weekly Quiz";
-  return "Full Length";
+  return "FLT's";
 }
 
 export interface TestPerformanceRecord {

@@ -6,6 +6,7 @@ import {
   getCoverageScopeLabel,
   getMockTestDisplayName,
   getMockTestTypeLabel,
+  updateMockTestMeta,
   updateMockScore,
   deleteMockTest,
   getHighestScorer,
@@ -26,6 +27,7 @@ const QUIZ_ONLY_SOURCE = "GateOverflow Quizzes";
 export default function MockTestSection({ state, onUpdate }: Props) {
   const [showAdd, setShowAdd] = useState(false);
   const [testName, setTestName] = useState("");
+  const [questionCount, setQuestionCount] = useState("");
   const [totalMarks, setTotalMarks] = useState("");
   const [notes, setNotes] = useState("");
   const [testType, setTestType] = useState<MockTestType>("full");
@@ -69,12 +71,14 @@ export default function MockTestSection({ state, onUpdate }: Props) {
       source,
       date: new Date().toISOString().split("T")[0],
       type: isQuizOnlySource ? "weekly" : testType,
+      questionCount: questionCount.trim() ? parseInt(questionCount, 10) : undefined,
       totalMarks: parseFloat(totalMarks) || 100,
       notes: notes.trim(),
       scores: Object.fromEntries(MEMBERS.map((member) => [member, null])) as MockTest["scores"],
     };
     onUpdate(addMockTest(state, test));
     setTestName("");
+    setQuestionCount("");
     setTotalMarks("");
     setNotes("");
     setTestType("full");
@@ -115,7 +119,7 @@ export default function MockTestSection({ state, onUpdate }: Props) {
       <div className="flex flex-wrap gap-2">
         {[
           { value: "all", label: "All Tests" },
-          { value: "full", label: "Full Length" },
+          { value: "full", label: "FLT's" },
           { value: "subject", label: "Subject Wise" },
           { value: "weekly", label: "Weekly Quiz" },
         ].map((item) => (
@@ -224,13 +228,24 @@ export default function MockTestSection({ state, onUpdate }: Props) {
               className="w-full px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
             />
           )}
-          <input
-            value={totalMarks}
-            onChange={(e) => setTotalMarks(e.target.value)}
-            placeholder="Total marks (e.g., 100)"
-            type="number"
-            className="w-full px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
-          />
+          <div className="grid gap-3 md:grid-cols-2">
+            <input
+              value={questionCount}
+              onChange={(e) => setQuestionCount(e.target.value)}
+              placeholder="No. of questions (optional)"
+              type="number"
+              min={1}
+              className="w-full px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <input
+              value={totalMarks}
+              onChange={(e) => setTotalMarks(e.target.value)}
+              placeholder="Total marks (e.g., 100)"
+              type="number"
+              min={1}
+              className="w-full px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
@@ -246,6 +261,7 @@ export default function MockTestSection({ state, onUpdate }: Props) {
               onClick={() => {
                 setShowAdd(false);
                 setTestName("");
+                setQuestionCount("");
                 setTotalMarks("");
                 setNotes("");
                 setTestType("full");
@@ -316,6 +332,8 @@ export default function MockTestSection({ state, onUpdate }: Props) {
               </div>
             </div>
             <p className="text-xs text-muted-foreground mb-1">
+              Questions: <span className="font-semibold text-foreground">{test.questionCount ?? "—"}</span>
+              {" | "}
               Out of: <span className="font-semibold text-foreground">{test.totalMarks}</span>
               {test.notes && <> | {test.notes}</>}
             </p>
@@ -373,6 +391,42 @@ export default function MockTestSection({ state, onUpdate }: Props) {
                   </div>
                 );
               })}
+            </div>
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
+              <label className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                <span className="block uppercase tracking-[0.25em]">Questions</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={test.questionCount ?? ""}
+                  onChange={(e) =>
+                    onUpdate(
+                      updateMockTestMeta(state, test.id, {
+                        questionCount: e.target.value.trim() ? parseInt(e.target.value, 10) : null,
+                      })
+                    )
+                  }
+                  placeholder="No. of questions"
+                  className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1 text-sm font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </label>
+              <label className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                <span className="block uppercase tracking-[0.25em]">Marks</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={test.totalMarks}
+                  onChange={(e) =>
+                    onUpdate(
+                      updateMockTestMeta(state, test.id, {
+                        totalMarks: e.target.value.trim() ? parseFloat(e.target.value) : null,
+                      })
+                    )
+                  }
+                  placeholder="Total marks"
+                  className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1 text-sm font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </label>
             </div>
           </div>
         );

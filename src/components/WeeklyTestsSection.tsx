@@ -10,6 +10,7 @@ import {
   getWeeklyTestDisplayName,
   removeTestSeries,
   updateTestSeries,
+  updateWeeklyTestMeta,
   updateWeeklyTestScore,
   updateWeeklyTestTaken,
   type TestCoverageScope,
@@ -49,6 +50,7 @@ function buildStatusByMember(totalMarks?: number | null): WeeklyTest["statusByMe
         taken: false,
         score: null,
         outOf: typeof totalMarks === "number" && Number.isFinite(totalMarks) && totalMarks > 0 ? totalMarks : null,
+        correctQuestions: null,
       },
     ])
   ) as WeeklyTest["statusByMember"];
@@ -79,6 +81,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
   const [topicLabel, setTopicLabel] = useState("");
   const [scheduledWeek, setScheduledWeek] = useState(String(currentWeek));
   const [testLink, setTestLink] = useState("");
+  const [questionCount, setQuestionCount] = useState("");
   const [totalMarks, setTotalMarks] = useState("");
   const [notes, setNotes] = useState("");
   const [seriesName, setSeriesName] = useState("");
@@ -178,9 +181,9 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
 
   const isQuizOnlySource = source === QUIZ_ONLY_SOURCE;
 
-  const getDraftKey = (testId: string, member: Member, field: "score" | "outOf") => `${testId}|${member}|${field}`;
+  const getDraftKey = (testId: string, member: Member, field: "score" | "outOf" | "correct") => `${testId}|${member}|${field}`;
 
-  const getDraftValue = (testId: string, member: Member, field: "score" | "outOf", fallback?: number | null) => {
+  const getDraftValue = (testId: string, member: Member, field: "score" | "outOf" | "correct", fallback?: number | null) => {
     const key = getDraftKey(testId, member, field);
     return draftScores[key] ?? (typeof fallback === "number" ? String(fallback) : "");
   };
@@ -188,8 +191,10 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
   const saveMemberScore = (test: WeeklyTest, member: Member) => {
     const scoreRaw = getDraftValue(test.id, member, "score", test.statusByMember[member]?.score);
     const outOfRaw = getDraftValue(test.id, member, "outOf", test.statusByMember[member]?.outOf);
+    const correctRaw = getDraftValue(test.id, member, "correct", test.statusByMember[member]?.correctQuestions);
     const parsedScore = scoreRaw.trim() === "" ? null : parseFloat(scoreRaw);
     const parsedOutOf = outOfRaw.trim() === "" ? null : parseFloat(outOfRaw);
+    const parsedCorrect = correctRaw.trim() === "" ? null : parseFloat(correctRaw);
 
     onUpdate(
       updateWeeklyTestScore(
@@ -197,7 +202,8 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
         test.id,
         member,
         Number.isFinite(parsedScore as number) ? parsedScore : null,
-        Number.isFinite(parsedOutOf as number) ? parsedOutOf : null
+        Number.isFinite(parsedOutOf as number) ? parsedOutOf : null,
+        Number.isFinite(parsedCorrect as number) ? parsedCorrect : null
       )
     );
   };
@@ -215,6 +221,8 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
       topicLabel: coverageScope === "topic" ? topicLabel.trim() : "",
       link: testLink.trim(),
       scheduledWeek: Math.max(1, parseInt(scheduledWeek, 10) || currentWeek),
+      questionCount: questionCount.trim() ? parseInt(questionCount, 10) : undefined,
+      totalMarks: totalMarks.trim() ? parseFloat(totalMarks) : undefined,
       notes: notes.trim(),
       statusByMember: buildStatusByMember(totalMarks.trim() ? parseFloat(totalMarks) : null),
     };
@@ -228,6 +236,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
     setTopicLabel("");
     setScheduledWeek(String(currentWeek));
     setTestLink("");
+    setQuestionCount("");
     setTotalMarks("");
     setNotes("");
     setShowAdd(false);
@@ -660,14 +669,24 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
             placeholder="Direct test or quiz link (optional)"
             className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           />
-          <input
-            value={totalMarks}
-            onChange={(e) => setTotalMarks(e.target.value)}
-            placeholder="Default out of marks (optional)"
-            type="number"
-            min={1}
-            className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-          />
+          <div className="grid gap-3 md:grid-cols-2">
+            <input
+              value={questionCount}
+              onChange={(e) => setQuestionCount(e.target.value)}
+              placeholder="No. of questions (optional)"
+              type="number"
+              min={1}
+              className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <input
+              value={totalMarks}
+              onChange={(e) => setTotalMarks(e.target.value)}
+              placeholder="Total marks (optional)"
+              type="number"
+              min={1}
+              className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
@@ -830,15 +849,37 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                           <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                             <div className="rounded-lg bg-muted/30 px-3 py-2">
                               <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Questions</p>
-                              <p className="mt-1 text-sm font-semibold text-foreground">
-                                {formatWeeklyMetaValue(test.questionCount) ?? "—"}
-                              </p>
+                              <input
+                                type="number"
+                                min={1}
+                                value={test.questionCount ?? ""}
+                                onChange={(e) =>
+                                  onUpdate(
+                                    updateWeeklyTestMeta(state, test.id, {
+                                      questionCount: e.target.value.trim() ? parseInt(e.target.value, 10) : null,
+                                    })
+                                  )
+                                }
+                                placeholder="—"
+                                className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1 text-sm font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                              />
                             </div>
                             <div className="rounded-lg bg-muted/30 px-3 py-2">
                               <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Marks</p>
-                              <p className="mt-1 text-sm font-semibold text-foreground">
-                                {formatWeeklyMetaValue(test.totalMarks) ?? "—"}
-                              </p>
+                              <input
+                                type="number"
+                                min={1}
+                                value={test.totalMarks ?? ""}
+                                onChange={(e) =>
+                                  onUpdate(
+                                    updateWeeklyTestMeta(state, test.id, {
+                                      totalMarks: e.target.value.trim() ? parseFloat(e.target.value) : null,
+                                    })
+                                  )
+                                }
+                                placeholder="—"
+                                className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1 text-sm font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                              />
                             </div>
                             <div className="rounded-lg bg-muted/30 px-3 py-2">
                               <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Duration</p>
@@ -874,7 +915,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                               }
                               onBlur={() => saveMemberScore(test, currentMember)}
                               onKeyDown={(e) => e.key === "Enter" && saveMemberScore(test, currentMember)}
-                              placeholder="Score"
+                              placeholder="Obtained"
                               type="number"
                               min={0}
                               className="w-24 rounded-lg border border-border bg-background px-2 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
@@ -889,9 +930,24 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                               }
                               onBlur={() => saveMemberScore(test, currentMember)}
                               onKeyDown={(e) => e.key === "Enter" && saveMemberScore(test, currentMember)}
-                              placeholder="Out of"
+                              placeholder="Total"
                               type="number"
                               min={1}
+                              className="w-24 rounded-lg border border-border bg-background px-2 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                            />
+                            <input
+                              value={getDraftValue(test.id, currentMember, "correct", status.correctQuestions)}
+                              onChange={(e) =>
+                                setDraftScores((current) => ({
+                                  ...current,
+                                  [getDraftKey(test.id, currentMember, "correct")]: e.target.value,
+                                }))
+                              }
+                              onBlur={() => saveMemberScore(test, currentMember)}
+                              onKeyDown={(e) => e.key === "Enter" && saveMemberScore(test, currentMember)}
+                              placeholder="Correct"
+                              type="number"
+                              min={0}
                               className="w-24 rounded-lg border border-border bg-background px-2 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                             />
                             <span className="text-xs text-muted-foreground">
@@ -902,7 +958,11 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                                   })}`
                                 : "Not yet taken"}
                             </span>
-                            {percent !== null && <span className="text-xs font-medium text-foreground">{percent}%</span>}
+                            {percent !== null && (
+                              <span className="text-xs font-medium text-foreground">
+                                {status.score ?? 0}/{status.outOf ?? 0} ({percent}%)
+                              </span>
+                            )}
                           </div>
                         </div>
                       );
