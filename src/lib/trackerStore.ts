@@ -446,9 +446,17 @@ export function getDifficultyStats(state: TrackerState): Record<Difficulty, numb
   return stats;
 }
 
-function toLocalDateKey(iso: string) {
-  const date = new Date(iso);
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).toISOString().slice(0, 10);
+function toLocalDateKey(input: string | Date) {
+  const date = typeof input === "string" ? new Date(input) : input;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function fromLocalDateKey(key: string) {
+  const [year, month, day] = key.split("-").map((value) => Number(value));
+  return new Date(year, month - 1, day);
 }
 
 export function formatStudyDuration(ms: number): string {
@@ -573,7 +581,7 @@ export function getStudyDailyTotals(state: TrackerState, days = 7): { date: stri
   const buckets = new Map<string, number>();
   for (let offset = days - 1; offset >= 0; offset -= 1) {
     const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - offset);
-    const key = date.toISOString().slice(0, 10);
+    const key = toLocalDateKey(date);
     buckets.set(key, 0);
   }
 
@@ -592,10 +600,10 @@ export function getStudyDailyTotals(state: TrackerState, days = 7): { date: stri
   }
 
   return Array.from(buckets.entries()).map(([date, effectiveMs]) => {
-    const d = new Date(`${date}T00:00:00`);
+    const d = fromLocalDateKey(date);
     return {
       date,
-      label: d.toLocaleDateString("en-IN", { weekday: "short" }),
+      label: d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric" }),
       effectiveMs,
     };
   });
