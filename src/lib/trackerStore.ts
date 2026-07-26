@@ -694,6 +694,26 @@ export function deleteStudySession(state: TrackerState, sessionId: string): Trac
   };
 }
 
+export function updateStudySessionSubject(
+  state: TrackerState,
+  sessionId: string,
+  subjectId?: string,
+  subjectName?: string
+): TrackerState {
+  return {
+    ...state,
+    studySessions: state.studySessions.map((session) =>
+      session.id === sessionId
+        ? {
+            ...session,
+            subjectId,
+            subjectName,
+          }
+        : session
+    ),
+  };
+}
+
 export function getStudyDailyTotals(state: TrackerState, days = 7): { date: string; label: string; effectiveMs: number }[] {
   const today = new Date();
   const buckets = new Map<string, number>();
