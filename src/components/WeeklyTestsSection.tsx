@@ -956,9 +956,20 @@ export default function WeeklyTestsSection({ state, onUpdate, onOpenSection }: P
                               </div>
                               <div className="rounded-lg bg-muted/30 px-3 py-2">
                                 <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Duration</p>
-                                <p className="mt-1 text-sm font-semibold text-foreground">
-                                  {formatWeeklyMetaValue(test.durationMinutes, " min") ?? "—"}
-                                </p>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  value={test.durationMinutes ?? ""}
+                                  onChange={(e) =>
+                                    onUpdate(
+                                      updateWeeklyTestMeta(state, test.id, {
+                                        durationMinutes: e.target.value.trim() ? parseInt(e.target.value, 10) : null,
+                                      })
+                                    )
+                                  }
+                                  placeholder="—"
+                                  className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1 text-sm font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                />
                               </div>
                               <div className="rounded-lg bg-muted/30 px-3 py-2">
                                 <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Correct Questions</p>
