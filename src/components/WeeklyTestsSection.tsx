@@ -734,7 +734,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
         </button>
       </div>
 
-{Object.entries(groupedTests).map(([seriesName, tests]) => {
+      {Object.entries(groupedTests).map(([seriesName, tests]) => {
         const doneCount = tests.filter((test) => test.statusByMember[currentMember]?.taken).length;
         const byScope = tests.reduce<Record<string, WeeklyTest[]>>((acc, test) => {
           const key = test.coverageScope ?? "full";
@@ -761,7 +761,9 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
               {Object.entries(byScope).map(([scope, scopedTests]) => (
                 <div key={`${seriesName}-${scope}`} className="rounded-xl border border-border bg-card p-4 space-y-3">
                   <div className="flex items-center justify-between gap-2">
-                    <h4 className="text-sm font-semibold text-foreground">{getCoverageScopeLabel(scope as TestCoverageScope)}</h4>
+                    <h4 className="text-sm font-semibold text-foreground">
+                      {getCoverageScopeLabel(scope as TestCoverageScope)}
+                    </h4>
                     <span className="text-xs text-muted-foreground">{scopedTests.length} items</span>
                   </div>
 
@@ -770,7 +772,10 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                       const status = test.statusByMember[currentMember];
                       const topics = describeWeeklyTopics(test);
                       const percent =
-                        status.taken && typeof status.score === "number" && typeof status.outOf === "number" && status.outOf > 0
+                        status.taken &&
+                        typeof status.score === "number" &&
+                        typeof status.outOf === "number" &&
+                        status.outOf > 0
                           ? Math.round((status.score / status.outOf) * 100)
                           : null;
                       const currentScore = getDraftValue(test.id, currentMember, "score", status.score);
@@ -780,7 +785,9 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                         <div
                           key={test.id}
                           className={`rounded-xl border px-4 py-3 transition-colors ${
-                            status.taken ? "border-emerald-200 bg-emerald-50/60 dark:border-emerald-900/40 dark:bg-emerald-900/10" : "border-border bg-background"
+                            status.taken
+                              ? "border-emerald-200 bg-emerald-50/60 dark:border-emerald-900/40 dark:bg-emerald-900/10"
+                              : "border-border bg-background"
                           }`}
                         >
                           <div className="flex items-start justify-between gap-3">
@@ -804,7 +811,9 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                                 </span>
                               </div>
                               <p className="text-xs leading-5 text-muted-foreground">
-                                {topics.length > 0 ? topics.join(" · ") : "Topics will appear here once the schedule is loaded."}
+                                {topics.length > 0
+                                  ? topics.join(" · ")
+                                  : "Topics will appear here once the schedule is loaded."}
                               </p>
                             </div>
                             <button
@@ -819,11 +828,15 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                           <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                             <div className="rounded-lg bg-muted/30 px-3 py-2">
                               <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Questions</p>
-                              <p className="mt-1 text-sm font-semibold text-foreground">{formatWeeklyMetaValue(test.questionCount) ?? "—"}</p>
+                              <p className="mt-1 text-sm font-semibold text-foreground">
+                                {formatWeeklyMetaValue(test.questionCount) ?? "—"}
+                              </p>
                             </div>
                             <div className="rounded-lg bg-muted/30 px-3 py-2">
                               <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Marks</p>
-                              <p className="mt-1 text-sm font-semibold text-foreground">{formatWeeklyMetaValue(test.totalMarks) ?? "—"}</p>
+                              <p className="mt-1 text-sm font-semibold text-foreground">
+                                {formatWeeklyMetaValue(test.totalMarks) ?? "—"}
+                              </p>
                             </div>
                             <div className="rounded-lg bg-muted/30 px-3 py-2">
                               <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Duration</p>
