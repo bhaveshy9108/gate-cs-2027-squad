@@ -68,6 +68,17 @@ function formatWeeklyMetaValue(value: number | null | undefined, suffix = "") {
   return `${value}${suffix}`;
 }
 
+function formatTestCardDate(date: string) {
+  if (!date) return "";
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return parsed.toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 export default function WeeklyTestsSection({ state, onUpdate }: Props) {
   const currentWeek = getWeekNumber(new Date());
   const currentMember = state.currentMember;
@@ -814,6 +825,11 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0 space-y-2">
+                              {test.date && (
+                                <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-muted-foreground">
+                                  {formatTestCardDate(test.date)}
+                                </p>
+                              )}
                               <div className="flex flex-wrap items-center gap-2">
                                 <h4 className="font-semibold text-foreground">{getWeeklyTestDisplayName(test)}</h4>
                                 <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
@@ -857,7 +873,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                           {editingTestId === test.id ? (
                             <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                               <div className="rounded-lg bg-muted/30 px-3 py-2">
-                                <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Questions</p>
+                                <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Total Questions</p>
                                 <input
                                   type="number"
                                   min={1}
@@ -897,14 +913,32 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                                 </p>
                               </div>
                               <div className="rounded-lg bg-muted/30 px-3 py-2">
-                                <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Week</p>
-                                <p className="mt-1 text-sm font-semibold text-foreground">W{test.scheduledWeek}</p>
+                                <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Correct Questions</p>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={status.correctQuestions ?? ""}
+                                  onChange={(e) =>
+                                    onUpdate(
+                                      updateWeeklyTestScore(
+                                        state,
+                                        test.id,
+                                        currentMember,
+                                        typeof status.score === "number" ? status.score : null,
+                                        typeof status.outOf === "number" ? status.outOf : null,
+                                        e.target.value.trim() ? parseInt(e.target.value, 10) : null
+                                      )
+                                    )
+                                  }
+                                  placeholder="—"
+                                  className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1 text-sm font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                />
                               </div>
                             </div>
                           ) : (
-                            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+                            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                               <div className="rounded-lg bg-muted/30 px-3 py-2">
-                                <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Questions</p>
+                                <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Total Questions</p>
                                 <p className="mt-1 text-sm font-semibold text-foreground">{formatWeeklyMetaValue(test.questionCount) ?? "—"}</p>
                               </div>
                               <div className="rounded-lg bg-muted/30 px-3 py-2">
@@ -918,11 +952,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                                 </p>
                               </div>
                               <div className="rounded-lg bg-muted/30 px-3 py-2">
-                                <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Week</p>
-                                <p className="mt-1 text-sm font-semibold text-foreground">W{test.scheduledWeek}</p>
-                              </div>
-                              <div className="rounded-lg bg-muted/30 px-3 py-2">
-                                <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Correct</p>
+                                <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Correct Questions</p>
                                 <p className="mt-1 text-sm font-semibold text-foreground">{status.correctQuestions ?? "—"}</p>
                               </div>
                             </div>
