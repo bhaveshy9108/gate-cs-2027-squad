@@ -289,6 +289,7 @@ export default function MockTestSection({ state, onUpdate }: Props) {
         const highest = getHighestScorer(test);
         const allScored = MEMBERS.every((m) => test.scores[m] !== null);
         const isLinkedWeeklyTest = Boolean(test.linkedWeeklyTestId);
+        const sourceLabel = test.type === "full" && test.source === "GateOverflow" ? "FLT's" : test.source;
 
         return (
           <div key={test.id} className="bg-card border border-border rounded-xl p-4">
@@ -306,9 +307,9 @@ export default function MockTestSection({ state, onUpdate }: Props) {
                 >
                   {getMockTestTypeLabel(test.type)}
                 </span>
-                {test.source && (
+                {sourceLabel && (
                   <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-primary/10 text-primary">
-                    {test.source}
+                    {sourceLabel}
                   </span>
                 )}
                 <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-muted text-muted-foreground">
@@ -339,12 +340,7 @@ export default function MockTestSection({ state, onUpdate }: Props) {
                 </button>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground mb-1">
-              Questions: <span className="font-semibold text-foreground">{test.questionCount ?? "—"}</span>
-              {" | "}
-              Out of: <span className="font-semibold text-foreground">{test.totalMarks}</span>
-              {test.notes && <> | {test.notes}</>}
-            </p>
+            {test.notes && <p className="text-xs text-muted-foreground mb-1">{test.notes}</p>}
             {isLinkedWeeklyTest && (
               <p className="text-[11px] text-muted-foreground mb-2">
                 Score changes here also update the linked Weekly Test entry.
