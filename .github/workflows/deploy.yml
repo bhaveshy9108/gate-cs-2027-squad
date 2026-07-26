@@ -29,6 +29,8 @@ jobs:
           cache: npm
 
       - name: Install dependencies
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
         run: npm install --no-audit --no-fund
 
       - name: Build app
