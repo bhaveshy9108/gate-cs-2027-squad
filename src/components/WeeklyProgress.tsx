@@ -301,7 +301,7 @@ export default function WeeklyProgress({ state }: Props) {
       </div>
 
       <p className="mb-3 text-xs text-muted-foreground">
-        Current week: {currentWeekLabel}. Checklist work, mock tests, and taken weekly tests all appear here.
+        Current week: {currentWeekLabel}. Checklist work, completed mock tests, and taken weekly tests all appear here.
       </p>
 
       {weeks.length === 0 && (

@@ -6,6 +6,7 @@ import {
   getTestAnalysisChecklist,
   getTestPerformanceRecords,
   isTestAnalysisComplete,
+  setTestAnalysisChecklistDone,
   toggleTestAnalysisChecklistItem,
   type MockTestType,
   type TestAnalysisChecklistKey,
@@ -92,6 +93,10 @@ export default function TestAnalysisSection({ state, onUpdate }: Props) {
 
   const updateChecklist = (testId: string, key: TestAnalysisChecklistKey) => {
     onUpdate(toggleTestAnalysisChecklistItem(state, testId, key));
+  };
+
+  const updateAnalysisDone = (testId: string, done: boolean) => {
+    onUpdate(setTestAnalysisChecklistDone(state, testId, done));
   };
 
   return (
@@ -217,6 +222,18 @@ export default function TestAnalysisSection({ state, onUpdate }: Props) {
                         {record.source}
                       </span>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => updateAnalysisDone(record.id, !done)}
+                      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold transition-all ${
+                        done
+                          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
+                          : "border-border/70 bg-background text-muted-foreground hover:border-primary/30 hover:text-foreground"
+                      }`}
+                    >
+                      <span className={`h-3 w-3 rounded-full border ${done ? "border-emerald-600 bg-emerald-500" : "border-muted-foreground"}`} />
+                      {done ? "Analysis done" : "Mark analysis done"}
+                    </button>
                   </div>
                   <p className="text-sm text-muted-foreground">
                     {record.subjectName ?? "General"}{record.topicLabel ? ` • ${record.topicLabel}` : ""}

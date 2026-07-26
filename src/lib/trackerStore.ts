@@ -1406,6 +1406,28 @@ export function toggleTestAnalysisChecklistItem(
   };
 }
 
+export function setTestAnalysisChecklistDone(state: TrackerState, testId: string, done: boolean): TrackerState {
+  return {
+    ...state,
+    testAnalysisChecklist: {
+      ...state.testAnalysisChecklist,
+      [testId]: done
+        ? {
+            reviewed: true,
+            mistakes: true,
+            revised: true,
+            notesUpdated: true,
+          }
+        : {
+            reviewed: false,
+            mistakes: false,
+            revised: false,
+            notesUpdated: false,
+          },
+    },
+  };
+}
+
 export function getWeekNumber(date: Date): number {
   const start = new Date(2026, 3, 6);
   const diff = date.getTime() - start.getTime();
@@ -1469,6 +1491,8 @@ export function getWeeklyProgress(state: TrackerState): WeekProgress[] {
 
   // Add mock tests to their respective weeks
   for (const test of state.mockTests) {
+    const hasScore = Object.values(test.scores).some((score) => typeof score === "number");
+    if (!hasScore) continue;
     const week = getWeekNumber(new Date(test.date));
     const data = weekMap.get(week) || { items: [], mockTests: [], weeklyTests: [] };
     data.mockTests.push({
@@ -1487,6 +1511,8 @@ export function getWeeklyProgress(state: TrackerState): WeekProgress[] {
   }
 
   for (const test of state.weeklyTests) {
+    const hasTakenStatus = Object.values(test.statusByMember).some((status) => status.taken);
+    if (!hasTakenStatus) continue;
     const data = weekMap.get(test.scheduledWeek) || { items: [], mockTests: [], weeklyTests: [] };
     data.weeklyTests.push({
       id: test.id,
