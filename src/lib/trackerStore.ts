@@ -1145,7 +1145,7 @@ export function updateWeeklyTestTaken(
           ...test,
           scores: {
             ...test.scores,
-            [member]: taken ? test.scores[member] : null,
+            [member]: taken ? test.scores[member] ?? 0 : null,
           },
         }
       : test

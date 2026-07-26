@@ -806,7 +806,7 @@ export default function WeeklyTestsSection({ state, onUpdate, onOpenSection }: P
                     <span className="text-xs text-muted-foreground">{scopedTests.length} items</span>
                   </div>
 
-                  <div className="grid gap-3 2xl:grid-cols-2">
+                  <div className="grid gap-3 md:grid-cols-2">
                     {scopedTests.map((test) => {
                       const status = test.statusByMember[currentMember];
                       const topics = describeWeeklyTopics(test);
