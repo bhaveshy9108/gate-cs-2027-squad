@@ -246,8 +246,8 @@ export default function TestAnalysisSection({ state, onUpdate }: Props) {
                   </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="rounded-2xl border border-border/70 bg-background px-4 py-3 text-right">
+                <div className="flex flex-nowrap items-stretch gap-2 overflow-x-auto xl:justify-end">
+                  <div className="min-w-[98px] rounded-2xl border border-border/70 bg-background px-4 py-3 text-right">
                     <p className="text-[11px] uppercase tracking-[0.25em] text-muted-foreground">Score</p>
                     <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
                       {score !== null ? `${score}/${record.totalMarks}` : "-"}
@@ -255,7 +255,7 @@ export default function TestAnalysisSection({ state, onUpdate }: Props) {
                     <p className="mt-1 text-xs text-muted-foreground">{percentLabel(percent)}</p>
                   </div>
                   <div
-                    className={`rounded-2xl border px-4 py-3 text-right ${
+                    className={`min-w-[98px] rounded-2xl border px-4 py-3 text-right ${
                       done ? "border-emerald-500/30 bg-emerald-500/10" : "border-amber-500/30 bg-amber-500/10"
                     }`}
                   >
