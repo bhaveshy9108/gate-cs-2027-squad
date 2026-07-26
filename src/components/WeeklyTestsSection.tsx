@@ -554,6 +554,8 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
                 </div>
               </div>
             )}
+          </div>
+        )}
 
       {showAdd && (
         <div className="bg-card border border-border rounded-xl p-4 space-y-3">
@@ -912,6 +914,7 @@ export default function WeeklyTestsSection({ state, onUpdate }: Props) {
           </div>
         );
       })}
+      </div>
     </div>
-  );
-}
+    );
+  }
