@@ -758,33 +758,35 @@ export default function WeeklyTestsSection({ state, onUpdate, onOpenSection }: P
       )}
 
       {sortedTests.length > 0 && (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          {analysis.map((entry) => (
-            <div key={entry.member} className={`group min-h-[64px] rounded-xl border-2 px-3 py-2 ${memberBorder[entry.member]}`}>
-              <div className="flex items-center justify-between gap-2 text-sm">
-                <div className="flex items-center gap-1.5 font-semibold">
-                  <span>{entry.member}</span>
-                  {entry.bestPercent !== null && <Trophy className="h-3.5 w-3.5" />}
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+          <div className="grid flex-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            {analysis.map((entry) => (
+              <div key={entry.member} className={`group min-h-[64px] rounded-xl border-2 px-3 py-2 ${memberBorder[entry.member]}`}>
+                <div className="flex items-center justify-between gap-2 text-sm">
+                  <div className="flex items-center gap-1.5 font-semibold">
+                    <span>{entry.member}</span>
+                    {entry.bestPercent !== null && <Trophy className="h-3.5 w-3.5" />}
+                  </div>
+                  <span className="text-xs font-medium">Tests: {entry.testsTaken}</span>
                 </div>
-                <span className="text-xs font-medium">Tests: {entry.testsTaken}</span>
+                <div className="mt-1 max-h-0 overflow-hidden text-[11px] opacity-0 transition-all duration-200 group-hover:max-h-16 group-hover:opacity-100">
+                  <p>Average: {entry.averagePercent !== null ? `${entry.averagePercent}%` : "-"}</p>
+                  <p>Best: {entry.bestPercent !== null ? `${entry.bestPercent}%` : "-"}</p>
+                </div>
               </div>
-              <div className="mt-1 max-h-0 overflow-hidden text-[11px] opacity-0 transition-all duration-200 group-hover:max-h-16 group-hover:opacity-100">
-                <p>Average: {entry.averagePercent !== null ? `${entry.averagePercent}%` : "-"}</p>
-                <p>Best: {entry.bestPercent !== null ? `${entry.bestPercent}%` : "-"}</p>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
+
+          <div className="flex shrink-0 justify-end">
+            <button
+              onClick={() => setShowAdd(true)}
+              className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90"
+            >
+              <Plus className="h-3.5 w-3.5" /> Add Weekly Test
+            </button>
+          </div>
         </div>
       )}
-
-      <div className="flex justify-end">
-        <button
-          onClick={() => setShowAdd(true)}
-          className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90"
-        >
-          <Plus className="h-3.5 w-3.5" /> Add Weekly Test
-        </button>
-      </div>
 
       {Object.entries(groupedTests).map(([seriesName, tests]) => {
         const doneCount = tests.filter((test) => test.statusByMember[currentMember]?.taken).length;
