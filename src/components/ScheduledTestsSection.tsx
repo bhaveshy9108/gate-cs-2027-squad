@@ -43,7 +43,11 @@ function buildStatusByMember(totalMarks?: number | null): WeeklyTest["statusByMe
   ) as WeeklyTest["statusByMember"];
 }
 
-function getDraftKey(testId: string, member: Member, field: "score" | "outOf" | "correct" | "duration" | "questions") {
+function getDraftKey(
+  testId: string,
+  member: Member,
+  field: "score" | "outOf" | "correct" | "duration" | "questions" | "date"
+) {
   return `${testId}|${member}|${field}`;
 }
 
@@ -54,6 +58,15 @@ function getDraftValue(
 ) {
   if (drafts[key] !== undefined) return drafts[key];
   return typeof fallback === "number" && Number.isFinite(fallback) ? String(fallback) : "";
+}
+
+function getDraftDateValue(drafts: Record<string, string>, testId: string, member: Member, fallback?: string) {
+  const key = getDraftKey(testId, member, "date");
+  return drafts[key] ?? fallback ?? "";
+}
+
+function toDateInputValue(iso?: string) {
+  return iso ? new Date(iso).toISOString().slice(0, 10) : "";
 }
 
 function isOlderThanDays(iso: string | undefined, days: number) {
@@ -433,7 +446,17 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
               <button
                 onClick={() => {
                   const nextTaken = !status?.taken;
-                  onUpdate(updateWeeklyTestTaken(state, test.id, currentMember, nextTaken));
+                  const nextDate = nextTaken
+                    ? getDraftDateValue(
+                        draftScores,
+                        test.id,
+                        currentMember,
+                        toDateInputValue(status?.takenAt) ||
+                          toDateInputValue(new Date().toISOString()) ||
+                          new Date().toISOString().slice(0, 10)
+                      )
+                    : null;
+                  onUpdate(updateWeeklyTestTaken(state, test.id, currentMember, nextTaken, nextDate));
                   if (nextTaken) onOpenSection?.("test-analysis");
                 }}
                 className={`inline-flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-medium ${
@@ -469,6 +492,18 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
                 type="number"
                 min={0}
                 className="w-24 rounded-lg border border-border bg-background px-2 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <input
+                value={getDraftDateValue(draftScores, test.id, currentMember, toDateInputValue(status?.takenAt))}
+                onChange={(e) => setDraftScores((current) => ({ ...current, [getDraftKey(test.id, currentMember, "date")]: e.target.value }))}
+                onBlur={() => {
+                  if (!status?.taken) return;
+                  const nextDate = getDraftDateValue(draftScores, test.id, currentMember, toDateInputValue(status?.takenAt));
+                  onUpdate(updateWeeklyTestTaken(state, test.id, currentMember, true, nextDate || null));
+                }}
+                disabled={!status?.taken}
+                type="date"
+                className="w-36 rounded-lg border border-border bg-background px-2 py-2 text-xs text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-60"
               />
               <span className="text-xs text-muted-foreground">{formatTakenDate(status?.takenAt)}</span>
               {percent !== null && (

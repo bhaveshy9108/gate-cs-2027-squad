@@ -1121,7 +1121,8 @@ export function updateWeeklyTestTaken(
   state: TrackerState,
   testId: string,
   member: Member,
-  taken: boolean
+  taken: boolean,
+  takenAt?: string | null
 ): TrackerState {
   const nextWeeklyTests = state.weeklyTests.map((test) =>
     test.id === testId
@@ -1134,7 +1135,10 @@ export function updateWeeklyTestTaken(
               ? {
                   ...test.statusByMember[member],
                   taken: true,
-                  takenAt: test.statusByMember[member]?.takenAt ?? new Date().toISOString(),
+                  takenAt:
+                    typeof takenAt === "string" && takenAt.trim()
+                      ? new Date(takenAt).toISOString()
+                      : test.statusByMember[member]?.takenAt ?? new Date().toISOString(),
                 }
               : { taken: false, score: null, outOf: null, correctQuestions: null },
           },
