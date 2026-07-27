@@ -51,7 +51,17 @@ export default function TestAnalysisSection({ state, onUpdate }: Props) {
 
   const records = useMemo(
     () =>
-      getTestPerformanceRecords(state).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+      getTestPerformanceRecords(state).sort((a, b) => {
+        const aUpdated = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+        const bUpdated = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+        if (aUpdated !== bUpdated) return bUpdated - aUpdated;
+
+        const aDate = new Date(a.date).getTime();
+        const bDate = new Date(b.date).getTime();
+        if (aDate !== bDate) return bDate - aDate;
+
+        return b.id.localeCompare(a.id);
+      }),
     [state]
   );
 

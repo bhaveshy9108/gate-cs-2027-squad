@@ -83,6 +83,7 @@ export interface MockTest {
   totalMarks: number;
   notes: string;
   scores: Record<Member, number | null>;
+  updatedAt?: string;
 }
 
 export type WeeklyTestSource = string;
@@ -1130,6 +1131,7 @@ export function addWeeklyTest(state: TrackerState, test: WeeklyTest): TrackerSta
     questionCount: test.questionCount,
     totalMarks,
     notes: `${test.source}${test.notes ? ` - ${test.notes}` : ""}`,
+    updatedAt: new Date().toISOString(),
     scores: Object.fromEntries(
       MEMBERS.map((member) => [member, typeof test.statusByMember[member]?.score === "number" ? test.statusByMember[member]?.score ?? null : null])
     ) as Record<Member, number | null>,
@@ -1295,6 +1297,7 @@ export function updateWeeklyTestTaken(
     test.linkedWeeklyTestId === testId
       ? {
           ...test,
+          updatedAt: new Date().toISOString(),
           scores: {
             ...test.scores,
             [member]: taken ? test.scores[member] ?? 0 : null,
@@ -1349,6 +1352,7 @@ export function updateWeeklyTestScore(
           ...test,
           totalMarks: typeof outOf === "number" && outOf > 0 ? outOf : test.totalMarks,
           source: state.weeklyTests.find((weeklyTest) => weeklyTest.id === testId)?.source ?? test.source,
+          updatedAt: new Date().toISOString(),
           scores: {
             ...test.scores,
             [member]: score,
@@ -1574,6 +1578,7 @@ export interface TestPerformanceRecord {
   topicLabel?: string;
   subjectName: string | null;
   date: string;
+  updatedAt?: string;
   totalMarks: number;
   scores: Record<Member, number | null>;
 }
@@ -1595,6 +1600,7 @@ export function getTestPerformanceRecords(state: TrackerState): TestPerformanceR
       topicLabel: mockTest.topicLabel,
       subjectName: getSubjectNameById(mockTest.subjectId),
       date: mockTest.date,
+      updatedAt: mockTest.updatedAt,
       totalMarks: mockTest.totalMarks,
       scores: mockTest.scores,
     };
