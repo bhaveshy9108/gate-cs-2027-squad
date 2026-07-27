@@ -94,6 +94,10 @@ export interface WeeklyTestMemberStatus {
   score?: number | null;
   outOf?: number | null;
   correctQuestions?: number | null;
+  lastTakenAt?: string;
+  lastScore?: number | null;
+  lastOutOf?: number | null;
+  lastCorrectQuestions?: number | null;
 }
 
 export interface WeeklyTest {
@@ -425,6 +429,15 @@ function normalizeWeeklyTests(weeklyTests: unknown): WeeklyTest[] {
                   : status?.correctQuestions === null
                     ? null
                     : null,
+              lastTakenAt: typeof status?.lastTakenAt === "string" ? status.lastTakenAt : undefined,
+              lastScore: typeof status?.lastScore === "number" ? status.lastScore : status?.lastScore === null ? null : null,
+              lastOutOf: typeof status?.lastOutOf === "number" ? status.lastOutOf : status?.lastOutOf === null ? null : null,
+              lastCorrectQuestions:
+                typeof status?.lastCorrectQuestions === "number"
+                  ? status.lastCorrectQuestions
+                  : status?.lastCorrectQuestions === null
+                    ? null
+                    : null,
             },
           ];
         }) 
@@ -433,11 +446,70 @@ function normalizeWeeklyTests(weeklyTests: unknown): WeeklyTest[] {
   });
 }
 
+function restoreKnownLostTestData(state: TrackerState): TrackerState {
+  const targetTitle = "GATE CSE 2026 SET 1";
+  const targetIsoDate = "2026-05-18T00:00:00.000Z";
+  const targetScore = 12.67;
+  const targetOutOf = 100;
+  const targetCorrectQuestions = 9;
+
+  const patchStatus = (status: WeeklyTestMemberStatus | undefined): WeeklyTestMemberStatus => ({
+    ...status,
+    taken: true,
+    takenAt: targetIsoDate,
+    score: targetScore,
+    outOf: targetOutOf,
+    correctQuestions: targetCorrectQuestions,
+    lastTakenAt: targetIsoDate,
+    lastScore: targetScore,
+    lastOutOf: targetOutOf,
+    lastCorrectQuestions: targetCorrectQuestions,
+  });
+
+  const nextWeeklyTests = state.weeklyTests.map((test) => {
+    if (test.name.trim().toLowerCase() !== targetTitle.toLowerCase()) return test;
+    const current = test.statusByMember[state.currentMember];
+    const shouldRestore =
+      !current?.taken ||
+      typeof current.score !== "number" ||
+      typeof current.outOf !== "number" ||
+      typeof current.correctQuestions !== "number" ||
+      !current.takenAt;
+    if (!shouldRestore) return test;
+    return {
+      ...test,
+      updatedAt: new Date().toISOString(),
+      statusByMember: {
+        ...test.statusByMember,
+        [state.currentMember]: patchStatus(current),
+      },
+    };
+  });
+
+  const nextMockTests = state.mockTests.map((test) => {
+    if (test.name.trim().toLowerCase() !== targetTitle.toLowerCase()) return test;
+    return {
+      ...test,
+      totalMarks: targetOutOf,
+      scores: {
+        ...test.scores,
+        [state.currentMember]: targetScore,
+      },
+    };
+  });
+
+  return {
+    ...state,
+    weeklyTests: nextWeeklyTests,
+    mockTests: nextMockTests,
+  };
+}
+
 export function normalizeTrackerState(raw: unknown): TrackerState {
   const base = defaultState();
   const parsed = typeof raw === "object" && raw !== null ? (raw as Partial<TrackerState>) : {};
   const allowedMembers = new Set<Member>(MEMBERS);
-  return seedScheduledTests({
+  return restoreKnownLostTestData(seedScheduledTests({
     ...base,
     ...parsed,
     checklist:
@@ -475,7 +547,7 @@ export function normalizeTrackerState(raw: unknown): TrackerState {
       typeof parsed.topicDifficulty === "object" && parsed.topicDifficulty !== null
         ? parsed.topicDifficulty
         : base.topicDifficulty,
-  });
+  }));
 }
 
 // Notes helpers
@@ -1132,15 +1204,60 @@ export function updateWeeklyTestTaken(
           statusByMember: {
             ...test.statusByMember,
             [member]: taken
-              ? {
-                  ...test.statusByMember[member],
-                  taken: true,
-                  takenAt:
+              ? (() => {
+                  const existing = test.statusByMember[member];
+                  const restoredTakenAt =
                     typeof takenAt === "string" && takenAt.trim()
                       ? new Date(takenAt).toISOString()
-                      : test.statusByMember[member]?.takenAt ?? new Date().toISOString(),
-                }
-              : { taken: false, score: null, outOf: null, correctQuestions: null },
+                      : existing?.takenAt ?? existing?.lastTakenAt ?? new Date().toISOString();
+                  const restoredScore =
+                    typeof existing?.score === "number"
+                      ? existing.score
+                      : typeof existing?.lastScore === "number"
+                        ? existing.lastScore
+                        : null;
+                  const restoredOutOf =
+                    typeof existing?.outOf === "number"
+                      ? existing.outOf
+                      : typeof existing?.lastOutOf === "number"
+                        ? existing.lastOutOf
+                        : null;
+                  const restoredCorrectQuestions =
+                    typeof existing?.correctQuestions === "number"
+                      ? existing.correctQuestions
+                      : typeof existing?.lastCorrectQuestions === "number"
+                        ? existing.lastCorrectQuestions
+                        : null;
+                  return {
+                    ...existing,
+                    taken: true,
+                    takenAt: restoredTakenAt,
+                    score: restoredScore,
+                    outOf: restoredOutOf,
+                    correctQuestions: restoredCorrectQuestions,
+                  };
+                })()
+              : {
+                  ...test.statusByMember[member],
+                  lastTakenAt: test.statusByMember[member]?.takenAt ?? test.statusByMember[member]?.lastTakenAt,
+                  lastScore:
+                    typeof test.statusByMember[member]?.score === "number"
+                      ? test.statusByMember[member]?.score
+                      : test.statusByMember[member]?.lastScore ?? null,
+                  lastOutOf:
+                    typeof test.statusByMember[member]?.outOf === "number"
+                      ? test.statusByMember[member]?.outOf
+                      : test.statusByMember[member]?.lastOutOf ?? null,
+                  lastCorrectQuestions:
+                    typeof test.statusByMember[member]?.correctQuestions === "number"
+                      ? test.statusByMember[member]?.correctQuestions
+                      : test.statusByMember[member]?.lastCorrectQuestions ?? null,
+                  taken: false,
+                  takenAt: undefined,
+                  score: null,
+                  outOf: null,
+                  correctQuestions: null,
+                },
           },
         }
       : test
@@ -1187,6 +1304,10 @@ export function updateWeeklyTestScore(
               score,
               outOf,
               correctQuestions,
+              lastTakenAt: test.statusByMember[member]?.takenAt ?? test.statusByMember[member]?.lastTakenAt,
+              lastScore: score ?? test.statusByMember[member]?.lastScore ?? null,
+              lastOutOf: outOf ?? test.statusByMember[member]?.lastOutOf ?? null,
+              lastCorrectQuestions: correctQuestions ?? test.statusByMember[member]?.lastCorrectQuestions ?? null,
             },
           },
           totalMarks: typeof outOf === "number" && outOf > 0 ? outOf : test.totalMarks,
