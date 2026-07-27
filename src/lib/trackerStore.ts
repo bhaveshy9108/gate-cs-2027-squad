@@ -114,6 +114,7 @@ export interface WeeklyTest {
   topics?: string[];
   notes: string;
   statusByMember: Record<Member, WeeklyTestMemberStatus>;
+  updatedAt?: string;
 }
 
 export type StudyTimerStatus = "idle" | "running" | "paused";
@@ -407,6 +408,7 @@ function normalizeWeeklyTests(weeklyTests: unknown): WeeklyTest[] {
           : undefined,
       topics: Array.isArray(record.topics) ? record.topics.filter((topic): topic is string => typeof topic === "string" && topic.trim()) : [],
       notes: typeof record.notes === "string" ? record.notes : "",
+      updatedAt: typeof record.updatedAt === "string" ? record.updatedAt : undefined,
       statusByMember: Object.fromEntries(
         MEMBERS.map((member) => {
           const status = rawStatus[member];
@@ -1048,7 +1050,7 @@ export function addWeeklyTest(state: TrackerState, test: WeeklyTest): TrackerSta
 
   return {
     ...state,
-    weeklyTests: [...state.weeklyTests, { ...test, linkedMockTestId }].sort((a, b) => {
+    weeklyTests: [...state.weeklyTests, { ...test, linkedMockTestId, updatedAt: test.updatedAt ?? new Date().toISOString() }].sort((a, b) => {
       if (a.scheduledWeek !== b.scheduledWeek) return a.scheduledWeek - b.scheduledWeek;
       const aOrder = typeof a.seriesOrder === "number" ? a.seriesOrder : Number.MAX_SAFE_INTEGER;
       const bOrder = typeof b.seriesOrder === "number" ? b.seriesOrder : Number.MAX_SAFE_INTEGER;
@@ -1125,6 +1127,7 @@ export function updateWeeklyTestTaken(
     test.id === testId
       ? {
           ...test,
+          updatedAt: new Date().toISOString(),
           statusByMember: {
             ...test.statusByMember,
             [member]: taken
@@ -1170,6 +1173,7 @@ export function updateWeeklyTestScore(
     test.id === testId
       ? {
           ...test,
+          updatedAt: new Date().toISOString(),
           statusByMember: {
             ...test.statusByMember,
             [member]: {
@@ -1222,6 +1226,7 @@ export function updateWeeklyTestMeta(
     test.id === testId
       ? {
           ...test,
+          updatedAt: new Date().toISOString(),
           questionCount:
             typeof updates.questionCount === "number" && Number.isFinite(updates.questionCount) && updates.questionCount > 0
               ? Math.floor(updates.questionCount)
