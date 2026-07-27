@@ -157,6 +157,9 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
         .sort((a, b) => {
           const aStatus = a.statusByMember[currentMember];
           const bStatus = b.statusByMember[currentMember];
+          const aTaken = Boolean(aStatus?.taken);
+          const bTaken = Boolean(bStatus?.taken);
+          if (aTaken !== bTaken) return Number(aTaken) - Number(bTaken);
           const aTakenTime = aStatus?.takenAt ? new Date(aStatus.takenAt).getTime() : 0;
           const bTakenTime = bStatus?.takenAt ? new Date(bStatus.takenAt).getTime() : 0;
           if (aTakenTime !== bTakenTime) return bTakenTime - aTakenTime;
@@ -709,7 +712,7 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
         <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory">
           {activeTests.length > 0 ? (
             activeTests.map((test) => (
-              <div key={test.id} className="min-w-[720px] max-w-[92vw] shrink-0 snap-start">
+              <div key={test.id} className="w-[420px] max-w-[420px] shrink-0 snap-start">
                 {renderTestCard(test)}
               </div>
             ))
