@@ -138,11 +138,22 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
 
   const activeTests = useMemo(
     () =>
-      allTests.filter((test) => {
-        const status = test.statusByMember[currentMember];
-        if (!status?.taken) return true;
-        return !isOlderThanDays(status.takenAt, 7);
-      }),
+      allTests
+        .filter((test) => {
+          const status = test.statusByMember[currentMember];
+          if (!status?.taken) return true;
+          return !isOlderThanDays(status.takenAt, 7);
+        })
+        .sort((a, b) => {
+          const aTaken = Boolean(a.statusByMember[currentMember]?.taken);
+          const bTaken = Boolean(b.statusByMember[currentMember]?.taken);
+          if (aTaken !== bTaken) return Number(bTaken) - Number(aTaken);
+          const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+          const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+          if (aTime !== bTime) return bTime - aTime;
+          if (a.scheduledWeek !== b.scheduledWeek) return b.scheduledWeek - a.scheduledWeek;
+          return b.id.localeCompare(a.id);
+        }),
     [allTests, currentMember]
   );
 
