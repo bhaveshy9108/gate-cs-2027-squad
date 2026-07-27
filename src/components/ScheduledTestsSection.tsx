@@ -688,14 +688,8 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
             {activeTests.length} items
           </span>
         </div>
-        <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory">
-          {activeTests.length > 0 ? (
-            activeTests.map((test) => (
-              <div key={test.id} className="w-[560px] max-w-[560px] shrink-0 snap-start">
-                {renderTestCard(test)}
-              </div>
-            ))
-          ) : (
+        <div className="grid gap-3 md:grid-cols-2">
+          {activeTests.length > 0 ? activeTests.map(renderTestCard) : (
             <p className="text-sm text-muted-foreground">No scheduled tests yet.</p>
           )}
         </div>
