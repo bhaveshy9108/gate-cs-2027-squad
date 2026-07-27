@@ -155,9 +155,11 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
           return !isOlderThanDays(status.takenAt, 7);
         })
         .sort((a, b) => {
-          const aTaken = Boolean(a.statusByMember[currentMember]?.taken);
-          const bTaken = Boolean(b.statusByMember[currentMember]?.taken);
-          if (aTaken !== bTaken) return Number(bTaken) - Number(aTaken);
+          const aStatus = a.statusByMember[currentMember];
+          const bStatus = b.statusByMember[currentMember];
+          const aTakenTime = aStatus?.takenAt ? new Date(aStatus.takenAt).getTime() : 0;
+          const bTakenTime = bStatus?.takenAt ? new Date(bStatus.takenAt).getTime() : 0;
+          if (aTakenTime !== bTakenTime) return bTakenTime - aTakenTime;
           const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
           const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
           if (aTime !== bTime) return bTime - aTime;
@@ -313,7 +315,7 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
               {topics.length > 0 ? topics.join(" · ") : "Topics will appear here once the schedule is loaded."}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-start gap-2">
             <button
               onClick={() => onUpdate(updateWeeklyTestActive(state, test.id, test.isActive === false))}
               className={`rounded-lg border p-2 transition-colors ${
@@ -327,7 +329,7 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
             </button>
             <button
               onClick={() => setEditingTestId((current) => (current === test.id ? null : test.id))}
-              className="rounded-lg border border-border bg-background px-3 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground"
+              className="whitespace-nowrap rounded-lg border border-border bg-background px-3 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground"
               title="Edit test details"
             >
               {isEditing ? "Done" : "Edit"}
@@ -335,7 +337,7 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
             {test.link && (
               <button
                 onClick={() => window.open(test.link, "_blank", "noopener,noreferrer")}
-                className="rounded-lg border border-border bg-background p-2 text-muted-foreground transition-colors hover:border-primary/30 hover:text-primary"
+                className="shrink-0 rounded-lg border border-border bg-background p-2 text-muted-foreground transition-colors hover:border-primary/30 hover:text-primary"
                 title="Open test link"
               >
                 <ExternalLink className="h-3.5 w-3.5" />
@@ -343,7 +345,7 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
             )}
             <button
               onClick={() => onUpdate(deleteWeeklyTest(state, test.id))}
-              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+              className="shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
               title="Delete test"
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -427,13 +429,13 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
           </div>
         ) : (
           <>
-            <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+            <div className="mt-3 grid gap-2 text-xs text-muted-foreground grid-cols-2 xl:grid-cols-5">
               <div className="rounded-xl bg-muted/30 px-3 py-2">
-                <p className="uppercase tracking-[0.26em]">Questions</p>
+                <p className="text-[10px] uppercase tracking-[0.18em] leading-tight">Questions</p>
                 <p className="mt-1 text-sm font-medium text-foreground">{test.questionCount ?? "—"}</p>
               </div>
               <div className="rounded-xl bg-muted/30 px-3 py-2">
-                <p className="uppercase tracking-[0.26em]">Marks</p>
+                <p className="text-[10px] uppercase tracking-[0.18em] leading-tight">Marks</p>
                 <p className="mt-1 text-sm font-medium text-foreground">
                   {typeof status?.score === "number" && typeof status?.outOf === "number"
                     ? `${status.score}/${status.outOf}`
@@ -443,17 +445,17 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
                 </p>
               </div>
               <div className="rounded-xl bg-muted/30 px-3 py-2">
-                <p className="uppercase tracking-[0.26em]">Duration</p>
+                <p className="text-[10px] uppercase tracking-[0.18em] leading-tight">Duration</p>
                 <p className="mt-1 text-sm font-medium text-foreground">{typeof test.durationMinutes === "number" ? `${test.durationMinutes} min` : "—"}</p>
               </div>
               <div className="rounded-xl bg-muted/30 px-3 py-2">
-                <p className="uppercase tracking-[0.26em]">Correct</p>
+                <p className="text-[10px] uppercase tracking-[0.18em] leading-tight">Correct</p>
                 <p className="mt-1 text-sm font-medium text-foreground">
                   {typeof status?.correctQuestions === "number" ? status.correctQuestions : "—"}
                 </p>
               </div>
               <div className="rounded-xl bg-muted/30 px-3 py-2">
-                <p className="uppercase tracking-[0.26em]">Week</p>
+                <p className="text-[10px] uppercase tracking-[0.18em] leading-tight">Week</p>
                 <p className="mt-1 text-sm font-medium text-foreground">W{test.scheduledWeek}</p>
               </div>
             </div>
