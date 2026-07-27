@@ -287,7 +287,7 @@ export default function Index() {
       case "weekly-tests":
         return <WeeklyTestsSection state={state} onUpdate={updateState} onOpenSection={(section) => setTab(section)} />;
       case "scheduled-tests":
-        return <ScheduledTestsSection />;
+        return <ScheduledTestsSection state={state} onUpdate={updateState} />;
       case "test-analysis":
         return <TestAnalysisSection state={state} onUpdate={updateState} />;
       case "weekly":
