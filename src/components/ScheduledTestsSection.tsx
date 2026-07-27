@@ -276,9 +276,9 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 space-y-2">
-            {test.updatedAt && (
+            {status?.takenAt && (
               <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-muted-foreground">
-                {formatSimpleDate(test.updatedAt)}
+                {formatSimpleDate(status.takenAt)}
               </p>
             )}
             <div className="flex flex-wrap items-center gap-2">
@@ -446,17 +446,7 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
               <button
                 onClick={() => {
                   const nextTaken = !status?.taken;
-                  const nextDate = nextTaken
-                    ? getDraftDateValue(
-                        draftScores,
-                        test.id,
-                        currentMember,
-                        toDateInputValue(status?.takenAt) ||
-                          toDateInputValue(new Date().toISOString()) ||
-                          new Date().toISOString().slice(0, 10)
-                      )
-                    : null;
-                  onUpdate(updateWeeklyTestTaken(state, test.id, currentMember, nextTaken, nextDate));
+                  onUpdate(updateWeeklyTestTaken(state, test.id, currentMember, nextTaken));
                   if (nextTaken) onOpenSection?.("test-analysis");
                 }}
                 className={`inline-flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-medium ${
@@ -492,18 +482,6 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
                 type="number"
                 min={0}
                 className="w-24 rounded-lg border border-border bg-background px-2 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-              <input
-                value={getDraftDateValue(draftScores, test.id, currentMember, toDateInputValue(status?.takenAt))}
-                onChange={(e) => setDraftScores((current) => ({ ...current, [getDraftKey(test.id, currentMember, "date")]: e.target.value }))}
-                onBlur={() => {
-                  if (!status?.taken) return;
-                  const nextDate = getDraftDateValue(draftScores, test.id, currentMember, toDateInputValue(status?.takenAt));
-                  onUpdate(updateWeeklyTestTaken(state, test.id, currentMember, true, nextDate || null));
-                }}
-                disabled={!status?.taken}
-                type="date"
-                className="w-36 rounded-lg border border-border bg-background px-2 py-2 text-xs text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-60"
               />
               <span className="text-xs text-muted-foreground">{formatTakenDate(status?.takenAt)}</span>
               {percent !== null && (

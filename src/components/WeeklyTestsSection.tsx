@@ -1044,16 +1044,7 @@ export default function WeeklyTestsSection({ state, onUpdate, onOpenSection }: P
                             <button
                               onClick={() => {
                                 const nextTaken = !status.taken;
-                                const nextDate = nextTaken
-                                  ? getDraftDateValue(
-                                      test.id,
-                                      currentMember,
-                                      toDateInputValue(status.takenAt) ||
-                                        toDateInputValue(new Date().toISOString()) ||
-                                        new Date().toISOString().slice(0, 10)
-                                    )
-                                  : null;
-                                onUpdate(updateWeeklyTestTaken(state, test.id, currentMember, nextTaken, nextDate));
+                                onUpdate(updateWeeklyTestTaken(state, test.id, currentMember, nextTaken));
                                 if (nextTaken) {
                                   onOpenSection?.("test-analysis");
                                 }
@@ -1109,23 +1100,6 @@ export default function WeeklyTestsSection({ state, onUpdate, onOpenSection }: P
                               type="number"
                               min={0}
                               className="w-24 rounded-lg border border-border bg-background px-2 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                            />
-                            <input
-                              value={getDraftDateValue(test.id, currentMember, toDateInputValue(status.takenAt))}
-                              onChange={(e) =>
-                                setDraftScores((current) => ({
-                                  ...current,
-                                  [getDraftKey(test.id, currentMember, "date")]: e.target.value,
-                                }))
-                              }
-                              onBlur={() => {
-                                if (!status.taken) return;
-                                const nextDate = getDraftDateValue(test.id, currentMember, toDateInputValue(status.takenAt));
-                                onUpdate(updateWeeklyTestTaken(state, test.id, currentMember, true, nextDate || null));
-                              }}
-                              disabled={!status.taken}
-                              type="date"
-                              className="w-36 rounded-lg border border-border bg-background px-2 py-2 text-xs text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-60"
                             />
                             <span className="text-xs text-muted-foreground">
                               {status.taken && status.takenAt
