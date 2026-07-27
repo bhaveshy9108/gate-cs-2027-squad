@@ -177,7 +177,7 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
       allTests.filter((test) => {
         if (test.isActive !== false) return false;
         const status = test.statusByMember[currentMember];
-        return !status?.taken || !isOlderThanDays(status.takenAt, 7);
+        return !status?.taken;
       }),
     [allTests, currentMember]
   );
@@ -186,7 +186,7 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
     () =>
       allTests.filter((test) => {
         const status = test.statusByMember[currentMember];
-        return Boolean(status?.taken && isOlderThanDays(status.takenAt, 7));
+        return Boolean(status?.taken);
       }),
     [allTests, currentMember]
   );
@@ -731,7 +731,7 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
         </summary>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           {historyTests.length > 0 ? historyTests.map(renderTestCard) : (
-            <p className="text-sm text-muted-foreground">Completed tests older than a week will appear here.</p>
+            <p className="text-sm text-muted-foreground">Completed tests will appear here.</p>
           )}
         </div>
       </details>
