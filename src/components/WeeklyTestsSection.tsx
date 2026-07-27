@@ -10,6 +10,7 @@ import {
   getWeeklyTestDisplayName,
   removeTestSeries,
   updateTestSeries,
+  updateWeeklyTestActive,
   updateWeeklyTestMeta,
   updateWeeklyTestScore,
   updateWeeklyTestTaken,
@@ -261,6 +262,7 @@ export default function WeeklyTestsSection({ state, onUpdate, onOpenSection }: P
       totalMarks: totalMarks.trim() ? parseFloat(totalMarks) : undefined,
       notes: notes.trim(),
       statusByMember: buildStatusByMember(totalMarks.trim() ? parseFloat(totalMarks) : null),
+      isActive: false,
     };
 
     onUpdate(addWeeklyTest(state, test));
@@ -892,6 +894,17 @@ export default function WeeklyTestsSection({ state, onUpdate, onOpenSection }: P
                                   : "Topics will appear here once the schedule is loaded."}
                               </p>
                             </div>
+                            <button
+                              onClick={() => onUpdate(updateWeeklyTestActive(state, test.id, test.isActive === false))}
+                              className={`rounded-lg border p-2 transition-colors ${
+                                test.isActive === false
+                                  ? "border-amber-300 bg-amber-50 text-amber-600 hover:border-amber-400 hover:text-amber-700"
+                                  : "border-emerald-300 bg-emerald-50 text-emerald-600 hover:border-emerald-400 hover:text-emerald-700"
+                              }`}
+                              title={test.isActive === false ? "Make active" : "Remove from scheduled tests"}
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                            </button>
                             <button
                               onClick={() => setEditingTestId((current) => (current === test.id ? null : test.id))}
                               className="rounded-lg border border-border bg-background px-3 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground"

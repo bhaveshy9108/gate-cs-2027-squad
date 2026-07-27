@@ -526,25 +526,29 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-border bg-card p-4 space-y-4">
-        <div className="flex items-center gap-2">
-          <CalendarCheck2 className="w-5 h-5 text-primary" />
-          <h2 className="text-lg font-bold text-foreground">Scheduled Tests</h2>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Add a scheduled entry with the same test logic used across weekly tests, then keep recent completions visible before they move into history.
-        </p>
-
-        <div className="rounded-xl border border-dashed border-border bg-background p-4 space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <CalendarCheck2 className="w-5 h-5 text-primary" />
+              <h2 className="text-lg font-bold text-foreground">Scheduled Tests</h2>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Add a scheduled entry with the same test logic used across weekly tests, then keep recent completions visible before they move into history.
+            </p>
+          </div>
           <button
             type="button"
             onClick={() => setShowAddTest((current) => !current)}
-            className="flex w-full items-center justify-between rounded-lg border border-border bg-muted/60 px-4 py-3 text-left text-sm font-medium text-foreground"
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
           >
-            <span>Add Scheduled Test</span>
-            {showAddTest ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+            <Plus className="h-4 w-4" />
+            {showAddTest ? "Close" : "Add Scheduled Test"}
+            {showAddTest ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </button>
+        </div>
 
-          {showAddTest && (
+        {showAddTest && (
+          <div className="rounded-xl border border-dashed border-border bg-background p-4 space-y-4">
             <div className="grid gap-3">
               <input
                 value={name}
@@ -688,8 +692,8 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
                 </button>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       <div className="rounded-xl border border-border bg-card p-4 space-y-3">
@@ -700,20 +704,26 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
             {activeTests.length} items
           </span>
         </div>
-        <div className="grid gap-3 md:grid-cols-2">
-          {activeTests.length > 0 ? activeTests.map(renderTestCard) : (
+        <div className="flex gap-3 overflow-x-auto pb-2">
+          {activeTests.length > 0 ? (
+            activeTests.map((test) => (
+              <div key={test.id} className="min-w-[340px] max-w-[420px] shrink-0">
+                {renderTestCard(test)}
+              </div>
+            ))
+          ) : (
             <p className="text-sm text-muted-foreground">No scheduled tests yet.</p>
           )}
         </div>
       </div>
 
-      {inactiveTests.length > 0 && (
-        <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-          <h3 className="font-semibold text-foreground">Inactive scheduled tests</h3>
-          <p className="text-xs text-muted-foreground">Tick a card to make it active again.</p>
-          <div className="grid gap-3 md:grid-cols-2">{inactiveTests.map(renderTestCard)}</div>
-        </div>
-      )}
+      <details className="rounded-xl border border-border bg-card p-4">
+        <summary className="cursor-pointer list-none text-sm font-semibold text-foreground">
+          Inactive scheduled tests ({inactiveTests.length})
+        </summary>
+        <p className="mt-2 text-xs text-muted-foreground">Tick a card to make it active again.</p>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">{inactiveTests.map(renderTestCard)}</div>
+      </details>
 
       <details className="rounded-xl border border-border bg-card p-4">
         <summary className="cursor-pointer list-none text-sm font-semibold text-foreground">
