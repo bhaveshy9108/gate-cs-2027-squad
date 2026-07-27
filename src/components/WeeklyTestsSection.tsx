@@ -131,10 +131,13 @@ export default function WeeklyTestsSection({ state, onUpdate, onOpenSection }: P
   const sortedTests = useMemo(
     () =>
       [...state.weeklyTests].sort((a, b) => {
-        if (a.scheduledWeek !== b.scheduledWeek) return a.scheduledWeek - b.scheduledWeek;
+        const aUpdated = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+        const bUpdated = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+        if (aUpdated !== bUpdated) return bUpdated - aUpdated;
+        if (a.scheduledWeek !== b.scheduledWeek) return b.scheduledWeek - a.scheduledWeek;
         const aOrder = typeof a.seriesOrder === "number" ? a.seriesOrder : Number.MAX_SAFE_INTEGER;
         const bOrder = typeof b.seriesOrder === "number" ? b.seriesOrder : Number.MAX_SAFE_INTEGER;
-        if (aOrder !== bOrder) return aOrder - bOrder;
+        if (aOrder !== bOrder) return bOrder - aOrder;
         return b.id.localeCompare(a.id);
       }),
     [state.weeklyTests]

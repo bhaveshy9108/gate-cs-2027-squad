@@ -1030,12 +1030,19 @@ function getStructuredTestDisplayName(test: {
 }): string {
   const subjectName = getSubjectNameById(test.subjectId);
   const topicLabel = test.topicLabel?.trim();
+  const normalizedName = test.name.trim().toLowerCase();
+  const normalizedSubject = subjectName?.trim().toLowerCase();
+  const normalizedTopic = topicLabel?.toLowerCase();
+  const alreadyContainsSubject = Boolean(normalizedSubject && normalizedName.includes(normalizedSubject));
+  const alreadyContainsTopic = Boolean(normalizedTopic && normalizedName.includes(normalizedTopic));
 
   if (test.coverageScope === "topic" && topicLabel) {
+    if (alreadyContainsSubject || alreadyContainsTopic) return test.name;
     return subjectName ? `${subjectName} | ${topicLabel} | ${test.name}` : `${topicLabel} | ${test.name}`;
   }
 
   if (test.coverageScope === "subject" && subjectName) {
+    if (alreadyContainsSubject) return test.name;
     return `${subjectName} | ${test.name}`;
   }
 
