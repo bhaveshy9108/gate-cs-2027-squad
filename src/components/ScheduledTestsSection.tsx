@@ -12,7 +12,7 @@ import {
   type WeeklyTestKind,
   type WeeklyTestSource,
 } from "@/lib/trackerStore";
-import { CalendarCheck2, ExternalLink, Link2, Plus, X } from "lucide-react";
+import { CalendarCheck2, ChevronDown, ChevronUp, ExternalLink, Link2, Plus, X } from "lucide-react";
 
 interface Props {
   state: TrackerState;
@@ -38,6 +38,7 @@ function buildStatusByMember(totalMarks?: number | null): WeeklyTest["statusByMe
 
 export default function ScheduledTestsSection({ state, onUpdate }: Props) {
   const currentWeek = getWeekNumber(new Date());
+  const [showAddTest, setShowAddTest] = useState(false);
   const [showAddSeries, setShowAddSeries] = useState(false);
   const [name, setName] = useState("");
   const [source, setSource] = useState<WeeklyTestSource>(state.testSeries[0]?.name ?? "GO Classes");
@@ -130,135 +131,152 @@ export default function ScheduledTestsSection({ state, onUpdate }: Props) {
         </p>
 
         <div className="rounded-xl border border-dashed border-border bg-background p-4 space-y-4">
-          <div className="grid gap-3">
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Test name"
-              className="w-full rounded-lg border border-border bg-muted px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-            <div className="grid gap-3 md:grid-cols-2">
-              <select
-                value={source}
-                onChange={(e) => setSource(e.target.value)}
+          <button
+            type="button"
+            onClick={() => setShowAddTest((current) => !current)}
+            className="flex w-full items-center justify-between rounded-lg border border-border bg-muted/60 px-4 py-3 text-left text-sm font-medium text-foreground"
+          >
+            <span>Add Scheduled Test</span>
+            {showAddTest ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+          </button>
+
+          {showAddTest && (
+            <div className="grid gap-3">
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Test name"
                 className="w-full rounded-lg border border-border bg-muted px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                {state.testSeries.map((series) => (
-                  <option key={series.id} value={series.name}>
-                    {series.name}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={isQuizOnlySource ? "quiz" : kind}
-                onChange={(e) => setKind(e.target.value as WeeklyTestKind)}
+              />
+              <div className="grid gap-3 md:grid-cols-2">
+                <select
+                  value={source}
+                  onChange={(e) => setSource(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-muted px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  {state.testSeries.map((series) => (
+                    <option key={series.id} value={series.name}>
+                      {series.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={isQuizOnlySource ? "quiz" : kind}
+                  onChange={(e) => setKind(e.target.value as WeeklyTestKind)}
+                  className="w-full rounded-lg border border-border bg-muted px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  disabled={isQuizOnlySource}
+                >
+                  {kinds.map((item) => (
+                    <option key={item} value={item}>
+                      {item === "mock" ? "Mock Test" : item === "subject" ? "Subject Test" : "Weekly Quiz"}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.7fr)]">
+                <select
+                  value={coverageScope}
+                  onChange={(e) => {
+                    const nextScope = e.target.value as TestCoverageScope;
+                    setCoverageScope(nextScope);
+                    if (nextScope === "full") {
+                      setSubjectId("");
+                      setTopicLabel("");
+                    } else if (nextScope === "subject") {
+                      setTopicLabel("");
+                    }
+                  }}
+                  className="w-full rounded-lg border border-border bg-muted px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="full">Full Syllabus</option>
+                  <option value="subject">Subject Wise</option>
+                  <option value="topic">Topic Wise</option>
+                </select>
+                <select
+                  value={subjectId}
+                  onChange={(e) => {
+                    const nextSubject = e.target.value;
+                    setSubjectId(nextSubject);
+                    if (nextSubject && coverageScope === "full") {
+                      setCoverageScope("subject");
+                    }
+                  }}
+                  className="w-full rounded-lg border border-border bg-muted px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="">Select subject</option>
+                  {SUBJECTS.map((subject) => (
+                    <option key={subject.id} value={subject.id}>
+                      {subject.name}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  value={scheduledWeek}
+                  onChange={(e) => setScheduledWeek(e.target.value)}
+                  placeholder="Week"
+                  type="number"
+                  min={1}
+                  className="w-full rounded-lg border border-border bg-muted px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              {coverageScope === "topic" && (
+                <input
+                  value={topicLabel}
+                  onChange={(e) => setTopicLabel(e.target.value)}
+                  placeholder="Topic label"
+                  className="w-full rounded-lg border border-border bg-muted px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              )}
+              <input
+                value={testLink}
+                onChange={(e) => setTestLink(e.target.value)}
+                placeholder="Direct test or quiz link (optional)"
                 className="w-full rounded-lg border border-border bg-muted px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                disabled={isQuizOnlySource}
-              >
-                {kinds.map((item) => (
-                  <option key={item} value={item}>
-                    {item === "mock" ? "Mock Test" : item === "subject" ? "Subject Test" : "Weekly Quiz"}
-                  </option>
-                ))}
-              </select>
+              />
+              <div className="grid gap-3 md:grid-cols-2">
+                <input
+                  value={questionCount}
+                  onChange={(e) => setQuestionCount(e.target.value)}
+                  placeholder="No. of questions (optional)"
+                  type="number"
+                  min={1}
+                  className="w-full rounded-lg border border-border bg-muted px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <input
+                  value={totalMarks}
+                  onChange={(e) => setTotalMarks(e.target.value)}
+                  placeholder="Total marks (optional)"
+                  type="number"
+                  min={1}
+                  className="w-full rounded-lg border border-border bg-muted px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Notes or syllabus coverage"
+                rows={2}
+                className="w-full resize-none rounded-lg border border-border bg-muted px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={handleAddTest}
+                  className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+                >
+                  Add
+                </button>
+                <button
+                  onClick={() => {
+                    resetForm();
+                    setShowAddTest(false);
+                  }}
+                  className="rounded-lg px-3 py-2 text-sm text-muted-foreground"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
-            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.7fr)]">
-              <select
-                value={coverageScope}
-                onChange={(e) => {
-                  const nextScope = e.target.value as TestCoverageScope;
-                  setCoverageScope(nextScope);
-                  if (nextScope === "full") {
-                    setSubjectId("");
-                    setTopicLabel("");
-                  } else if (nextScope === "subject") {
-                    setTopicLabel("");
-                  }
-                }}
-                className="w-full rounded-lg border border-border bg-muted px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="full">Full Syllabus</option>
-                <option value="subject">Subject Wise</option>
-                <option value="topic">Topic Wise</option>
-              </select>
-              <select
-                value={subjectId}
-                onChange={(e) => {
-                  const nextSubject = e.target.value;
-                  setSubjectId(nextSubject);
-                  if (nextSubject && coverageScope === "full") {
-                    setCoverageScope("subject");
-                  }
-                }}
-                className="w-full rounded-lg border border-border bg-muted px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="">Select subject</option>
-                {SUBJECTS.map((subject) => (
-                  <option key={subject.id} value={subject.id}>
-                    {subject.name}
-                  </option>
-                ))}
-              </select>
-              <input
-                value={scheduledWeek}
-                onChange={(e) => setScheduledWeek(e.target.value)}
-                placeholder="Week"
-                type="number"
-                min={1}
-                className="w-full rounded-lg border border-border bg-muted px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-            {coverageScope === "topic" && (
-              <input
-                value={topicLabel}
-                onChange={(e) => setTopicLabel(e.target.value)}
-                placeholder="Topic label"
-                className="w-full rounded-lg border border-border bg-muted px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            )}
-            <input
-              value={testLink}
-              onChange={(e) => setTestLink(e.target.value)}
-              placeholder="Direct test or quiz link (optional)"
-              className="w-full rounded-lg border border-border bg-muted px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-            <div className="grid gap-3 md:grid-cols-2">
-              <input
-                value={questionCount}
-                onChange={(e) => setQuestionCount(e.target.value)}
-                placeholder="No. of questions (optional)"
-                type="number"
-                min={1}
-                className="w-full rounded-lg border border-border bg-muted px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-              <input
-                value={totalMarks}
-                onChange={(e) => setTotalMarks(e.target.value)}
-                placeholder="Total marks (optional)"
-                type="number"
-                min={1}
-                className="w-full rounded-lg border border-border bg-muted px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Notes or syllabus coverage"
-              rows={2}
-              className="w-full resize-none rounded-lg border border-border bg-muted px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <button
-              onClick={handleAddTest}
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
-            >
-              Add
-            </button>
-            <button onClick={resetForm} className="rounded-lg px-3 py-2 text-sm text-muted-foreground">
-              Cancel
-            </button>
-          </div>
+          )}
         </div>
       </div>
 
