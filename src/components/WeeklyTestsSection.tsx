@@ -430,6 +430,7 @@ export default function WeeklyTestsSection({ state, onUpdate, onOpenSection }: P
         </div>
       </div>
 
+      {/*
       <div className="bg-card border border-border rounded-xl p-4 space-y-3">
         <div className="flex items-center gap-2">
           <Link2 className="w-4 h-4 text-primary" />
@@ -583,6 +584,7 @@ export default function WeeklyTestsSection({ state, onUpdate, onOpenSection }: P
             )}
           </div>
         )}
+      */}
 
       {showAdd && (
         <div className="bg-card border border-border rounded-xl p-4 space-y-3">
@@ -1107,6 +1109,5 @@ export default function WeeklyTestsSection({ state, onUpdate, onOpenSection }: P
         );
       })}
       </div>
-    </div>
     );
   }
