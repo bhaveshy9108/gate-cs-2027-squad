@@ -427,7 +427,7 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
           </div>
         ) : (
           <>
-            <div className="mt-3 grid gap-2 text-xs text-muted-foreground md:grid-cols-5">
+            <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
               <div className="rounded-xl bg-muted/30 px-3 py-2">
                 <p className="uppercase tracking-[0.26em]">Questions</p>
                 <p className="mt-1 text-sm font-medium text-foreground">{test.questionCount ?? "—"}</p>
@@ -704,10 +704,10 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
             {activeTests.length} items
           </span>
         </div>
-        <div className="flex gap-3 overflow-x-auto pb-2">
+        <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory">
           {activeTests.length > 0 ? (
             activeTests.map((test) => (
-              <div key={test.id} className="min-w-[340px] max-w-[420px] shrink-0">
+              <div key={test.id} className="min-w-[720px] max-w-[92vw] shrink-0 snap-start">
                 {renderTestCard(test)}
               </div>
             ))
