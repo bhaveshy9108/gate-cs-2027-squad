@@ -36,6 +36,7 @@ import SubjectChecklist from "@/components/SubjectChecklist";
 import StudyTimerFloating from "@/components/StudyTimerFloating";
 import StudyTimerPanel from "@/components/StudyTimerPanel";
 import TestAnalysisSection from "@/components/TestAnalysisSection";
+import ScheduledTestsSection from "@/components/ScheduledTestsSection";
 import WeeklyProgress from "@/components/WeeklyProgress";
 import WeeklyPyqPlanner from "@/components/WeeklyPyqPlanner";
 import WeeklyTestsSection from "@/components/WeeklyTestsSection";
@@ -48,6 +49,7 @@ const TABS = [
   { id: "pyq", label: "PYQs", icon: BookMarked },
   { id: "mock", label: "Mock Tests", icon: CalendarCheck2 },
   { id: "weekly-tests", label: "Weekly Tests", icon: CalendarDays },
+  { id: "scheduled-tests", label: "Scheduled Tests", icon: Clock3 },
   { id: "test-analysis", label: "Test Analysis", icon: LineChart },
   { id: "weekly", label: "Weekly Progress", icon: Target },
 ] as const;
@@ -284,6 +286,8 @@ export default function Index() {
         return <MockTestSection state={state} member={member} onUpdate={updateState} />;
       case "weekly-tests":
         return <WeeklyTestsSection state={state} onUpdate={updateState} onOpenSection={(section) => setTab(section)} />;
+      case "scheduled-tests":
+        return <ScheduledTestsSection />;
       case "test-analysis":
         return <TestAnalysisSection state={state} onUpdate={updateState} />;
       case "weekly":
