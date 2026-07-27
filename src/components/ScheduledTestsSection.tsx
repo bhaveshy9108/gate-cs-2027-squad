@@ -183,9 +183,14 @@ export default function ScheduledTestsSection({ state, onUpdate }: Props) {
               </select>
               <select
                 value={subjectId}
-                onChange={(e) => setSubjectId(e.target.value)}
-                disabled={coverageScope === "full"}
-                className="w-full rounded-lg border border-border bg-muted px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-60"
+                onChange={(e) => {
+                  const nextSubject = e.target.value;
+                  setSubjectId(nextSubject);
+                  if (nextSubject && coverageScope === "full") {
+                    setCoverageScope("subject");
+                  }
+                }}
+                className="w-full rounded-lg border border-border bg-muted px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="">Select subject</option>
                 {SUBJECTS.map((subject) => (
