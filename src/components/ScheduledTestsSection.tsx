@@ -16,7 +16,6 @@ import {
   type TestCoverageScope,
   type TrackerState,
   type WeeklyTest,
-  type WeeklyTestKind,
   type WeeklyTestSource,
 } from "@/lib/trackerStore";
 import { CalendarCheck2, ChevronDown, ChevronUp, Check, ExternalLink, Link2, Plus, Trash2, X } from "lucide-react";
@@ -27,7 +26,6 @@ interface Props {
   onOpenSection?: (section: "test-analysis") => void;
 }
 
-const kinds: WeeklyTestKind[] = ["mock", "subject", "quiz"];
 const QUIZ_ONLY_SOURCE = "GateOverflow Quizzes";
 
 function buildStatusByMember(totalMarks?: number | null): WeeklyTest["statusByMember"] {
@@ -96,7 +94,6 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
   const [showAddSeries, setShowAddSeries] = useState(false);
   const [name, setName] = useState("");
   const [source, setSource] = useState<WeeklyTestSource>(state.testSeries[0]?.name ?? "GO Classes");
-  const [kind, setKind] = useState<WeeklyTestKind>("mock");
   const [coverageScope, setCoverageScope] = useState<TestCoverageScope>("full");
   const [subjectId, setSubjectId] = useState("");
   const [topicLabel, setTopicLabel] = useState("");
@@ -131,7 +128,6 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
     state.testSeries.find((series) => series.id === selectedSeriesId) ?? state.testSeries[0] ?? null;
   const editingSeries = state.testSeries.find((series) => series.id === editingSeriesId) ?? null;
   const seriesButtons = useMemo(() => state.testSeries, [state.testSeries]);
-  const isQuizOnlySource = source === QUIZ_ONLY_SOURCE;
 
   const allTests = useMemo(
     () =>
@@ -213,7 +209,7 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
       id: `weekly-test-${Date.now()}`,
       name: name.trim(),
       source,
-      kind: isQuizOnlySource ? "quiz" : kind,
+      kind: source === QUIZ_ONLY_SOURCE ? "quiz" : "mock",
       subjectId: coverageScope !== "full" ? subjectId || undefined : undefined,
       coverageScope,
       topicLabel: coverageScope === "topic" ? topicLabel.trim() : "",
@@ -565,18 +561,6 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
                   {state.testSeries.map((series) => (
                     <option key={series.id} value={series.name}>
                       {series.name}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={isQuizOnlySource ? "quiz" : kind}
-                  onChange={(e) => setKind(e.target.value as WeeklyTestKind)}
-                  className="w-full rounded-lg border border-border bg-muted px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  disabled={isQuizOnlySource}
-                >
-                  {kinds.map((item) => (
-                    <option key={item} value={item}>
-                      {item === "mock" ? "Mock Test" : item === "subject" ? "Subject Test" : "Weekly Quiz"}
                     </option>
                   ))}
                 </select>
