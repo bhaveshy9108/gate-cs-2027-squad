@@ -287,14 +287,9 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
         }`}
       >
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 space-y-2">
-            {status?.takenAt && (
-              <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-muted-foreground">
-                {formatSimpleDate(status.takenAt)}
-              </p>
-            )}
+          <div className="min-w-0 flex-1 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <h4 className="font-semibold text-foreground">{getWeeklyTestDisplayName(test)}</h4>
+              <h4 className="max-w-full text-base font-semibold leading-snug text-foreground">{getWeeklyTestDisplayName(test)}</h4>
               <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">{test.source}</span>
               <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                 {test.kind === "mock" ? "Mock" : test.kind === "subject" ? "Subject" : "Weekly Quiz"}
@@ -318,7 +313,7 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
               {topics.length > 0 ? topics.join(" · ") : "Topics will appear here once the schedule is loaded."}
             </p>
           </div>
-          <div className="flex flex-wrap items-start gap-2">
+          <div className="flex flex-nowrap items-center gap-2 shrink-0">
             <button
               onClick={() => onUpdate(updateWeeklyTestActive(state, test.id, test.isActive === false))}
               className={`rounded-lg border p-2 transition-colors ${
@@ -332,7 +327,7 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
             </button>
             <button
               onClick={() => setEditingTestId((current) => (current === test.id ? null : test.id))}
-              className="whitespace-nowrap rounded-lg border border-border bg-background px-3 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground"
+              className="whitespace-nowrap rounded-lg border border-border bg-background px-3 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground shrink-0"
               title="Edit test details"
             >
               {isEditing ? "Done" : "Edit"}
@@ -712,7 +707,7 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
         <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory">
           {activeTests.length > 0 ? (
             activeTests.map((test) => (
-              <div key={test.id} className="w-[420px] max-w-[420px] shrink-0 snap-start">
+              <div key={test.id} className="w-[560px] max-w-[560px] shrink-0 snap-start">
                 {renderTestCard(test)}
               </div>
             ))
