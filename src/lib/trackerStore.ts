@@ -118,6 +118,7 @@ export interface WeeklyTest {
   topics?: string[];
   notes: string;
   statusByMember: Record<Member, WeeklyTestMemberStatus>;
+  isActive?: boolean;
   updatedAt?: string;
 }
 
@@ -412,6 +413,7 @@ function normalizeWeeklyTests(weeklyTests: unknown): WeeklyTest[] {
           : undefined,
       topics: Array.isArray(record.topics) ? record.topics.filter((topic): topic is string => typeof topic === "string" && topic.trim()) : [],
       notes: typeof record.notes === "string" ? record.notes : "",
+      isActive: typeof record.isActive === "boolean" ? record.isActive : true,
       updatedAt: typeof record.updatedAt === "string" ? record.updatedAt : undefined,
       statusByMember: Object.fromEntries(
         MEMBERS.map((member) => {
@@ -1122,7 +1124,7 @@ export function addWeeklyTest(state: TrackerState, test: WeeklyTest): TrackerSta
 
   return {
     ...state,
-    weeklyTests: [...state.weeklyTests, { ...test, linkedMockTestId, updatedAt: test.updatedAt ?? new Date().toISOString() }].sort((a, b) => {
+    weeklyTests: [...state.weeklyTests, { ...test, linkedMockTestId, isActive: test.isActive ?? true, updatedAt: test.updatedAt ?? new Date().toISOString() }].sort((a, b) => {
       if (a.scheduledWeek !== b.scheduledWeek) return a.scheduledWeek - b.scheduledWeek;
       const aOrder = typeof a.seriesOrder === "number" ? a.seriesOrder : Number.MAX_SAFE_INTEGER;
       const bOrder = typeof b.seriesOrder === "number" ? b.seriesOrder : Number.MAX_SAFE_INTEGER;
@@ -1130,6 +1132,19 @@ export function addWeeklyTest(state: TrackerState, test: WeeklyTest): TrackerSta
       return b.id.localeCompare(a.id);
     }),
     mockTests: [...state.mockTests, linkedMockTest],
+  };
+}
+
+export function updateWeeklyTestActive(
+  state: TrackerState,
+  testId: string,
+  isActive: boolean
+): TrackerState {
+  return {
+    ...state,
+    weeklyTests: state.weeklyTests.map((test) =>
+      test.id === testId ? { ...test, isActive, updatedAt: new Date().toISOString() } : test
+    ),
   };
 }
 

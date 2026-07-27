@@ -9,6 +9,7 @@ import {
   getWeeklyTestDisplayName,
   removeTestSeries,
   updateTestSeries,
+  updateWeeklyTestActive,
   updateWeeklyTestMeta,
   updateWeeklyTestScore,
   updateWeeklyTestTaken,
@@ -83,11 +84,6 @@ function formatSimpleDate(iso?: string) {
   return parsed.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
-function formatTakenDate(iso?: string) {
-  if (!iso) return "Not yet taken";
-  return `Taken on ${new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`;
-}
-
 function getPercent(score?: number | null, outOf?: number | null) {
   if (typeof score !== "number" || typeof outOf !== "number" || outOf <= 0) return null;
   return Math.round((score / outOf) * 100);
@@ -153,6 +149,7 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
     () =>
       allTests
         .filter((test) => {
+          if (test.isActive === false) return false;
           const status = test.statusByMember[currentMember];
           if (!status?.taken) return true;
           return !isOlderThanDays(status.takenAt, 7);
@@ -167,6 +164,16 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
           if (a.scheduledWeek !== b.scheduledWeek) return b.scheduledWeek - a.scheduledWeek;
           return b.id.localeCompare(a.id);
         }),
+    [allTests, currentMember]
+  );
+
+  const inactiveTests = useMemo(
+    () =>
+      allTests.filter((test) => {
+        if (test.isActive !== false) return false;
+        const status = test.statusByMember[currentMember];
+        return !status?.taken || !isOlderThanDays(status.takenAt, 7);
+      }),
     [allTests, currentMember]
   );
 
@@ -307,6 +314,17 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => onUpdate(updateWeeklyTestActive(state, test.id, test.isActive === false))}
+              className={`rounded-lg border p-2 transition-colors ${
+                test.isActive === false
+                  ? "border-amber-300 bg-amber-50 text-amber-600 hover:border-amber-400 hover:text-amber-700"
+                  : "border-emerald-300 bg-emerald-50 text-emerald-600 hover:border-emerald-400 hover:text-emerald-700"
+              }`}
+              title={test.isActive === false ? "Make active" : "Remove from active tests"}
+            >
+              <Check className="h-3.5 w-3.5" />
+            </button>
             <button
               onClick={() => setEditingTestId((current) => (current === test.id ? null : test.id))}
               className="rounded-lg border border-border bg-background px-3 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground"
@@ -483,7 +501,6 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
                 min={0}
                 className="w-24 rounded-lg border border-border bg-background px-2 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
               />
-              <span className="text-xs text-muted-foreground">{formatTakenDate(status?.takenAt)}</span>
               {percent !== null && (
                 <span className="text-xs font-medium text-foreground">
                   {status?.score ?? 0}/{status?.outOf ?? 0} ({percent}%)
@@ -689,6 +706,14 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
           )}
         </div>
       </div>
+
+      {inactiveTests.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+          <h3 className="font-semibold text-foreground">Inactive scheduled tests</h3>
+          <p className="text-xs text-muted-foreground">Tick a card to make it active again.</p>
+          <div className="grid gap-3 md:grid-cols-2">{inactiveTests.map(renderTestCard)}</div>
+        </div>
+      )}
 
       <details className="rounded-xl border border-border bg-card p-4">
         <summary className="cursor-pointer list-none text-sm font-semibold text-foreground">
