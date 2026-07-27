@@ -450,6 +450,7 @@ function normalizeWeeklyTests(weeklyTests: unknown): WeeklyTest[] {
 
 function restoreKnownLostTestData(state: TrackerState): TrackerState {
   const targetTitle = "GATE CSE 2026 SET 1";
+  const fltTitles = new Set(["GATE CSE 2026 SET 1", "GATE CSE 2025 SET 1", "GATE CSE 2026 SET 2"]);
   const targetIsoDate = "2026-05-18T00:00:00.000Z";
   const targetScore = 12.67;
   const targetOutOf = 100;
@@ -469,7 +470,7 @@ function restoreKnownLostTestData(state: TrackerState): TrackerState {
   });
 
   const nextWeeklyTests = state.weeklyTests.map((test) => {
-    if (test.name.trim().toLowerCase() !== targetTitle.toLowerCase()) return test;
+    if (!fltTitles.has(test.name.trim())) return test;
     const current = test.statusByMember[state.currentMember];
     const shouldRestore =
       !current?.taken ||
@@ -477,9 +478,13 @@ function restoreKnownLostTestData(state: TrackerState): TrackerState {
       typeof current.outOf !== "number" ||
       typeof current.correctQuestions !== "number" ||
       !current.takenAt;
-    if (!shouldRestore) return test;
-    return {
+    const nextTest: WeeklyTest = {
       ...test,
+      source: "FLT's",
+    };
+    if (!shouldRestore) return nextTest;
+    return {
+      ...nextTest,
       updatedAt: new Date().toISOString(),
       statusByMember: {
         ...test.statusByMember,
@@ -489,9 +494,10 @@ function restoreKnownLostTestData(state: TrackerState): TrackerState {
   });
 
   const nextMockTests = state.mockTests.map((test) => {
-    if (test.name.trim().toLowerCase() !== targetTitle.toLowerCase()) return test;
+    if (!fltTitles.has(test.name.trim())) return test;
     return {
       ...test,
+      source: "FLT's",
       totalMarks: targetOutOf,
       scores: {
         ...test.scores,
