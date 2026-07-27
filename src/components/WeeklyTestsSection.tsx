@@ -150,7 +150,8 @@ export default function WeeklyTestsSection({ state, onUpdate, onOpenSection }: P
     const query = searchFilter.trim().toLowerCase();
     const topicQuery = topicFilter.trim().toLowerCase();
 
-    return sortedTests.filter((test) => {
+    return sortedTests
+      .filter((test) => {
       if (seriesFilter !== "all" && test.source !== seriesFilter) return false;
       if (scopeFilter !== "all" && (test.coverageScope ?? "full") !== scopeFilter) return false;
       if (subjectFilter && test.subjectId !== subjectFilter) return false;
@@ -169,7 +170,17 @@ export default function WeeklyTestsSection({ state, onUpdate, onOpenSection }: P
       if (completionFilter === "done" && !status?.taken) return false;
       if (completionFilter === "todo" && status?.taken) return false;
       return true;
-    });
+      })
+      .sort((a, b) => {
+        const aUpdated = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+        const bUpdated = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+        if (aUpdated !== bUpdated) return bUpdated - aUpdated;
+        if (a.scheduledWeek !== b.scheduledWeek) return b.scheduledWeek - a.scheduledWeek;
+        const aOrder = typeof a.seriesOrder === "number" ? a.seriesOrder : Number.MAX_SAFE_INTEGER;
+        const bOrder = typeof b.seriesOrder === "number" ? b.seriesOrder : Number.MAX_SAFE_INTEGER;
+        if (aOrder !== bOrder) return bOrder - aOrder;
+        return b.id.localeCompare(a.id);
+      });
   }, [completionFilter, currentMember, scopeFilter, searchFilter, seriesFilter, sortedTests, subjectFilter, topicFilter]);
   const groupedTests = useMemo(
     () =>
