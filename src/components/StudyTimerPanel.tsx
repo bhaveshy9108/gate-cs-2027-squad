@@ -89,6 +89,9 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
 
   const activeSubject = SUBJECTS.find((subject) => subject.id === (timer.subjectId ?? selectedSubjectId)) ?? null;
   const effectiveMs = getCurrentStudyTimerElapsed(state, new Date(now));
+  const allTimeMs = state.studySessions
+    .filter((session) => session.member === member)
+    .reduce((sum, session) => sum + session.effectiveMs, 0);
   const chartData = useMemo(
     () =>
       getStudyDailyTotals(state, 7).map((entry) => ({
@@ -160,7 +163,7 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
           </div>
         </div>
 
-        <div className="mt-5 grid gap-3 md:grid-cols-3">
+        <div className="mt-5 grid gap-3 md:grid-cols-4">
           <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
             <p className="text-[11px] uppercase tracking-[0.25em] text-muted-foreground">Current session</p>
             <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
@@ -177,6 +180,11 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
             <p className="text-[11px] uppercase tracking-[0.25em] text-muted-foreground">This week</p>
             <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">{formatStudyDuration(weekTotalMs)}</p>
             <p className="mt-1 text-xs text-muted-foreground">{state.studySessions.length} sessions saved</p>
+          </div>
+          <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
+            <p className="text-[11px] uppercase tracking-[0.25em] text-muted-foreground">All time</p>
+            <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">{formatStudyDuration(allTimeMs)}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Total effective study across all sessions</p>
           </div>
         </div>
 
