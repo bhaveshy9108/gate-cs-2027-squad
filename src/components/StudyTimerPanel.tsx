@@ -89,6 +89,9 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
 
   const activeSubject = SUBJECTS.find((subject) => subject.id === (timer.subjectId ?? selectedSubjectId)) ?? null;
   const effectiveMs = getCurrentStudyTimerElapsed(state, new Date(now));
+  const allTimeTotalMs = state.studySessions
+    .filter((session) => session.member === member)
+    .reduce((sum, session) => sum + Math.max(0, new Date(session.endedAt).getTime() - new Date(session.startedAt).getTime()), 0);
   const allTimeMs = state.studySessions
     .filter((session) => session.member === member)
     .reduce((sum, session) => sum + session.effectiveMs, 0);
@@ -184,7 +187,9 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
           <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
             <p className="text-[11px] uppercase tracking-[0.25em] text-muted-foreground">All time</p>
             <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">{formatStudyDuration(allTimeMs)}</p>
-            <p className="mt-1 text-xs text-muted-foreground">Total effective study session from all time hours</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Total effective study sessions from {formatStudyDuration(allTimeTotalMs)} total hours sat
+            </p>
           </div>
         </div>
 
