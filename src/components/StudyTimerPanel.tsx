@@ -177,7 +177,7 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
             <p className="mt-1 text-xs text-muted-foreground">Effective study so far</p>
           </div>
           <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
-            <p className="text-[11px] uppercase tracking-[0.25em] text-muted-foreground">This week</p>
+            <p className="text-[11px] uppercase tracking-[0.25em] text-muted-foreground">Last 7 days</p>
             <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">{formatStudyDuration(weekTotalMs)}</p>
             <p className="mt-1 text-xs text-muted-foreground">{state.studySessions.length} sessions saved</p>
           </div>
