@@ -894,6 +894,33 @@ export function getStudyDaySummaries(state: TrackerState, days = 10): StudyDaySu
     bucket.sessionCount += 1;
   }
 
+  const timer = state.studyTimer;
+  if (timer.startedAt && timer.status !== "idle") {
+    const liveEnd = timer.status === "paused" ? timer.lastPausedAt ?? undefined : new Date().toISOString();
+    const liveEffectiveMs = timer.status === "running" ? getCurrentStudyTimerElapsed(state) : timer.effectiveMs;
+    if (liveEnd && liveEffectiveMs > 0) {
+      for (
+        const segment of splitStudySessionAcrossDays({
+          member: timer.member,
+          subjectId: timer.subjectId,
+          subjectName: timer.subjectName,
+          startedAt: timer.startedAt,
+          endedAt: liveEnd,
+          breakMs: timer.breakMs,
+          effectiveMs: liveEffectiveMs,
+        })
+      ) {
+        const bucket = buckets.get(segment.dayKey);
+        if (!bucket) continue;
+        const totalMs = Math.max(0, new Date(segment.endedAt).getTime() - new Date(segment.startedAt).getTime());
+        bucket.effectiveMs += segment.effectiveMs;
+        bucket.breakMs += Math.max(0, totalMs - segment.effectiveMs);
+        bucket.totalMs += totalMs;
+        bucket.sessionCount += 1;
+      }
+    }
+  }
+
   return Array.from(buckets.values());
 }
 
@@ -913,10 +940,24 @@ export function getStudyDailyTotals(state: TrackerState, days = 10): { date: str
   }
 
   const timer = state.studyTimer;
-  if (timer.status !== "idle" && timer.startedAt) {
-    const key = toLocalDateKey(timer.startedAt);
-    if (buckets.has(key)) {
-      buckets.set(key, (buckets.get(key) ?? 0) + getCurrentStudyTimerElapsed(state));
+  if (timer.startedAt && timer.status !== "idle") {
+    const liveEnd = timer.status === "paused" ? timer.lastPausedAt ?? undefined : new Date().toISOString();
+    const liveEffectiveMs = timer.status === "running" ? getCurrentStudyTimerElapsed(state) : timer.effectiveMs;
+    if (liveEnd && liveEffectiveMs > 0) {
+      for (
+        const segment of splitStudySessionAcrossDays({
+          member: timer.member,
+          subjectId: timer.subjectId,
+          subjectName: timer.subjectName,
+          startedAt: timer.startedAt,
+          endedAt: liveEnd,
+          breakMs: timer.breakMs,
+          effectiveMs: liveEffectiveMs,
+        })
+      ) {
+        if (!buckets.has(segment.dayKey)) continue;
+        buckets.set(segment.dayKey, (buckets.get(segment.dayKey) ?? 0) + segment.effectiveMs);
+      }
     }
   }
 

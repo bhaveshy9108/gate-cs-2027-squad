@@ -279,7 +279,7 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
                   <BarChart3 className="h-4 w-4 text-primary" />
                   <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">Effective study graph</p>
                 </div>
-                <h3 className="mt-2 text-lg font-semibold tracking-tight text-foreground">Last 7 days</h3>
+                <h3 className="mt-2 text-lg font-semibold tracking-tight text-foreground">Last 10 days</h3>
               </div>
               <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card px-3 py-1 text-xs text-muted-foreground">
                 <CalendarDays className="h-3.5 w-3.5 text-primary" />
