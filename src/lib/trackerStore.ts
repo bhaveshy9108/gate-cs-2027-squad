@@ -264,37 +264,57 @@ function normalizeStudyTimer(raw: unknown): StudyTimerState {
 function normalizeStudySessions(raw: unknown): StudySession[] {
   if (!Array.isArray(raw)) return [];
 
-  return raw
-    .map((session, index) => {
-      const record = typeof session === "object" && session !== null ? (session as Partial<StudySession>) : {};
-      const member = MEMBERS.includes(record.member as Member) ? (record.member as Member) : null;
-      const startedAt = typeof record.startedAt === "string" ? record.startedAt : "";
-      const endedAt = typeof record.endedAt === "string" ? record.endedAt : "";
-      const dayKey =
-        typeof record.dayKey === "string" && record.dayKey
-          ? record.dayKey
-          : endedAt
-            ? toLocalDateKey(endedAt)
-            : startedAt
-              ? toLocalDateKey(startedAt)
-              : "";
-      const effectiveMs = typeof record.effectiveMs === "number" && Number.isFinite(record.effectiveMs) ? Math.max(0, record.effectiveMs) : 0;
+  return raw.flatMap((session, index) => {
+    const record = typeof session === "object" && session !== null ? (session as Partial<StudySession>) : {};
+    const member = MEMBERS.includes(record.member as Member) ? (record.member as Member) : null;
+    const startedAt = typeof record.startedAt === "string" ? record.startedAt : "";
+    const endedAt = typeof record.endedAt === "string" ? record.endedAt : "";
+    const dayKey =
+      typeof record.dayKey === "string" && record.dayKey
+        ? record.dayKey
+        : endedAt
+          ? toLocalDateKey(endedAt)
+          : startedAt
+            ? toLocalDateKey(startedAt)
+            : "";
+    const effectiveMs = typeof record.effectiveMs === "number" && Number.isFinite(record.effectiveMs) ? Math.max(0, record.effectiveMs) : 0;
+    const breakMs = typeof record.breakMs === "number" && Number.isFinite(record.breakMs) ? Math.max(0, record.breakMs) : 0;
 
-      if (!member || !startedAt || !endedAt || !dayKey) return null;
+    if (!member || !startedAt || !endedAt || !dayKey) return [];
 
-      return {
-        id: typeof record.id === "string" && record.id ? record.id : `study-session-${index}`,
-        member,
-        subjectId: typeof record.subjectId === "string" ? record.subjectId : undefined,
-        subjectName: typeof record.subjectName === "string" ? record.subjectName : undefined,
-        startedAt,
-        endedAt,
-        dayKey,
-        breakMs: typeof record.breakMs === "number" && Number.isFinite(record.breakMs) ? Math.max(0, record.breakMs) : 0,
-        effectiveMs,
-      };
-    })
-    .filter(Boolean) as StudySession[];
+    const normalizedSession = {
+      id: typeof record.id === "string" && record.id ? record.id : `study-session-${index}`,
+      member,
+      subjectId: typeof record.subjectId === "string" ? record.subjectId : undefined,
+      subjectName: typeof record.subjectName === "string" ? record.subjectName : undefined,
+      startedAt,
+      endedAt,
+      dayKey,
+      breakMs,
+      effectiveMs,
+    };
+
+    const start = new Date(startedAt);
+    const end = new Date(endedAt);
+    if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || end.getTime() <= start.getTime()) {
+      return [normalizedSession];
+    }
+
+    const spansMidnight = toLocalDateKey(start) !== toLocalDateKey(end);
+    if (!spansMidnight) return [normalizedSession];
+
+    const splitSessions = splitStudySessionAcrossDays({
+      member: normalizedSession.member,
+      subjectId: normalizedSession.subjectId,
+      subjectName: normalizedSession.subjectName,
+      startedAt: normalizedSession.startedAt,
+      endedAt: normalizedSession.endedAt,
+      breakMs: normalizedSession.breakMs,
+      effectiveMs: normalizedSession.effectiveMs,
+    });
+
+    return splitSessions.length > 0 ? splitSessions : [normalizedSession];
+  });
 }
 
 function normalizeMockTests(mockTests: unknown): MockTest[] {
@@ -894,6 +914,31 @@ export function getStudyDaySummaries(state: TrackerState, days = 10): StudyDaySu
     bucket.sessionCount += 1;
   }
 
+  const timer = state.studyTimer;
+  if (timer.startedAt && timer.status !== "idle") {
+    const liveEnd = timer.status === "paused" ? timer.lastPausedAt ?? undefined : new Date().toISOString();
+    const liveEffectiveMs = timer.status === "running" ? getCurrentStudyTimerElapsed(state) : timer.effectiveMs;
+    if (liveEnd && liveEffectiveMs > 0) {
+      for (const segment of splitStudySessionAcrossDays({
+        member: timer.member,
+        subjectId: timer.subjectId,
+        subjectName: timer.subjectName,
+        startedAt: timer.startedAt,
+        endedAt: liveEnd,
+        breakMs: timer.breakMs,
+        effectiveMs: liveEffectiveMs,
+      })) {
+        const bucket = buckets.get(segment.dayKey);
+        if (!bucket) continue;
+        const totalMs = Math.max(0, new Date(segment.endedAt).getTime() - new Date(segment.startedAt).getTime());
+        bucket.effectiveMs += segment.effectiveMs;
+        bucket.breakMs += Math.max(0, totalMs - segment.effectiveMs);
+        bucket.totalMs += totalMs;
+        bucket.sessionCount += 1;
+      }
+    }
+  }
+
   return Array.from(buckets.values());
 }
 
@@ -910,6 +955,26 @@ export function getStudyDailyTotals(state: TrackerState, days = 10): { date: str
     const key = session.dayKey || toLocalDateKey(session.endedAt || session.startedAt);
     if (!buckets.has(key)) continue;
     buckets.set(key, (buckets.get(key) ?? 0) + session.effectiveMs);
+  }
+
+  const timer = state.studyTimer;
+  if (timer.startedAt && timer.status !== "idle") {
+    const liveEnd = timer.status === "paused" ? timer.lastPausedAt ?? undefined : new Date().toISOString();
+    const liveEffectiveMs = timer.status === "running" ? getCurrentStudyTimerElapsed(state) : timer.effectiveMs;
+    if (liveEnd && liveEffectiveMs > 0) {
+      for (const segment of splitStudySessionAcrossDays({
+        member: timer.member,
+        subjectId: timer.subjectId,
+        subjectName: timer.subjectName,
+        startedAt: timer.startedAt,
+        endedAt: liveEnd,
+        breakMs: timer.breakMs,
+        effectiveMs: liveEffectiveMs,
+      })) {
+        if (!buckets.has(segment.dayKey)) continue;
+        buckets.set(segment.dayKey, (buckets.get(segment.dayKey) ?? 0) + segment.effectiveMs);
+      }
+    }
   }
 
   return Array.from(buckets.entries()).map(([date, effectiveMs]) => {

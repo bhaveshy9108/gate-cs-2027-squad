@@ -89,12 +89,18 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
 
   const activeSubject = SUBJECTS.find((subject) => subject.id === (timer.subjectId ?? selectedSubjectId)) ?? null;
   const effectiveMs = getCurrentStudyTimerElapsed(state, new Date(now));
+  const liveSessionMs =
+    timer.status === "idle"
+      ? 0
+      : getCurrentStudyTimerElapsed(state, new Date(now)) + getCurrentStudyTimerBreakElapsed(state, new Date(now));
   const allTimeTotalMs = state.studySessions
     .filter((session) => session.member === member)
-    .reduce((sum, session) => sum + Math.max(0, new Date(session.endedAt).getTime() - new Date(session.startedAt).getTime()), 0);
+    .reduce((sum, session) => sum + Math.max(0, new Date(session.endedAt).getTime() - new Date(session.startedAt).getTime()), 0)
+    + liveSessionMs;
   const allTimeMs = state.studySessions
     .filter((session) => session.member === member)
-    .reduce((sum, session) => sum + session.effectiveMs, 0);
+    .reduce((sum, session) => sum + session.effectiveMs, 0)
+    + (timer.status === "idle" ? 0 : getCurrentStudyTimerElapsed(state, new Date(now)));
   const chartData = useMemo(
     () =>
       getStudyDailyTotals(state, 10).map((entry) => ({
