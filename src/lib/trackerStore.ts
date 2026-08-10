@@ -631,6 +631,19 @@ function fromLocalDateKey(key: string) {
   return new Date(year, month - 1, day);
 }
 
+function getLocalDayBounds(dateKey: string) {
+  const start = fromLocalDateKey(dateKey);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  return { start, end };
+}
+
+function getSessionOverlapMs(sessionStart: Date, sessionEnd: Date, bucketStart: Date, bucketEnd: Date) {
+  const overlapStart = Math.max(sessionStart.getTime(), bucketStart.getTime());
+  const overlapEnd = Math.min(sessionEnd.getTime(), bucketEnd.getTime());
+  return Math.max(0, overlapEnd - overlapStart);
+}
+
 function splitStudySessionAcrossDays(
   session: {
     member: Member;
@@ -904,14 +917,24 @@ export function getStudyDaySummaries(state: TrackerState, days = 10): StudyDaySu
   }
 
   for (const session of state.studySessions) {
-    const key = session.dayKey || toLocalDateKey(session.endedAt || session.startedAt);
-    const bucket = buckets.get(key);
-    if (!bucket) continue;
-    const totalMs = Math.max(0, new Date(session.endedAt).getTime() - new Date(session.startedAt).getTime());
-    bucket.effectiveMs += session.effectiveMs;
-    bucket.breakMs += Math.max(0, totalMs - session.effectiveMs);
-    bucket.totalMs += totalMs;
-    bucket.sessionCount += 1;
+    const sessionStart = new Date(session.startedAt);
+    const sessionEnd = new Date(session.endedAt);
+    if (!Number.isFinite(sessionStart.getTime()) || !Number.isFinite(sessionEnd.getTime()) || sessionEnd <= sessionStart) continue;
+    const totalMs = Math.max(0, sessionEnd.getTime() - sessionStart.getTime());
+    if (totalMs <= 0) continue;
+    const effectiveRatio = totalMs > 0 ? session.effectiveMs / totalMs : 0;
+
+    for (const [dateKey, bucket] of buckets.entries()) {
+      const { start: bucketStart, end: bucketEnd } = getLocalDayBounds(dateKey);
+      const overlapMs = getSessionOverlapMs(sessionStart, sessionEnd, bucketStart, bucketEnd);
+      if (overlapMs <= 0) continue;
+      const effectiveMs = Math.min(overlapMs, Math.max(0, Math.round(overlapMs * effectiveRatio)));
+      const breakMs = Math.max(0, overlapMs - effectiveMs);
+      bucket.effectiveMs += effectiveMs;
+      bucket.breakMs += breakMs;
+      bucket.totalMs += overlapMs;
+      bucket.sessionCount += 1;
+    }
   }
 
   return Array.from(buckets.values());
@@ -927,9 +950,19 @@ export function getStudyDailyTotals(state: TrackerState, days = 10): { date: str
   }
 
   for (const session of state.studySessions) {
-    const key = session.dayKey || toLocalDateKey(session.endedAt || session.startedAt);
-    if (!buckets.has(key)) continue;
-    buckets.set(key, (buckets.get(key) ?? 0) + session.effectiveMs);
+    const sessionStart = new Date(session.startedAt);
+    const sessionEnd = new Date(session.endedAt);
+    if (!Number.isFinite(sessionStart.getTime()) || !Number.isFinite(sessionEnd.getTime()) || sessionEnd <= sessionStart) continue;
+    const totalMs = Math.max(0, sessionEnd.getTime() - sessionStart.getTime());
+    if (totalMs <= 0) continue;
+    const effectiveRatio = session.effectiveMs / totalMs;
+
+    for (const [dateKey, value] of buckets.entries()) {
+      const { start: bucketStart, end: bucketEnd } = getLocalDayBounds(dateKey);
+      const overlapMs = getSessionOverlapMs(sessionStart, sessionEnd, bucketStart, bucketEnd);
+      if (overlapMs <= 0) continue;
+      buckets.set(dateKey, value + Math.min(overlapMs, Math.max(0, Math.round(overlapMs * effectiveRatio))));
+    }
   }
 
   return Array.from(buckets.entries()).map(([date, effectiveMs]) => {
