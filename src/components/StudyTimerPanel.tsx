@@ -97,7 +97,7 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
     .reduce((sum, session) => sum + session.effectiveMs, 0);
   const chartData = useMemo(
     () =>
-      getStudyDailyTotals(state, 7).map((entry) => ({
+      getStudyDailyTotals(state, 10).map((entry) => ({
         ...entry,
         axisLabel: formatStudyAxisLabel(entry.date),
         tickLabel: (() => {
@@ -111,7 +111,7 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
 
   const weekTotalMs = chartData.reduce((sum, entry) => sum + entry.effectiveMs, 0);
   const todayMs = chartData[chartData.length - 1]?.effectiveMs ?? 0;
-  const daySummaries = getStudyDaySummaries(state, 7);
+  const daySummaries = getStudyDaySummaries(state, 10);
   const recentSessions = [...state.studySessions]
     .filter((session) => session.member === member)
     .sort((a, b) => new Date(b.endedAt).getTime() - new Date(a.endedAt).getTime())
@@ -180,7 +180,7 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
             <p className="mt-1 text-xs text-muted-foreground">Effective study so far</p>
           </div>
           <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
-            <p className="text-[11px] uppercase tracking-[0.25em] text-muted-foreground">Last 7 days</p>
+            <p className="text-[11px] uppercase tracking-[0.25em] text-muted-foreground">Last 10 days</p>
             <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">{formatStudyDuration(weekTotalMs)}</p>
             <p className="mt-1 text-xs text-muted-foreground">{state.studySessions.length} sessions saved</p>
           </div>

@@ -611,6 +611,68 @@ function fromLocalDateKey(key: string) {
   return new Date(year, month - 1, day);
 }
 
+function splitStudySessionAcrossDays(
+  session: {
+    member: Member;
+    subjectId?: string;
+    subjectName?: string;
+    startedAt: string;
+    endedAt: string;
+    breakMs: number;
+    effectiveMs: number;
+  }
+): StudySession[] {
+  const start = new Date(session.startedAt);
+  const end = new Date(session.endedAt);
+  const totalDurationMs = Math.max(0, end.getTime() - start.getTime());
+  if (totalDurationMs <= 0) return [];
+
+  const segments: { startedAt: string; endedAt: string; dayKey: string; durationMs: number }[] = [];
+  let cursor = new Date(start);
+
+  while (cursor < end) {
+    const nextMidnight = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 1);
+    const segmentEnd = nextMidnight < end ? nextMidnight : end;
+    const durationMs = Math.max(0, segmentEnd.getTime() - cursor.getTime());
+    if (durationMs > 0) {
+      segments.push({
+        startedAt: cursor.toISOString(),
+        endedAt: segmentEnd.toISOString(),
+        dayKey: toLocalDateKey(cursor),
+        durationMs,
+      });
+    }
+    cursor = segmentEnd;
+  }
+
+  if (segments.length === 0) return [];
+
+  const effectiveRatio = Math.max(0, Math.min(1, session.effectiveMs / totalDurationMs));
+  let remainingEffective = Math.max(0, session.effectiveMs);
+
+  return segments.map((segment, index) => {
+    const isLast = index === segments.length - 1;
+    const effectiveMs = isLast ? remainingEffective : Math.max(0, Math.min(remainingEffective, Math.round(segment.durationMs * effectiveRatio)));
+    const breakMs = Math.max(0, segment.durationMs - effectiveMs);
+
+    if (!isLast) {
+      remainingEffective -= effectiveMs;
+    }
+
+    return {
+      id: `study-session-${Date.now()}-${index}`,
+      member: session.member,
+      subjectId: session.subjectId,
+      subjectName: session.subjectName,
+      startedAt: segment.startedAt,
+      endedAt: segment.endedAt,
+      dayKey: segment.dayKey,
+      breakMs,
+      effectiveMs,
+    };
+  });
+}
+
 export function formatStudyDuration(ms: number): string {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
   const hours = Math.floor(totalSeconds / 3600);
@@ -705,17 +767,15 @@ export function stopStudyTimer(state: TrackerState): TrackerState {
     effectiveMs > 0 && timer.startedAt
       ? [
           ...state.studySessions,
-          {
-            id: `study-session-${Date.now()}`,
+          ...splitStudySessionAcrossDays({
             member: timer.member,
             subjectId: timer.subjectId,
             subjectName: timer.subjectName,
             startedAt: timer.startedAt,
             endedAt: now,
-            dayKey: toLocalDateKey(now),
             breakMs,
             effectiveMs,
-          },
+          }),
         ]
       : state.studySessions;
 
@@ -806,7 +866,7 @@ export interface StudyDaySummary {
   sessionCount: number;
 }
 
-export function getStudyDaySummaries(state: TrackerState, days = 7): StudyDaySummary[] {
+export function getStudyDaySummaries(state: TrackerState, days = 10): StudyDaySummary[] {
   const today = new Date();
   const buckets = new Map<string, StudyDaySummary>();
 
@@ -837,7 +897,7 @@ export function getStudyDaySummaries(state: TrackerState, days = 7): StudyDaySum
   return Array.from(buckets.values());
 }
 
-export function getStudyDailyTotals(state: TrackerState, days = 7): { date: string; label: string; effectiveMs: number }[] {
+export function getStudyDailyTotals(state: TrackerState, days = 10): { date: string; label: string; effectiveMs: number }[] {
   const today = new Date();
   const buckets = new Map<string, number>();
   for (let offset = days - 1; offset >= 0; offset -= 1) {
