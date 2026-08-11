@@ -25,6 +25,7 @@ import { SUBJECTS, type Member } from "@/lib/gateData";
 import {
   deleteStudySession,
   formatStudyDuration,
+  getCurrentStudyTimerBreakElapsed,
   getCurrentStudyTimerElapsed,
   getStudyDaySummaries,
   getStudyDailyTotals,
