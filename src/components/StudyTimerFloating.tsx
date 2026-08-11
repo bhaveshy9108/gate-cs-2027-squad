@@ -40,7 +40,7 @@ export default function StudyTimerFloating({ state, onUpdate, onOpenStudy }: Pro
   };
 
   return (
-    <div className="fixed bottom-4 right-4 z-[60] w-[min(92vw,20rem)] rounded-[1.5rem] border border-border/70 bg-card/95 p-4 shadow-[0_24px_70px_-35px_rgba(15,23,42,0.45)] backdrop-blur-xl">
+    <div className="pointer-events-none fixed bottom-4 right-4 z-[60] w-[min(92vw,20rem)] rounded-[1.5rem] border border-border/70 bg-card/95 p-4 shadow-[0_24px_70px_-35px_rgba(15,23,42,0.45)] backdrop-blur-xl">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -56,7 +56,7 @@ export default function StudyTimerFloating({ state, onUpdate, onOpenStudy }: Pro
             {timer.status === "running" ? "Running now" : "Paused"}
           </p>
         </div>
-        <div className="rounded-2xl bg-primary/10 px-3 py-2 text-right">
+        <div className="pointer-events-auto rounded-2xl bg-primary/10 px-3 py-2 text-right">
           <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Live</p>
           <p className="text-lg font-semibold text-primary">{formatStudyDuration(elapsedMs)}</p>
         </div>
