@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Clock3, Pause, Play, Square } from "lucide-react";
 import {
   formatStudyDuration,
@@ -15,7 +16,16 @@ interface StudyTimerFloatingProps {
 }
 
 export function StudyTimerFloating({ state, onUpdate, onOpenStudy }: StudyTimerFloatingProps) {
+  const [, setTick] = useState(0);
   const timer = state.studyTimer;
+
+  useEffect(() => {
+    if (!timer || timer.status !== "running") return;
+    const intervalId = window.setInterval(() => {
+      setTick((value) => value + 1);
+    }, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [timer?.status, timer?.lastStartedAt]);
 
   if (!timer || timer.status === "idle") {
     return null;
@@ -31,6 +41,11 @@ export function StudyTimerFloating({ state, onUpdate, onOpenStudy }: StudyTimerF
 
   const handleStop = () => {
     onUpdate(stopStudyTimer(state));
+  };
+
+  const handleOpenStudy = () => {
+    onOpenStudy?.();
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (
@@ -79,7 +94,7 @@ export function StudyTimerFloating({ state, onUpdate, onOpenStudy }: StudyTimerF
 
       <button
         type="button"
-        onClick={onOpenStudy}
+        onClick={handleOpenStudy}
         className="mt-2 h-10 w-full rounded-xl border border-border bg-background text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
       >
         Open Study
