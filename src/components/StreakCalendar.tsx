@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, type MouseEvent } from "react";
 import {
   formatStudyDuration,
   getStudyDaySummaries,
@@ -15,6 +15,13 @@ interface Props {
 interface DayActivity {
   active: boolean;
   effectiveMs: number;
+}
+
+interface HeatmapTooltip {
+  x: number;
+  y: number;
+  date: string;
+  activeLabel: string;
 }
 
 function toLocalDateKey(date: Date): string {
@@ -167,6 +174,20 @@ const DAY_LABELS = ["", "Mon", "", "Wed", "", "Fri", ""];
 export default function StreakCalendar({ state }: Props) {
   const totalWeeks = 53; // Last 12 months
   const grid = useMemo(() => buildGrid(totalWeeks), []);
+  const [tooltip, setTooltip] = useState<HeatmapTooltip | null>(null);
+
+  const showTooltip = (
+    event: MouseEvent<HTMLButtonElement>,
+    date: string,
+    activeLabel: string
+  ) => {
+    setTooltip({
+      x: event.clientX,
+      y: event.clientY,
+      date,
+      activeLabel,
+    });
+  };
 
   return (
     <div className="space-y-6 mt-6">
@@ -188,7 +209,7 @@ export default function StreakCalendar({ state }: Props) {
         );
 
         return (
-          <div key={member} className="bg-card border border-border rounded-xl p-4">
+          <div key={member} className="relative bg-card border border-border rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <span className="font-semibold text-foreground text-sm">{member}</span>
@@ -206,9 +227,13 @@ export default function StreakCalendar({ state }: Props) {
               </div>
             </div>
 
-            {/* Month labels */}
-            <div className="overflow-x-auto pb-2">
-              <div className="inline-block min-w-0">
+            <div className="mb-2 flex items-center justify-between text-[10px] text-muted-foreground">
+              <span>Hover any square to see active study time.</span>
+              <span>Scroll horizontally</span>
+            </div>
+
+            <div className="overflow-x-auto pb-3">
+              <div className="w-max min-w-[1040px]">
                 <div className="flex ml-7">
                   {grid.monthLabels.map((m, i) => {
                     const nextIdx = grid.monthLabels[i + 1]?.weekIndex ?? grid.weeks.length;
@@ -257,13 +282,27 @@ export default function StreakCalendar({ state }: Props) {
                             ? `${formatStudyDuration(cell.activity.effectiveMs)} active`
                             : "No timer activity";
                           return (
-                            <div
+                            <button
+                              type="button"
                               key={di}
                               className={cn(
-                                "w-4 h-4 rounded border border-border/40 transition-colors hover:ring-2 hover:ring-primary/40",
+                                "w-4 h-4 rounded border border-border/40 transition-colors hover:ring-2 hover:ring-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/50",
                                 getColor(cell.activity)
                               )}
-                              title={`${tooltipDate}: ${activeLabel}`}
+                              aria-label={`${tooltipDate}: ${activeLabel}`}
+                              onMouseEnter={(event) => showTooltip(event, tooltipDate, activeLabel)}
+                              onMouseMove={(event) => showTooltip(event, tooltipDate, activeLabel)}
+                              onMouseLeave={() => setTooltip(null)}
+                              onFocus={(event) => {
+                                const rect = event.currentTarget.getBoundingClientRect();
+                                setTooltip({
+                                  x: rect.left + rect.width / 2,
+                                  y: rect.top,
+                                  date: tooltipDate,
+                                  activeLabel,
+                                });
+                              }}
+                              onBlur={() => setTooltip(null)}
                             />
                           );
                         })}
@@ -283,6 +322,19 @@ export default function StreakCalendar({ state }: Props) {
               <div className="w-3 h-3 rounded-sm bg-rose-700 border border-border/40" />
               <span className="text-[10px] text-muted-foreground">More active hrs</span>
             </div>
+
+            {tooltip && (
+              <div
+                className="pointer-events-none fixed z-50 -translate-x-1/2 rounded-lg border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-lg"
+                style={{
+                  left: tooltip.x,
+                  top: Math.max(12, tooltip.y - 58),
+                }}
+              >
+                <p className="font-semibold">{tooltip.date}</p>
+                <p className="text-muted-foreground">{tooltip.activeLabel}</p>
+              </div>
+            )}
           </div>
         );
       })}
