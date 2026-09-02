@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { useMemo, useState, type MouseEvent } from "react";
 import {
   formatStudyDuration,
   getStudyDaySummaries,
@@ -108,61 +108,41 @@ function getStreaks(activityMap: Map<string, DayActivity>): { current: number; l
   return { current, longest };
 }
 
-const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
 interface GridData {
-  weeks: { day: string; activity: DayActivity | null; date: Date }[][];
-  monthLabels: { label: string; weekIndex: number }[];
+  months: {
+    label: string;
+    days: { day: string; activity: DayActivity | null; date: Date }[];
+  }[];
 }
 
-function buildGrid(totalWeeks: number): GridData {
+function buildGrid(): GridData {
+  const startDay = new Date(2026, 1, 1);
   const today = new Date();
-  // Align to end of current week (Saturday), like LeetCode
-  const endDay = new Date(today);
-  // Move to Saturday
-  endDay.setDate(endDay.getDate() + (6 - endDay.getDay()));
+  const endDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const months: GridData["months"] = [];
 
-  const totalDays = totalWeeks * 7;
-  const startDay = new Date(endDay);
-  startDay.setDate(startDay.getDate() - totalDays + 1);
+  let currentMonth = new Date(startDay.getFullYear(), startDay.getMonth(), 1);
+  while (currentMonth <= endDay) {
+    const label = currentMonth.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+    const days: GridData["months"][number]["days"] = [];
+    const lastDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate();
 
-  const weeks: { day: string; activity: DayActivity | null; date: Date }[][] = [];
-  const monthLabels: { label: string; weekIndex: number }[] = [];
-  let lastMonth = -1;
-
-  let currentDate = new Date(startDay);
-  let weekIndex = 0;
-  let currentWeek: { day: string; activity: DayActivity | null; date: Date }[] = [];
-
-  while (currentDate <= endDay) {
-    const dayOfWeek = currentDate.getDay(); // 0=Sun
-
-    if (dayOfWeek === 0 && currentWeek.length > 0) {
-      weeks.push(currentWeek);
-      currentWeek = [];
-      weekIndex++;
+    for (let day = 1; day <= lastDayOfMonth; day += 1) {
+      const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+      if (date > endDay) break;
+      days.push({
+        day: toLocalDateKey(date),
+        activity: null,
+        date,
+      });
     }
 
-    const month = currentDate.getMonth();
-    if (month !== lastMonth) {
-      monthLabels.push({ label: MONTH_NAMES[month], weekIndex });
-      lastMonth = month;
-    }
+    months.push({ label, days });
 
-    currentWeek.push({
-      day: toLocalDateKey(currentDate),
-      activity: null,
-      date: new Date(currentDate),
-    });
-
-    currentDate.setDate(currentDate.getDate() + 1);
+    currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
   }
 
-  if (currentWeek.length > 0) {
-    weeks.push(currentWeek);
-  }
-
-  return { weeks, monthLabels };
+  return { months };
 }
 
 function getColor(activity: DayActivity | null): string {
@@ -183,26 +163,9 @@ function getTooltipPosition(x: number, y: number): { x: number; y: number } {
 }
 
 export default function StreakCalendar({ state }: Props) {
-  const totalWeeks = 53; // Last 12 months
-  const grid = useMemo(() => buildGrid(totalWeeks), []);
+  const grid = useMemo(() => buildGrid(), []);
   const [tooltip, setTooltip] = useState<HeatmapTooltip | null>(null);
   const [readout, setReadout] = useState<ActivityReadout | null>(null);
-  const scrollerRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const scroller = scrollerRef.current;
-    if (!scroller) return;
-    const scrollToLatest = () => {
-      scroller.scrollLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
-    };
-    scrollToLatest();
-    const frame = window.requestAnimationFrame(scrollToLatest);
-    const timeout = window.setTimeout(scrollToLatest, 150);
-    return () => {
-      window.cancelAnimationFrame(frame);
-      window.clearTimeout(timeout);
-    };
-  }, []);
 
   const showTooltip = (
     event: MouseEvent<HTMLButtonElement>,
@@ -225,14 +188,6 @@ export default function StreakCalendar({ state }: Props) {
         const activityMap = getActivityMap(state, member);
         const { current, longest } = getStreaks(activityMap);
 
-        // Fill study activity into the heatmap grid.
-        const filledWeeks = grid.weeks.map((week) =>
-          week.map((cell) => ({
-            ...cell,
-            activity: activityMap.get(cell.day) ?? null,
-          }))
-        );
-
         return (
           <div key={member} className="relative rounded-xl border border-border bg-card p-4">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -243,12 +198,12 @@ export default function StreakCalendar({ state }: Props) {
 
               <div className="flex flex-wrap items-center gap-2">
                 <select
-                  value="last-12-months"
+                  value="feb-2026-now"
                   aria-label="Activity heatmap range"
-                  className="h-9 min-w-[190px] rounded border border-border bg-background px-3 text-xs text-foreground outline-none focus:ring-2 focus:ring-primary/30"
+                  className="h-9 min-w-[210px] rounded border border-border bg-background px-3 text-xs text-foreground outline-none focus:ring-2 focus:ring-primary/30"
                   onChange={() => undefined}
                 >
-                  <option value="last-12-months">Default (Last 12 months)</option>
+                  <option value="feb-2026-now">Feb 2026 to now</option>
                 </select>
                 <div className="rounded border border-border bg-muted/40 px-3 py-1.5 text-xs font-medium text-foreground">
                   Public
@@ -277,72 +232,60 @@ export default function StreakCalendar({ state }: Props) {
               </div>
             </div>
 
-            <div ref={scrollerRef} className="overflow-x-scroll pb-3">
-              <div className="w-max min-w-[1040px]">
-                <div className="flex gap-[5px]">
-                  {filledWeeks.map((week, wi) => (
-                    <div key={wi} className="flex flex-col gap-[5px]">
-                      {Array.from({ length: 7 }).map((_, di) => {
-                        const cell = week.find((c) => c.date.getDay() === di);
-                        if (!cell) {
-                          return <div key={di} className="h-5 w-5" />;
-                        }
-                        const tooltipDate = cell.date.toLocaleDateString("en-IN", {
-                          weekday: "short",
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        });
-                        const activeLabel = cell.activity?.active
-                          ? `${formatStudyDuration(cell.activity.effectiveMs)} active`
-                          : "No timer activity";
-                        return (
-                          <button
-                            type="button"
-                            key={di}
-                            className={cn(
-                              "h-5 w-5 rounded-[0.3rem] border border-border/50 transition-transform hover:scale-110 hover:ring-2 hover:ring-red-300 focus:outline-none focus:ring-2 focus:ring-primary/50",
-                              getColor(cell.activity)
-                            )}
-                            aria-label={`${tooltipDate}: ${activeLabel}`}
-                            onMouseEnter={(event) => showTooltip(event, tooltipDate, activeLabel)}
-                            onMouseMove={(event) => showTooltip(event, tooltipDate, activeLabel)}
-                            onClick={(event) => showTooltip(event, tooltipDate, activeLabel)}
-                            onMouseLeave={() => setTooltip(null)}
-                            onFocus={(event) => {
-                              const rect = event.currentTarget.getBoundingClientRect();
-                              const position = getTooltipPosition(rect.right + 12, rect.top);
-                              setReadout({ date: tooltipDate, activeLabel });
-                              setTooltip({
-                                x: position.x,
-                                y: position.y,
-                                date: tooltipDate,
-                                activeLabel,
-                              });
-                            }}
-                            onBlur={() => setTooltip(null)}
-                          />
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
+            <div className="overflow-x-auto pb-3">
+              <div className="flex w-max min-w-full gap-8">
+                {grid.months.map((month) => {
+                  const filledDays = month.days.map((cell) => ({
+                    ...cell,
+                    activity: activityMap.get(cell.day) ?? null,
+                  }));
 
-                <div className="mt-2 flex">
-                  {grid.monthLabels.map((m, i) => {
-                    const nextIdx = grid.monthLabels[i + 1]?.weekIndex ?? grid.weeks.length;
-                    const span = nextIdx - m.weekIndex;
-                    return (
-                      <span
-                        key={`${m.label}-${m.weekIndex}`}
-                        className="text-[10px] text-muted-foreground"
-                        style={{ width: `${span * 25}px`, flexShrink: 0 }}
-                      >
-                        {m.label}
-                      </span>
-                    );
-                  })}
-                </div>
+                  return (
+                    <div key={month.label} className="shrink-0">
+                      <div className="grid grid-flow-col grid-rows-7 gap-[5px]">
+                        {filledDays.map((cell) => {
+                          const tooltipDate = cell.date.toLocaleDateString("en-IN", {
+                            weekday: "short",
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          });
+                          const activeLabel = cell.activity?.active
+                            ? `${formatStudyDuration(cell.activity.effectiveMs)} active`
+                            : "No timer activity";
+                          return (
+                            <button
+                              type="button"
+                              key={cell.day}
+                              className={cn(
+                                "h-5 w-5 rounded-[0.3rem] border border-border/50 transition-transform hover:scale-110 hover:ring-2 hover:ring-red-300 focus:outline-none focus:ring-2 focus:ring-primary/50",
+                                getColor(cell.activity)
+                              )}
+                              aria-label={`${tooltipDate}: ${activeLabel}`}
+                              onMouseEnter={(event) => showTooltip(event, tooltipDate, activeLabel)}
+                              onMouseMove={(event) => showTooltip(event, tooltipDate, activeLabel)}
+                              onClick={(event) => showTooltip(event, tooltipDate, activeLabel)}
+                              onMouseLeave={() => setTooltip(null)}
+                              onFocus={(event) => {
+                                const rect = event.currentTarget.getBoundingClientRect();
+                                const position = getTooltipPosition(rect.right + 12, rect.top);
+                                setReadout({ date: tooltipDate, activeLabel });
+                                setTooltip({
+                                  x: position.x,
+                                  y: position.y,
+                                  date: tooltipDate,
+                                  activeLabel,
+                                });
+                              }}
+                              onBlur={() => setTooltip(null)}
+                            />
+                          );
+                        })}
+                      </div>
+                      <p className="mt-2 text-center text-[10px] text-muted-foreground">{month.label}</p>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
