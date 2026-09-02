@@ -1,4 +1,4 @@
-import { useMemo, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import {
   formatStudyDuration,
   getStudyDaySummaries,
@@ -110,26 +110,27 @@ function getStreaks(activityMap: Map<string, DayActivity>): { current: number; l
 
 interface GridData {
   months: {
+    key: string;
     label: string;
     days: { day: string; activity: DayActivity | null; date: Date }[];
   }[];
 }
 
+const HEATMAP_START = new Date(2026, 1, 1);
+const HEATMAP_END = new Date(2027, 2, 31);
+
 function buildGrid(): GridData {
-  const startDay = new Date(2026, 1, 1);
-  const today = new Date();
-  const endDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const months: GridData["months"] = [];
 
-  let currentMonth = new Date(startDay.getFullYear(), startDay.getMonth(), 1);
-  while (currentMonth <= endDay) {
+  let currentMonth = new Date(HEATMAP_START.getFullYear(), HEATMAP_START.getMonth(), 1);
+  while (currentMonth <= HEATMAP_END) {
+    const key = toLocalDateKey(currentMonth).slice(0, 7);
     const label = currentMonth.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
     const days: GridData["months"][number]["days"] = [];
     const lastDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate();
 
     for (let day = 1; day <= lastDayOfMonth; day += 1) {
       const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-      if (date > endDay) break;
       days.push({
         day: toLocalDateKey(date),
         activity: null,
@@ -137,7 +138,7 @@ function buildGrid(): GridData {
       });
     }
 
-    months.push({ label, days });
+    months.push({ key, label, days });
 
     currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
   }
@@ -162,10 +163,36 @@ function getTooltipPosition(x: number, y: number): { x: number; y: number } {
   };
 }
 
+function getInitialVisibleMonthKey(): string {
+  const today = new Date();
+  const anchor = new Date(today.getFullYear(), today.getMonth() - 2, 1);
+  const minAnchor = new Date(HEATMAP_START.getFullYear(), HEATMAP_START.getMonth(), 1);
+  const maxAnchor = new Date(HEATMAP_END.getFullYear(), HEATMAP_END.getMonth(), 1);
+  const clamped = anchor < minAnchor ? minAnchor : anchor > maxAnchor ? maxAnchor : anchor;
+  return toLocalDateKey(clamped).slice(0, 7);
+}
+
 export default function StreakCalendar({ state }: Props) {
   const grid = useMemo(() => buildGrid(), []);
   const [tooltip, setTooltip] = useState<HeatmapTooltip | null>(null);
   const [readout, setReadout] = useState<ActivityReadout | null>(null);
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    const anchor = scroller?.querySelector<HTMLElement>(`[data-heatmap-month="${getInitialVisibleMonthKey()}"]`);
+    if (!scroller || !anchor) return;
+    const scrollToAnchor = () => {
+      scroller.scrollLeft = Math.max(0, anchor.offsetLeft - scroller.offsetLeft);
+    };
+    scrollToAnchor();
+    const frame = window.requestAnimationFrame(scrollToAnchor);
+    const timeout = window.setTimeout(scrollToAnchor, 150);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
+    };
+  }, []);
 
   const showTooltip = (
     event: MouseEvent<HTMLButtonElement>,
@@ -198,12 +225,12 @@ export default function StreakCalendar({ state }: Props) {
 
               <div className="flex flex-wrap items-center gap-2">
                 <select
-                  value="feb-2026-now"
+                  value="feb-2026-mar-2027"
                   aria-label="Activity heatmap range"
                   className="h-9 min-w-[210px] rounded border border-border bg-background px-3 text-xs text-foreground outline-none focus:ring-2 focus:ring-primary/30"
                   onChange={() => undefined}
                 >
-                  <option value="feb-2026-now">Feb 2026 to now</option>
+                  <option value="feb-2026-mar-2027">Feb 2026 to Mar 2027</option>
                 </select>
                 <div className="rounded border border-border bg-muted/40 px-3 py-1.5 text-xs font-medium text-foreground">
                   Public
@@ -232,7 +259,7 @@ export default function StreakCalendar({ state }: Props) {
               </div>
             </div>
 
-            <div className="overflow-x-auto pb-3">
+            <div ref={scrollerRef} className="overflow-x-auto pb-3">
               <div className="flex w-max min-w-full gap-8">
                 {grid.months.map((month) => {
                   const filledDays = month.days.map((cell) => ({
@@ -241,7 +268,7 @@ export default function StreakCalendar({ state }: Props) {
                   }));
 
                   return (
-                    <div key={month.label} className="shrink-0">
+                    <div key={month.key} data-heatmap-month={month.key} className="shrink-0">
                       <div className="grid grid-flow-col grid-rows-7 gap-[5px]">
                         {filledDays.map((cell) => {
                           const tooltipDate = cell.date.toLocaleDateString("en-IN", {
