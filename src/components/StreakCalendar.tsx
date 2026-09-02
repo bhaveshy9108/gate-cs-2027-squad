@@ -1,37 +1,86 @@
 import { useMemo } from "react";
-import { type TrackerState } from "@/lib/trackerStore";
+import {
+  formatStudyDuration,
+  getStudyDaySummaries,
+  type TrackerState,
+} from "@/lib/trackerStore";
 import { type Member, MEMBERS } from "@/lib/gateData";
 import { cn } from "@/lib/utils";
-import { Flame } from "lucide-react";
+import { Activity } from "lucide-react";
 
 interface Props {
   state: TrackerState;
 }
 
-function getActivityMap(state: TrackerState, member: Member): Map<string, number> {
-  const map = new Map<string, number>();
-  for (const [key, entry] of Object.entries(state.checklist)) {
-    if (!entry.completed || !entry.completedAt) continue;
-    const [m] = key.split("|");
-    if (m !== member) continue;
-    const day = entry.completedAt.slice(0, 10);
-    map.set(day, (map.get(day) || 0) + 1);
+interface DayActivity {
+  active: boolean;
+  effectiveMs: number;
+}
+
+function toLocalDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function getLiveTimerDayKeys(state: TrackerState, member: Member): string[] {
+  const timer = state.studyTimer;
+  if (timer.member !== member || !timer.startedAt || timer.status === "idle") return [];
+
+  const start = new Date(timer.startedAt);
+  const end = timer.status === "paused" && timer.lastPausedAt ? new Date(timer.lastPausedAt) : new Date();
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || end < start) return [];
+
+  const keys: string[] = [];
+  let cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+  while (cursor <= endDay) {
+    keys.push(toLocalDateKey(cursor));
+    cursor = addDays(cursor, 1);
   }
+  return keys;
+}
+
+function getActivityMap(state: TrackerState, member: Member): Map<string, DayActivity> {
+  const map = new Map<string, DayActivity>();
+  for (const day of getStudyDaySummaries(state, 370)) {
+    if (day.effectiveMs <= 0 && day.sessionCount === 0) continue;
+    map.set(day.date, {
+      active: true,
+      effectiveMs: day.effectiveMs,
+    });
+  }
+
+  for (const dayKey of getLiveTimerDayKeys(state, member)) {
+    const current = map.get(dayKey);
+    map.set(dayKey, {
+      active: true,
+      effectiveMs: current?.effectiveMs ?? 0,
+    });
+  }
+
   return map;
 }
 
-function getStreaks(activityMap: Map<string, number>): { current: number; longest: number } {
+function getStreaks(activityMap: Map<string, DayActivity>): { current: number; longest: number } {
   if (activityMap.size === 0) return { current: 0, longest: 0 };
 
   const days = Array.from(activityMap.keys()).sort();
-  const today = new Date().toISOString().slice(0, 10);
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const today = toLocalDateKey(new Date());
+  const yesterday = toLocalDateKey(addDays(new Date(), -1));
 
   let longest = 1;
   let streak = 1;
   for (let i = 1; i < days.length; i++) {
-    const prev = new Date(days[i - 1]);
-    const curr = new Date(days[i]);
+    const prev = new Date(`${days[i - 1]}T00:00:00`);
+    const curr = new Date(`${days[i]}T00:00:00`);
     const diffDays = (curr.getTime() - prev.getTime()) / 86400000;
     if (diffDays === 1) {
       streak++;
@@ -50,7 +99,7 @@ function getStreaks(activityMap: Map<string, number>): { current: number; longes
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 interface GridData {
-  weeks: { day: string; count: number; date: Date }[][];
+  weeks: { day: string; activity: DayActivity | null; date: Date }[][];
   monthLabels: { label: string; weekIndex: number }[];
 }
 
@@ -65,13 +114,13 @@ function buildGrid(totalWeeks: number): GridData {
   const startDay = new Date(endDay);
   startDay.setDate(startDay.getDate() - totalDays + 1);
 
-  const weeks: { day: string; count: number; date: Date }[][] = [];
+  const weeks: { day: string; activity: DayActivity | null; date: Date }[][] = [];
   const monthLabels: { label: string; weekIndex: number }[] = [];
   let lastMonth = -1;
 
   let currentDate = new Date(startDay);
   let weekIndex = 0;
-  let currentWeek: { day: string; count: number; date: Date }[] = [];
+  let currentWeek: { day: string; activity: DayActivity | null; date: Date }[] = [];
 
   while (currentDate <= endDay) {
     const dayOfWeek = currentDate.getDay(); // 0=Sun
@@ -89,8 +138,8 @@ function buildGrid(totalWeeks: number): GridData {
     }
 
     currentWeek.push({
-      day: currentDate.toISOString().slice(0, 10),
-      count: 0,
+      day: toLocalDateKey(currentDate),
+      activity: null,
       date: new Date(currentDate),
     });
 
@@ -104,42 +153,47 @@ function buildGrid(totalWeeks: number): GridData {
   return { weeks, monthLabels };
 }
 
-function getColor(count: number): string {
-  if (count === 0) return "bg-muted";
-  if (count <= 2) return "bg-primary/30";
-  if (count <= 5) return "bg-primary/60";
-  return "bg-primary";
+function getColor(activity: DayActivity | null): string {
+  if (!activity?.active) return "bg-muted/80";
+  const hours = activity.effectiveMs / 3600000;
+  if (hours < 1) return "bg-rose-200";
+  if (hours < 3) return "bg-rose-300";
+  if (hours < 5) return "bg-rose-500";
+  return "bg-rose-700";
 }
 
 const DAY_LABELS = ["", "Mon", "", "Wed", "", "Fri", ""];
 
 export default function StreakCalendar({ state }: Props) {
-  const totalWeeks = 22; // ~5 months
+  const totalWeeks = 53; // Last 12 months
   const grid = useMemo(() => buildGrid(totalWeeks), []);
 
   return (
     <div className="space-y-6 mt-6">
       <div className="flex items-center gap-2">
-        <Flame className="w-5 h-5 text-primary" />
-        <h2 className="text-lg font-bold text-foreground">Daily Streaks</h2>
+        <Activity className="w-5 h-5 text-primary" />
+        <h2 className="text-lg font-bold text-foreground">Activity Heatmap</h2>
       </div>
 
       {MEMBERS.map((member) => {
         const activityMap = getActivityMap(state, member);
         const { current, longest } = getStreaks(activityMap);
 
-        // Fill counts into grid
+        // Fill study activity into the heatmap grid.
         const filledWeeks = grid.weeks.map((week) =>
           week.map((cell) => ({
             ...cell,
-            count: activityMap.get(cell.day) || 0,
+            activity: activityMap.get(cell.day) ?? null,
           }))
         );
 
         return (
           <div key={member} className="bg-card border border-border rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
-              <span className="font-semibold text-foreground text-sm">{member}</span>
+              <div>
+                <span className="font-semibold text-foreground text-sm">{member}</span>
+                <p className="text-xs text-muted-foreground">Timer activity across the last 12 months</p>
+              </div>
               <div className="flex gap-4">
                 <div className="text-center">
                   <p className="text-lg font-bold text-primary">{current}</p>
@@ -153,7 +207,7 @@ export default function StreakCalendar({ state }: Props) {
             </div>
 
             {/* Month labels */}
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto pb-2">
               <div className="inline-block min-w-0">
                 <div className="flex ml-7">
                   {grid.monthLabels.map((m, i) => {
@@ -163,7 +217,7 @@ export default function StreakCalendar({ state }: Props) {
                       <span
                         key={`${m.label}-${m.weekIndex}`}
                         className="text-[10px] text-muted-foreground"
-                        style={{ width: `${span * 15}px`, flexShrink: 0 }}
+                        style={{ width: `${span * 18}px`, flexShrink: 0 }}
                       >
                         {m.label}
                       </span>
@@ -174,9 +228,9 @@ export default function StreakCalendar({ state }: Props) {
                 {/* Grid: day labels + cells */}
                 <div className="flex gap-0">
                   {/* Day labels column */}
-                  <div className="flex flex-col gap-[3px] mr-1 pt-0">
+                  <div className="flex flex-col gap-1 mr-1 pt-0">
                     {DAY_LABELS.map((label, i) => (
-                      <div key={i} className="h-3 flex items-center">
+                      <div key={i} className="h-4 flex items-center">
                         <span className="text-[9px] text-muted-foreground w-6 text-right pr-1">
                           {label}
                         </span>
@@ -185,22 +239,31 @@ export default function StreakCalendar({ state }: Props) {
                   </div>
 
                   {/* Weeks columns */}
-                  <div className="flex gap-[3px]">
+                  <div className="flex gap-1">
                     {filledWeeks.map((week, wi) => (
-                      <div key={wi} className="flex flex-col gap-[3px]">
+                      <div key={wi} className="flex flex-col gap-1">
                         {Array.from({ length: 7 }).map((_, di) => {
                           const cell = week.find((c) => c.date.getDay() === di);
                           if (!cell) {
-                            return <div key={di} className="w-3 h-3" />;
+                            return <div key={di} className="w-4 h-4" />;
                           }
+                          const tooltipDate = cell.date.toLocaleDateString("en-IN", {
+                            weekday: "short",
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          });
+                          const activeLabel = cell.activity?.active
+                            ? `${formatStudyDuration(cell.activity.effectiveMs)} active`
+                            : "No timer activity";
                           return (
                             <div
                               key={di}
                               className={cn(
-                                "w-3 h-3 rounded-sm transition-colors",
-                                getColor(cell.count)
+                                "w-4 h-4 rounded border border-border/40 transition-colors hover:ring-2 hover:ring-primary/40",
+                                getColor(cell.activity)
                               )}
-                              title={`${cell.day}: ${cell.count} topics`}
+                              title={`${tooltipDate}: ${activeLabel}`}
                             />
                           );
                         })}
@@ -213,11 +276,12 @@ export default function StreakCalendar({ state }: Props) {
 
             <div className="flex items-center gap-1 mt-2 justify-end">
               <span className="text-[10px] text-muted-foreground">Less</span>
-              <div className="w-3 h-3 rounded-sm bg-muted" />
-              <div className="w-3 h-3 rounded-sm bg-primary/30" />
-              <div className="w-3 h-3 rounded-sm bg-primary/60" />
-              <div className="w-3 h-3 rounded-sm bg-primary" />
-              <span className="text-[10px] text-muted-foreground">More</span>
+              <div className="w-3 h-3 rounded-sm bg-muted/80 border border-border/40" />
+              <div className="w-3 h-3 rounded-sm bg-rose-200 border border-border/40" />
+              <div className="w-3 h-3 rounded-sm bg-rose-300 border border-border/40" />
+              <div className="w-3 h-3 rounded-sm bg-rose-500 border border-border/40" />
+              <div className="w-3 h-3 rounded-sm bg-rose-700 border border-border/40" />
+              <span className="text-[10px] text-muted-foreground">More active hrs</span>
             </div>
           </div>
         );
