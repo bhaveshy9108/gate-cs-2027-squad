@@ -48,6 +48,7 @@ export interface TrackerState {
   weeklyPyqPlan: Record<string, WeeklyPyqPlanItem[]>;
   mockTests: MockTest[];
   weeklyTests: WeeklyTest[];
+  testRecycleBin: TestRecycleBin;
   studyTimer: StudyTimerState;
   studySessions: StudySession[];
   testSeries: TestSeriesLink[];
@@ -123,6 +124,23 @@ export interface WeeklyTest {
   updatedAt?: string;
 }
 
+export interface DeletedWeeklyTest {
+  test: WeeklyTest;
+  linkedMockTests: MockTest[];
+  deletedAt: string;
+}
+
+export interface DeletedMockTest {
+  test: MockTest;
+  linkedWeeklyTests: WeeklyTest[];
+  deletedAt: string;
+}
+
+export interface TestRecycleBin {
+  weeklyTests: DeletedWeeklyTest[];
+  mockTests: DeletedMockTest[];
+}
+
 export type StudyTimerStatus = "idle" | "running" | "paused";
 
 export interface StudyTimerState {
@@ -167,6 +185,10 @@ function defaultState(): TrackerState {
     weeklyPyqPlan: {},
     mockTests: [],
     weeklyTests: [],
+    testRecycleBin: {
+      weeklyTests: [],
+      mockTests: [],
+    },
     studyTimer: {
       status: "idle",
       member: "Bhavesh",
@@ -469,6 +491,43 @@ function normalizeWeeklyTests(weeklyTests: unknown): WeeklyTest[] {
   });
 }
 
+function normalizeTestRecycleBin(raw: unknown): TestRecycleBin {
+  const parsed = typeof raw === "object" && raw !== null ? (raw as Partial<TestRecycleBin>) : {};
+  const weeklyEntries = Array.isArray(parsed.weeklyTests) ? parsed.weeklyTests : [];
+  const mockEntries = Array.isArray(parsed.mockTests) ? parsed.mockTests : [];
+
+  return {
+    weeklyTests: weeklyEntries.flatMap((entry, index) => {
+      const record = typeof entry === "object" && entry !== null ? (entry as Partial<DeletedWeeklyTest>) : {};
+      if (!record.test) return [];
+      return [
+        {
+          test: normalizeWeeklyTests([record.test])[0],
+          linkedMockTests: normalizeMockTests(record.linkedMockTests),
+          deletedAt:
+            typeof record.deletedAt === "string" && record.deletedAt
+              ? record.deletedAt
+              : new Date(Date.now() - index).toISOString(),
+        },
+      ];
+    }),
+    mockTests: mockEntries.flatMap((entry, index) => {
+      const record = typeof entry === "object" && entry !== null ? (entry as Partial<DeletedMockTest>) : {};
+      if (!record.test) return [];
+      return [
+        {
+          test: normalizeMockTests([record.test])[0],
+          linkedWeeklyTests: normalizeWeeklyTests(record.linkedWeeklyTests),
+          deletedAt:
+            typeof record.deletedAt === "string" && record.deletedAt
+              ? record.deletedAt
+              : new Date(Date.now() - index).toISOString(),
+        },
+      ];
+    }),
+  };
+}
+
 function restoreKnownLostTestData(state: TrackerState): TrackerState {
   const targetTitle = "GATE CSE 2026 SET 1";
   const fltTitles = new Set(["GATE CSE 2026 SET 1", "GATE CSE 2025 SET 1", "GATE CSE 2026 SET 2"]);
@@ -564,6 +623,7 @@ export function normalizeTrackerState(raw: unknown): TrackerState {
         : base.weeklyPyqPlan,
     mockTests: normalizeMockTests(parsed.mockTests),
     weeklyTests: normalizeWeeklyTests(parsed.weeklyTests),
+    testRecycleBin: normalizeTestRecycleBin(parsed.testRecycleBin),
     studyTimer: normalizeStudyTimer(parsed.studyTimer),
     studySessions: normalizeStudySessions(parsed.studySessions),
     testSeries: normalizeTestSeries(parsed.testSeries, (parsed as { platformLinks?: unknown }).platformLinks),
@@ -1357,15 +1417,60 @@ function seedScheduledTests(state: TrackerState): TrackerState {
 }
 
 export function deleteWeeklyTest(state: TrackerState, testId: string): TrackerState {
-  const linkedMockIds = state.weeklyTests
-    .filter((test) => test.id === testId)
-    .map((test) => test.linkedMockTestId)
-    .filter((value): value is string => Boolean(value));
+  const testToDelete = state.weeklyTests.find((test) => test.id === testId);
+  if (!testToDelete) return state;
+
+  const linkedMockIds = testToDelete.linkedMockTestId ? [testToDelete.linkedMockTestId] : [];
+  const linkedMockTests = state.mockTests.filter((test) => linkedMockIds.includes(test.id));
+  const alreadyDeleted = state.testRecycleBin.weeklyTests.some((entry) => entry.test.id === testId);
 
   return {
     ...state,
     weeklyTests: state.weeklyTests.filter((test) => test.id !== testId),
     mockTests: state.mockTests.filter((test) => !linkedMockIds.includes(test.id)),
+    testRecycleBin: {
+      ...state.testRecycleBin,
+      weeklyTests: alreadyDeleted
+        ? state.testRecycleBin.weeklyTests
+        : [
+            {
+              test: testToDelete,
+              linkedMockTests,
+              deletedAt: new Date().toISOString(),
+            },
+            ...state.testRecycleBin.weeklyTests,
+          ],
+    },
+  };
+}
+
+export function restoreWeeklyTestFromRecycleBin(state: TrackerState, testId: string): TrackerState {
+  const entry = state.testRecycleBin.weeklyTests.find((item) => item.test.id === testId);
+  if (!entry) return state;
+  const existingWeeklyIds = new Set(state.weeklyTests.map((test) => test.id));
+  const existingMockIds = new Set(state.mockTests.map((test) => test.id));
+
+  return {
+    ...state,
+    weeklyTests: existingWeeklyIds.has(entry.test.id) ? state.weeklyTests : [entry.test, ...state.weeklyTests],
+    mockTests: [
+      ...entry.linkedMockTests.filter((test) => !existingMockIds.has(test.id)),
+      ...state.mockTests,
+    ],
+    testRecycleBin: {
+      ...state.testRecycleBin,
+      weeklyTests: state.testRecycleBin.weeklyTests.filter((item) => item.test.id !== testId),
+    },
+  };
+}
+
+export function permanentlyDeleteWeeklyTest(state: TrackerState, testId: string): TrackerState {
+  return {
+    ...state,
+    testRecycleBin: {
+      ...state.testRecycleBin,
+      weeklyTests: state.testRecycleBin.weeklyTests.filter((entry) => entry.test.id !== testId),
+    },
   };
 }
 
@@ -1647,15 +1752,60 @@ export function updateMockTestMeta(
 }
 
 export function deleteMockTest(state: TrackerState, testId: string): TrackerState {
-  const linkedWeeklyIds = state.mockTests
-    .filter((test) => test.id === testId)
-    .map((test) => test.linkedWeeklyTestId)
-    .filter((value): value is string => Boolean(value));
+  const testToDelete = state.mockTests.find((test) => test.id === testId);
+  if (!testToDelete) return state;
+
+  const linkedWeeklyIds = testToDelete.linkedWeeklyTestId ? [testToDelete.linkedWeeklyTestId] : [];
+  const linkedWeeklyTests = state.weeklyTests.filter((test) => linkedWeeklyIds.includes(test.id));
+  const alreadyDeleted = state.testRecycleBin.mockTests.some((entry) => entry.test.id === testId);
 
   return {
     ...state,
     mockTests: state.mockTests.filter((t) => t.id !== testId),
     weeklyTests: state.weeklyTests.filter((test) => !linkedWeeklyIds.includes(test.id)),
+    testRecycleBin: {
+      ...state.testRecycleBin,
+      mockTests: alreadyDeleted
+        ? state.testRecycleBin.mockTests
+        : [
+            {
+              test: testToDelete,
+              linkedWeeklyTests,
+              deletedAt: new Date().toISOString(),
+            },
+            ...state.testRecycleBin.mockTests,
+          ],
+    },
+  };
+}
+
+export function restoreMockTestFromRecycleBin(state: TrackerState, testId: string): TrackerState {
+  const entry = state.testRecycleBin.mockTests.find((item) => item.test.id === testId);
+  if (!entry) return state;
+  const existingMockIds = new Set(state.mockTests.map((test) => test.id));
+  const existingWeeklyIds = new Set(state.weeklyTests.map((test) => test.id));
+
+  return {
+    ...state,
+    mockTests: existingMockIds.has(entry.test.id) ? state.mockTests : [entry.test, ...state.mockTests],
+    weeklyTests: [
+      ...entry.linkedWeeklyTests.filter((test) => !existingWeeklyIds.has(test.id)),
+      ...state.weeklyTests,
+    ],
+    testRecycleBin: {
+      ...state.testRecycleBin,
+      mockTests: state.testRecycleBin.mockTests.filter((item) => item.test.id !== testId),
+    },
+  };
+}
+
+export function permanentlyDeleteMockTest(state: TrackerState, testId: string): TrackerState {
+  return {
+    ...state,
+    testRecycleBin: {
+      ...state.testRecycleBin,
+      mockTests: state.testRecycleBin.mockTests.filter((entry) => entry.test.id !== testId),
+    },
   };
 }
 

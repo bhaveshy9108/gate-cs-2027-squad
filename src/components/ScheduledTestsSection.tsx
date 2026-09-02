@@ -7,7 +7,11 @@ import {
   getCoverageScopeLabel,
   getWeekNumber,
   getWeeklyTestDisplayName,
+  permanentlyDeleteMockTest,
+  permanentlyDeleteWeeklyTest,
   removeTestSeries,
+  restoreMockTestFromRecycleBin,
+  restoreWeeklyTestFromRecycleBin,
   updateTestSeries,
   updateWeeklyTestActive,
   updateWeeklyTestMeta,
@@ -18,7 +22,7 @@ import {
   type WeeklyTest,
   type WeeklyTestSource,
 } from "@/lib/trackerStore";
-import { CalendarCheck2, ChevronDown, ChevronUp, Check, ExternalLink, Link2, Plus, Trash2, X } from "lucide-react";
+import { CalendarCheck2, ChevronDown, ChevronUp, Check, ExternalLink, Link2, Plus, RotateCcw, Trash2, X } from "lucide-react";
 
 interface Props {
   state: TrackerState;
@@ -186,6 +190,7 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
       }),
     [allTests, currentMember]
   );
+  const recycleBinCount = state.testRecycleBin.weeklyTests.length + state.testRecycleBin.mockTests.length;
 
   const resetForm = () => {
     setName("");
@@ -710,6 +715,109 @@ export default function ScheduledTestsSection({ state, onUpdate, onOpenSection }
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           {historyTests.length > 0 ? historyTests.map(renderTestCard) : (
             <p className="text-sm text-muted-foreground">Completed tests will appear here.</p>
+          )}
+        </div>
+      </details>
+
+      <details className="rounded-xl border border-border bg-card p-4">
+        <summary className="cursor-pointer list-none text-sm font-semibold text-foreground">
+          Recycle Bin ({recycleBinCount})
+        </summary>
+        <div className="mt-4 space-y-4">
+          {recycleBinCount === 0 ? (
+            <p className="text-sm text-muted-foreground">Deleted tests will appear here before permanent removal.</p>
+          ) : (
+            <>
+              {state.testRecycleBin.weeklyTests.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+                    Weekly and scheduled tests
+                  </p>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {state.testRecycleBin.weeklyTests.map((entry) => (
+                      <div key={entry.test.id} className="rounded-xl border border-border bg-background px-4 py-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <h4 className="text-sm font-semibold text-foreground">{getWeeklyTestDisplayName(entry.test)}</h4>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {entry.test.source} • deleted {formatSimpleDate(entry.deletedAt)}
+                            </p>
+                            {entry.linkedMockTests.length > 0 && (
+                              <p className="mt-1 text-[11px] text-muted-foreground">
+                                Includes {entry.linkedMockTests.length} synced mock entry.
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => onUpdate(restoreWeeklyTestFromRecycleBin(state, entry.test.id))}
+                              className="rounded-lg border border-border bg-card p-2 text-muted-foreground transition-colors hover:border-primary/30 hover:text-primary"
+                              title="Restore test"
+                            >
+                              <RotateCcw className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => onUpdate(permanentlyDeleteWeeklyTest(state, entry.test.id))}
+                              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                              title="Delete permanently"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {state.testRecycleBin.mockTests.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+                    Mock tests
+                  </p>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {state.testRecycleBin.mockTests.map((entry) => (
+                      <div key={entry.test.id} className="rounded-xl border border-border bg-background px-4 py-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <h4 className="text-sm font-semibold text-foreground">{entry.test.name}</h4>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {entry.test.source ?? "Mock Test"} • deleted {formatSimpleDate(entry.deletedAt)}
+                            </p>
+                            {entry.linkedWeeklyTests.length > 0 && (
+                              <p className="mt-1 text-[11px] text-muted-foreground">
+                                Includes {entry.linkedWeeklyTests.length} synced weekly entry.
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => onUpdate(restoreMockTestFromRecycleBin(state, entry.test.id))}
+                              className="rounded-lg border border-border bg-card p-2 text-muted-foreground transition-colors hover:border-primary/30 hover:text-primary"
+                              title="Restore test"
+                            >
+                              <RotateCcw className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => onUpdate(permanentlyDeleteMockTest(state, entry.test.id))}
+                              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                              title="Delete permanently"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </details>
