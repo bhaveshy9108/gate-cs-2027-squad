@@ -139,6 +139,7 @@ export interface DeletedMockTest {
 export interface TestRecycleBin {
   weeklyTests: DeletedWeeklyTest[];
   mockTests: DeletedMockTest[];
+  permanentlyDeletedIds: string[];
 }
 
 export type StudyTimerStatus = "idle" | "running" | "paused";
@@ -188,6 +189,7 @@ function defaultState(): TrackerState {
     testRecycleBin: {
       weeklyTests: [],
       mockTests: [],
+      permanentlyDeletedIds: [],
     },
     studyTimer: {
       status: "idle",
@@ -495,6 +497,9 @@ function normalizeTestRecycleBin(raw: unknown): TestRecycleBin {
   const parsed = typeof raw === "object" && raw !== null ? (raw as Partial<TestRecycleBin>) : {};
   const weeklyEntries = Array.isArray(parsed.weeklyTests) ? parsed.weeklyTests : [];
   const mockEntries = Array.isArray(parsed.mockTests) ? parsed.mockTests : [];
+  const permanentlyDeletedIds = Array.isArray(parsed.permanentlyDeletedIds)
+    ? parsed.permanentlyDeletedIds.filter((id): id is string => typeof id === "string" && id.length > 0)
+    : [];
 
   return {
     weeklyTests: weeklyEntries.flatMap((entry, index) => {
@@ -525,6 +530,31 @@ function normalizeTestRecycleBin(raw: unknown): TestRecycleBin {
         },
       ];
     }),
+    permanentlyDeletedIds: Array.from(new Set(permanentlyDeletedIds)),
+  };
+}
+
+function getRemovedTestIds(testRecycleBin: TestRecycleBin): Set<string> {
+  return new Set([
+    ...testRecycleBin.permanentlyDeletedIds,
+    ...testRecycleBin.weeklyTests.flatMap((entry) => [
+      entry.test.id,
+      ...entry.linkedMockTests.map((test) => test.id),
+    ]),
+    ...testRecycleBin.mockTests.flatMap((entry) => [
+      entry.test.id,
+      ...entry.linkedWeeklyTests.map((test) => test.id),
+    ]),
+  ]);
+}
+
+function removeDeletedTestsFromActiveState(state: TrackerState): TrackerState {
+  const removedIds = getRemovedTestIds(state.testRecycleBin);
+  if (removedIds.size === 0) return state;
+  return {
+    ...state,
+    weeklyTests: state.weeklyTests.filter((test) => !removedIds.has(test.id)),
+    mockTests: state.mockTests.filter((test) => !removedIds.has(test.id)),
   };
 }
 
@@ -597,7 +627,7 @@ export function normalizeTrackerState(raw: unknown): TrackerState {
   const base = defaultState();
   const parsed = typeof raw === "object" && raw !== null ? (raw as Partial<TrackerState>) : {};
   const allowedMembers = new Set<Member>(MEMBERS);
-  return restoreKnownLostTestData(seedScheduledTests({
+  const normalizedState: TrackerState = {
     ...base,
     ...parsed,
     checklist:
@@ -636,7 +666,9 @@ export function normalizeTrackerState(raw: unknown): TrackerState {
       typeof parsed.topicDifficulty === "object" && parsed.topicDifficulty !== null
         ? parsed.topicDifficulty
         : base.topicDifficulty,
-  }));
+  };
+
+  return removeDeletedTestsFromActiveState(restoreKnownLostTestData(seedScheduledTests(normalizedState)));
 }
 
 // Notes helpers
@@ -1388,9 +1420,11 @@ function buildSeedStatus(totalMarks = 100): WeeklyTest["statusByMember"] {
 
 function seedScheduledTests(state: TrackerState): TrackerState {
   const existingIds = new Set(state.weeklyTests.map((test) => test.id));
+  const removedIds = getRemovedTestIds(state.testRecycleBin);
   let nextState = state;
 
   for (const seed of getScheduledTests()) {
+    if (removedIds.has(seed.id)) continue;
     if (existingIds.has(seed.id)) continue;
     existingIds.add(seed.id);
     nextState = addWeeklyTest(nextState, {
@@ -1449,6 +1483,7 @@ export function restoreWeeklyTestFromRecycleBin(state: TrackerState, testId: str
   if (!entry) return state;
   const existingWeeklyIds = new Set(state.weeklyTests.map((test) => test.id));
   const existingMockIds = new Set(state.mockTests.map((test) => test.id));
+  const restoredIds = new Set([entry.test.id, ...entry.linkedMockTests.map((test) => test.id)]);
 
   return {
     ...state,
@@ -1460,16 +1495,23 @@ export function restoreWeeklyTestFromRecycleBin(state: TrackerState, testId: str
     testRecycleBin: {
       ...state.testRecycleBin,
       weeklyTests: state.testRecycleBin.weeklyTests.filter((item) => item.test.id !== testId),
+      permanentlyDeletedIds: state.testRecycleBin.permanentlyDeletedIds.filter((id) => !restoredIds.has(id)),
     },
   };
 }
 
 export function permanentlyDeleteWeeklyTest(state: TrackerState, testId: string): TrackerState {
+  const entry = state.testRecycleBin.weeklyTests.find((item) => item.test.id === testId);
+  const idsToForget = entry
+    ? [entry.test.id, ...entry.linkedMockTests.map((test) => test.id)]
+    : [testId];
+
   return {
     ...state,
     testRecycleBin: {
       ...state.testRecycleBin,
       weeklyTests: state.testRecycleBin.weeklyTests.filter((entry) => entry.test.id !== testId),
+      permanentlyDeletedIds: Array.from(new Set([...state.testRecycleBin.permanentlyDeletedIds, ...idsToForget])),
     },
   };
 }
@@ -1784,6 +1826,7 @@ export function restoreMockTestFromRecycleBin(state: TrackerState, testId: strin
   if (!entry) return state;
   const existingMockIds = new Set(state.mockTests.map((test) => test.id));
   const existingWeeklyIds = new Set(state.weeklyTests.map((test) => test.id));
+  const restoredIds = new Set([entry.test.id, ...entry.linkedWeeklyTests.map((test) => test.id)]);
 
   return {
     ...state,
@@ -1795,16 +1838,23 @@ export function restoreMockTestFromRecycleBin(state: TrackerState, testId: strin
     testRecycleBin: {
       ...state.testRecycleBin,
       mockTests: state.testRecycleBin.mockTests.filter((item) => item.test.id !== testId),
+      permanentlyDeletedIds: state.testRecycleBin.permanentlyDeletedIds.filter((id) => !restoredIds.has(id)),
     },
   };
 }
 
 export function permanentlyDeleteMockTest(state: TrackerState, testId: string): TrackerState {
+  const entry = state.testRecycleBin.mockTests.find((item) => item.test.id === testId);
+  const idsToForget = entry
+    ? [entry.test.id, ...entry.linkedWeeklyTests.map((test) => test.id)]
+    : [testId];
+
   return {
     ...state,
     testRecycleBin: {
       ...state.testRecycleBin,
       mockTests: state.testRecycleBin.mockTests.filter((entry) => entry.test.id !== testId),
+      permanentlyDeletedIds: Array.from(new Set([...state.testRecycleBin.permanentlyDeletedIds, ...idsToForget])),
     },
   };
 }
