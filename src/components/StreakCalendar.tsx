@@ -161,15 +161,13 @@ function buildGrid(totalWeeks: number): GridData {
 }
 
 function getColor(activity: DayActivity | null): string {
-  if (!activity?.active) return "bg-muted/80";
+  if (!activity?.active) return "bg-slate-200";
   const hours = activity.effectiveMs / 3600000;
-  if (hours < 1) return "bg-rose-200";
-  if (hours < 3) return "bg-rose-300";
-  if (hours < 5) return "bg-rose-500";
-  return "bg-rose-700";
+  if (hours < 1) return "bg-red-200";
+  if (hours < 3) return "bg-red-300";
+  if (hours < 5) return "bg-red-500";
+  return "bg-red-700";
 }
-
-const DAY_LABELS = ["", "Mon", "", "Wed", "", "Fri", ""];
 
 export default function StreakCalendar({ state }: Props) {
   const totalWeeks = 53; // Last 12 months
@@ -190,12 +188,7 @@ export default function StreakCalendar({ state }: Props) {
   };
 
   return (
-    <div className="space-y-6 mt-6">
-      <div className="flex items-center gap-2">
-        <Activity className="w-5 h-5 text-primary" />
-        <h2 className="text-lg font-bold text-foreground">Activity Heatmap</h2>
-      </div>
-
+    <div className="mt-6 space-y-4">
       {MEMBERS.map((member) => {
         const activityMap = getActivityMap(state, member);
         const { current, longest } = getStreaks(activityMap);
@@ -209,32 +202,83 @@ export default function StreakCalendar({ state }: Props) {
         );
 
         return (
-          <div key={member} className="relative bg-card border border-border rounded-xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <span className="font-semibold text-foreground text-sm">{member}</span>
-                <p className="text-xs text-muted-foreground">Timer activity across the last 12 months</p>
+          <div key={member} className="relative rounded-xl border border-border bg-card p-4">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex items-center gap-2">
+                <Activity className="h-4 w-4 text-primary" />
+                <h2 className="text-base font-bold text-foreground">Activity Heatmap</h2>
               </div>
-              <div className="flex gap-4">
-                <div className="text-center">
-                  <p className="text-lg font-bold text-primary">{current}</p>
-                  <p className="text-[10px] text-muted-foreground">Current</p>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="rounded border border-border bg-muted/40 px-3 py-1.5 text-xs font-medium text-foreground">
+                  Public
                 </div>
-                <div className="text-center">
-                  <p className="text-lg font-bold text-foreground">{longest}</p>
-                  <p className="text-[10px] text-muted-foreground">Longest</p>
+                <select
+                  value="last-12-months"
+                  aria-label="Activity heatmap range"
+                  className="h-9 rounded border border-border bg-background px-3 text-xs text-foreground outline-none focus:ring-2 focus:ring-primary/30"
+                  onChange={() => undefined}
+                >
+                  <option value="last-12-months">Default (Last 12 months)</option>
+                </select>
+                <div className="rounded-full bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary">
+                  Current {current}
+                </div>
+                <div className="rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground">
+                  Longest {longest}
                 </div>
               </div>
             </div>
 
-            <div className="mb-2 flex items-center justify-between text-[10px] text-muted-foreground">
-              <span>Hover any square to see active study time.</span>
-              <span>Scroll horizontally</span>
-            </div>
-
-            <div className="overflow-x-auto pb-3">
+            <div className="overflow-x-scroll pb-3">
               <div className="w-max min-w-[1040px]">
-                <div className="flex ml-7">
+                <div className="flex gap-[5px]">
+                  {filledWeeks.map((week, wi) => (
+                    <div key={wi} className="flex flex-col gap-[5px]">
+                      {Array.from({ length: 7 }).map((_, di) => {
+                        const cell = week.find((c) => c.date.getDay() === di);
+                        if (!cell) {
+                          return <div key={di} className="h-5 w-5" />;
+                        }
+                        const tooltipDate = cell.date.toLocaleDateString("en-IN", {
+                          weekday: "short",
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        });
+                        const activeLabel = cell.activity?.active
+                          ? `${formatStudyDuration(cell.activity.effectiveMs)} active`
+                          : "No timer activity";
+                        return (
+                          <button
+                            type="button"
+                            key={di}
+                            className={cn(
+                              "h-5 w-5 rounded-[0.3rem] border border-border/50 transition-transform hover:scale-110 hover:ring-2 hover:ring-red-300 focus:outline-none focus:ring-2 focus:ring-primary/50",
+                              getColor(cell.activity)
+                            )}
+                            aria-label={`${tooltipDate}: ${activeLabel}`}
+                            onMouseEnter={(event) => showTooltip(event, tooltipDate, activeLabel)}
+                            onMouseMove={(event) => showTooltip(event, tooltipDate, activeLabel)}
+                            onMouseLeave={() => setTooltip(null)}
+                            onFocus={(event) => {
+                              const rect = event.currentTarget.getBoundingClientRect();
+                              setTooltip({
+                                x: rect.left + rect.width / 2,
+                                y: rect.top,
+                                date: tooltipDate,
+                                activeLabel,
+                              });
+                            }}
+                            onBlur={() => setTooltip(null)}
+                          />
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-2 flex">
                   {grid.monthLabels.map((m, i) => {
                     const nextIdx = grid.monthLabels[i + 1]?.weekIndex ?? grid.weeks.length;
                     const span = nextIdx - m.weekIndex;
@@ -242,84 +286,23 @@ export default function StreakCalendar({ state }: Props) {
                       <span
                         key={`${m.label}-${m.weekIndex}`}
                         className="text-[10px] text-muted-foreground"
-                        style={{ width: `${span * 18}px`, flexShrink: 0 }}
+                        style={{ width: `${span * 25}px`, flexShrink: 0 }}
                       >
                         {m.label}
                       </span>
                     );
                   })}
                 </div>
-
-                {/* Grid: day labels + cells */}
-                <div className="flex gap-0">
-                  {/* Day labels column */}
-                  <div className="flex flex-col gap-1 mr-1 pt-0">
-                    {DAY_LABELS.map((label, i) => (
-                      <div key={i} className="h-4 flex items-center">
-                        <span className="text-[9px] text-muted-foreground w-6 text-right pr-1">
-                          {label}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Weeks columns */}
-                  <div className="flex gap-1">
-                    {filledWeeks.map((week, wi) => (
-                      <div key={wi} className="flex flex-col gap-1">
-                        {Array.from({ length: 7 }).map((_, di) => {
-                          const cell = week.find((c) => c.date.getDay() === di);
-                          if (!cell) {
-                            return <div key={di} className="w-4 h-4" />;
-                          }
-                          const tooltipDate = cell.date.toLocaleDateString("en-IN", {
-                            weekday: "short",
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                          });
-                          const activeLabel = cell.activity?.active
-                            ? `${formatStudyDuration(cell.activity.effectiveMs)} active`
-                            : "No timer activity";
-                          return (
-                            <button
-                              type="button"
-                              key={di}
-                              className={cn(
-                                "w-4 h-4 rounded border border-border/40 transition-colors hover:ring-2 hover:ring-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/50",
-                                getColor(cell.activity)
-                              )}
-                              aria-label={`${tooltipDate}: ${activeLabel}`}
-                              onMouseEnter={(event) => showTooltip(event, tooltipDate, activeLabel)}
-                              onMouseMove={(event) => showTooltip(event, tooltipDate, activeLabel)}
-                              onMouseLeave={() => setTooltip(null)}
-                              onFocus={(event) => {
-                                const rect = event.currentTarget.getBoundingClientRect();
-                                setTooltip({
-                                  x: rect.left + rect.width / 2,
-                                  y: rect.top,
-                                  date: tooltipDate,
-                                  activeLabel,
-                                });
-                              }}
-                              onBlur={() => setTooltip(null)}
-                            />
-                          );
-                        })}
-                      </div>
-                    ))}
-                  </div>
-                </div>
               </div>
             </div>
 
             <div className="flex items-center gap-1 mt-2 justify-end">
               <span className="text-[10px] text-muted-foreground">Less</span>
-              <div className="w-3 h-3 rounded-sm bg-muted/80 border border-border/40" />
-              <div className="w-3 h-3 rounded-sm bg-rose-200 border border-border/40" />
-              <div className="w-3 h-3 rounded-sm bg-rose-300 border border-border/40" />
-              <div className="w-3 h-3 rounded-sm bg-rose-500 border border-border/40" />
-              <div className="w-3 h-3 rounded-sm bg-rose-700 border border-border/40" />
+              <div className="w-3 h-3 rounded-sm bg-slate-200 border border-border/40" />
+              <div className="w-3 h-3 rounded-sm bg-red-200 border border-border/40" />
+              <div className="w-3 h-3 rounded-sm bg-red-300 border border-border/40" />
+              <div className="w-3 h-3 rounded-sm bg-red-500 border border-border/40" />
+              <div className="w-3 h-3 rounded-sm bg-red-700 border border-border/40" />
               <span className="text-[10px] text-muted-foreground">More active hrs</span>
             </div>
 

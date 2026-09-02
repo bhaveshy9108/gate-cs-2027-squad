@@ -239,12 +239,9 @@ export default function Index() {
     switch (tab) {
       case "dashboard":
         return (
-          <div className="grid gap-5 2xl:grid-cols-[1.15fr_.85fr]">
-            <div className="space-y-5">
-              <OverallDashboard state={state} onOpenSection={(section) => setTab(section)} />
-              <StreakCalendar state={state} />
-            </div>
-            <div className="space-y-5" />
+          <div className="space-y-5">
+            <OverallDashboard state={state} onOpenSection={(section) => setTab(section)} />
+            <StreakCalendar state={state} />
           </div>
         );
       case "study":

@@ -210,7 +210,7 @@ export default function OverallDashboard({ state, onOpenSection }: Props) {
             <p className="hidden text-xs text-muted-foreground sm:block">Tap a row</p>
           </div>
 
-          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
             {subjectSummaries.map((subject) => {
               const isSelected = subject.id === selectedSubject?.id;
               return (
