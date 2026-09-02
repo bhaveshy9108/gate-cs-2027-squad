@@ -1,4 +1,4 @@
-import { useMemo, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import {
   formatStudyDuration,
   getStudyDaySummaries,
@@ -20,6 +20,11 @@ interface DayActivity {
 interface HeatmapTooltip {
   x: number;
   y: number;
+  date: string;
+  activeLabel: string;
+}
+
+interface ActivityReadout {
   date: string;
   activeLabel: string;
 }
@@ -169,19 +174,46 @@ function getColor(activity: DayActivity | null): string {
   return "bg-red-700";
 }
 
+function getTooltipPosition(x: number, y: number): { x: number; y: number } {
+  if (typeof window === "undefined") return { x, y };
+  return {
+    x: Math.min(Math.max(12, x), window.innerWidth - 190),
+    y: Math.min(Math.max(12, y), window.innerHeight - 72),
+  };
+}
+
 export default function StreakCalendar({ state }: Props) {
   const totalWeeks = 53; // Last 12 months
   const grid = useMemo(() => buildGrid(totalWeeks), []);
   const [tooltip, setTooltip] = useState<HeatmapTooltip | null>(null);
+  const [readout, setReadout] = useState<ActivityReadout | null>(null);
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    const scrollToLatest = () => {
+      scroller.scrollLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+    };
+    scrollToLatest();
+    const frame = window.requestAnimationFrame(scrollToLatest);
+    const timeout = window.setTimeout(scrollToLatest, 150);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
+    };
+  }, []);
 
   const showTooltip = (
     event: MouseEvent<HTMLButtonElement>,
     date: string,
     activeLabel: string
   ) => {
+    setReadout({ date, activeLabel });
+    const position = getTooltipPosition(event.clientX + 14, event.clientY + 14);
     setTooltip({
-      x: event.clientX,
-      y: event.clientY,
+      x: position.x,
+      y: position.y,
       date,
       activeLabel,
     });
@@ -210,27 +242,42 @@ export default function StreakCalendar({ state }: Props) {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                <div className="rounded border border-border bg-muted/40 px-3 py-1.5 text-xs font-medium text-foreground">
-                  Public
-                </div>
                 <select
                   value="last-12-months"
                   aria-label="Activity heatmap range"
-                  className="h-9 rounded border border-border bg-background px-3 text-xs text-foreground outline-none focus:ring-2 focus:ring-primary/30"
+                  className="h-9 min-w-[190px] rounded border border-border bg-background px-3 text-xs text-foreground outline-none focus:ring-2 focus:ring-primary/30"
                   onChange={() => undefined}
                 >
                   <option value="last-12-months">Default (Last 12 months)</option>
                 </select>
-                <div className="rounded-full bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary">
-                  Current {current}
-                </div>
-                <div className="rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground">
-                  Longest {longest}
+                <div className="rounded border border-border bg-muted/40 px-3 py-1.5 text-xs font-medium text-foreground">
+                  Public
                 </div>
               </div>
             </div>
 
-            <div className="overflow-x-scroll pb-3">
+            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary">
+                  Current streak {current}
+                </span>
+                <span className="rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground">
+                  Longest {longest}
+                </span>
+              </div>
+              <div className="rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground shadow-sm">
+                {readout ? (
+                  <>
+                    <span className="font-semibold">{readout.date}</span>
+                    <span className="ml-2 text-muted-foreground">{readout.activeLabel}</span>
+                  </>
+                ) : (
+                  <span className="text-muted-foreground">Hover a square to see active hrs</span>
+                )}
+              </div>
+            </div>
+
+            <div ref={scrollerRef} className="overflow-x-scroll pb-3">
               <div className="w-max min-w-[1040px]">
                 <div className="flex gap-[5px]">
                   {filledWeeks.map((week, wi) => (
@@ -260,12 +307,15 @@ export default function StreakCalendar({ state }: Props) {
                             aria-label={`${tooltipDate}: ${activeLabel}`}
                             onMouseEnter={(event) => showTooltip(event, tooltipDate, activeLabel)}
                             onMouseMove={(event) => showTooltip(event, tooltipDate, activeLabel)}
+                            onClick={(event) => showTooltip(event, tooltipDate, activeLabel)}
                             onMouseLeave={() => setTooltip(null)}
                             onFocus={(event) => {
                               const rect = event.currentTarget.getBoundingClientRect();
+                              const position = getTooltipPosition(rect.right + 12, rect.top);
+                              setReadout({ date: tooltipDate, activeLabel });
                               setTooltip({
-                                x: rect.left + rect.width / 2,
-                                y: rect.top,
+                                x: position.x,
+                                y: position.y,
                                 date: tooltipDate,
                                 activeLabel,
                               });
@@ -308,14 +358,14 @@ export default function StreakCalendar({ state }: Props) {
 
             {tooltip && (
               <div
-                className="pointer-events-none fixed z-50 -translate-x-1/2 rounded-lg border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-lg"
+                className="pointer-events-none fixed z-[9999] rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 shadow-xl"
                 style={{
                   left: tooltip.x,
-                  top: Math.max(12, tooltip.y - 58),
+                  top: tooltip.y,
                 }}
               >
                 <p className="font-semibold">{tooltip.date}</p>
-                <p className="text-muted-foreground">{tooltip.activeLabel}</p>
+                <p className="text-slate-600">{tooltip.activeLabel}</p>
               </div>
             )}
           </div>
