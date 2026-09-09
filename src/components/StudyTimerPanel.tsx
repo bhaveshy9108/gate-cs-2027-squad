@@ -38,7 +38,9 @@ import {
   updateStudyTimerSubject,
   type TrackerState,
 } from "@/lib/trackerStore";
+import { requestStudyTimerNotificationPermission } from "@/lib/studyTimerNotifications";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface Props {
   state: TrackerState;
@@ -124,13 +126,26 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
     .sort((a, b) => new Date(b.endedAt).getTime() - new Date(a.endedAt).getTime())
     .slice(0, 5);
 
-  const start = () => {
+  const enableNotificationControls = async () => {
+    const permission = await requestStudyTimerNotificationPermission();
+    if (permission === "granted") {
+      toast.success("Timer controls are available in the notification panel.");
+    } else if (permission === "denied") {
+      toast.message("Timer notifications are blocked in this browser.");
+    }
+  };
+
+  const start = async () => {
     const subject = SUBJECTS.find((entry) => entry.id === selectedSubjectId) ?? SUBJECTS[0];
     onUpdate(startStudyTimer(state, member, subject?.id, subject?.name));
+    await enableNotificationControls();
   };
 
   const pause = () => onUpdate(pauseStudyTimer(state));
-  const resume = () => onUpdate(resumeStudyTimer(state));
+  const resume = async () => {
+    onUpdate(resumeStudyTimer(state));
+    await enableNotificationControls();
+  };
   const stop = () => onUpdate(stopStudyTimer(state));
   const reset = () => onUpdate(resetStudyTimer(state));
   const deleteSession = (sessionId: string) => {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type SetStateAction } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type SetStateAction } from "react";
 import { ArrowRight, BarChart3, BookMarked, BookOpen, CalendarCheck2, CalendarDays, Clock3, GraduationCap, LineChart, RefreshCw, Search, Sparkles, Target, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -10,9 +10,17 @@ import {
   getWeekNumber,
   getWeeklyProgress,
   loadState,
+  pauseStudyTimer,
+  resumeStudyTimer,
   saveState,
+  stopStudyTimer,
   type TrackerState,
 } from "@/lib/trackerStore";
+import {
+  clearStudyTimerNotification,
+  registerStudyTimerServiceWorker,
+  syncStudyTimerNotification,
+} from "@/lib/studyTimerNotifications";
 import {
   clearRoomCode,
   generateRoomCode,
@@ -156,7 +164,7 @@ export default function Index() {
     toast.info(`Disconnected from ${cloudEnabled ? "cloud sync" : "shared workspace"}`);
   };
 
-  const updateState = (updater: SetStateAction<TrackerState>) => {
+  const updateState = useCallback((updater: SetStateAction<TrackerState>) => {
     canPersistRoomRef.current = Boolean(roomCode) || canPersistRoomRef.current;
     setState((previous) => {
       const nextState =
@@ -174,7 +182,46 @@ export default function Index() {
 
       return stampedState;
     });
-  };
+  }, [cloudReady, roomCode]);
+
+  useEffect(() => {
+    void registerStudyTimerServiceWorker();
+  }, []);
+
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+
+    const handleNotificationAction = (event: MessageEvent) => {
+      if (event.data?.type !== "STUDY_TIMER_NOTIFICATION_ACTION") return;
+      const action = event.data.action as string;
+
+      if (action === "open") {
+        setTab("study");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+
+      updateState((previous) => {
+        if (action === "pause") return pauseStudyTimer(previous);
+        if (action === "resume") return resumeStudyTimer(previous);
+        if (action === "stop") return stopStudyTimer(previous);
+        return previous;
+      });
+
+      if (action === "stop") {
+        void clearStudyTimerNotification();
+      }
+    };
+
+    navigator.serviceWorker.addEventListener("message", handleNotificationAction);
+    return () => {
+      navigator.serviceWorker.removeEventListener("message", handleNotificationAction);
+    };
+  }, [updateState]);
+
+  useEffect(() => {
+    void syncStudyTimerNotification(state.studyTimer);
+  }, [state.studyTimer]);
 
   const currentWeek = getWeekNumber(new Date());
   const currentWeekRange = getWeekDateRange(currentWeek);
@@ -220,7 +267,7 @@ export default function Index() {
     }
 
     return results.sort((a, b) => a.score - b.score || a.subjectName.localeCompare(b.subjectName) || a.topicName.localeCompare(b.topicName)).slice(0, 10);
-  }, [searchQuery, state]);
+  }, [searchQuery]);
 
   const activeTab = TABS.find((entry) => entry.id === tab) ?? TABS[0];
   const ActiveIcon = activeTab.icon;

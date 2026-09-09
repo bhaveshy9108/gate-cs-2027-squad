@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import { normalizeTrackerState, type TrackerState } from "./trackerStore";
 import { toast } from "sonner";
 
@@ -6,16 +7,19 @@ const ROOM_CODE_KEY = "gate-tracker-room-code";
 const ROOM_STATE_PREFIX = "gate-tracker-room-state:";
 const ROOM_EVENT_PREFIX = "gate-tracker-room-updated:";
 const CLOUD_SYNC_DISABLED_UNTIL_KEY = "gate-tracker-cloud-sync-disabled-until";
-const CLOUD_SYNC_DISABLED_MS = 15 * 60 * 1000;
+const CLOUD_SYNC_DISABLED_MS = 15 * 1000;
 
 let saveTimeout: ReturnType<typeof setTimeout> | null = null;
+let retryTimeout: ReturnType<typeof setTimeout> | null = null;
 let isSaving = false;
-let lastCloudErrorAt: Record<string, number> = {};
+const lastCloudErrorAt: Record<string, number> = {};
 const CLOUD_SAVE_DELAY_MS = 300;
 const CLOUD_POLL_INTERVAL_MS = 1000;
 
 export function hasCloudSync() {
-  return Boolean(supabase) && !isCloudSyncTemporarilyDisabled();
+  // Configuration determines cloud availability. A transient network issue
+  // should not turn a shared room into an apparently local-only workspace.
+  return Boolean(supabase);
 }
 
 interface LocalRoomSnapshot {
@@ -133,6 +137,17 @@ function disableCloudSyncTemporarily() {
   localStorage.setItem(CLOUD_SYNC_DISABLED_UNTIL_KEY, String(Date.now() + CLOUD_SYNC_DISABLED_MS));
 }
 
+function retryCloudSave(roomCode: string, state: TrackerState) {
+  if (!supabase) return;
+
+  if (retryTimeout) clearTimeout(retryTimeout);
+  const retryAfter = Math.max(250, getCloudSyncDisabledUntil() - Date.now());
+  retryTimeout = setTimeout(() => {
+    retryTimeout = null;
+    void persistCloudState(roomCode, state);
+  }, retryAfter);
+}
+
 export function getSavedRoomCode(): string | null {
   return localStorage.getItem(ROOM_CODE_KEY);
 }
@@ -227,7 +242,11 @@ export async function loadCloudState(roomCode: string): Promise<TrackerState | n
 }
 
 async function persistCloudState(roomCode: string, state: TrackerState) {
-  if (!supabase || isCloudSyncTemporarilyDisabled()) return;
+  if (!supabase) return;
+  if (isCloudSyncTemporarilyDisabled()) {
+    retryCloudSave(roomCode, state);
+    return;
+  }
 
   try {
     const payload = cloneState(state);
@@ -235,7 +254,7 @@ async function persistCloudState(roomCode: string, state: TrackerState) {
     const { error } = await supabase
       .from("tracker_data")
       .upsert(
-        { room_code: roomCode, data: payload as any, user_id: null, updated_at: updatedAt },
+        { room_code: roomCode, data: payload as unknown as Json, user_id: null, updated_at: updatedAt },
         { onConflict: "room_code" }
       );
 
@@ -243,9 +262,12 @@ async function persistCloudState(roomCode: string, state: TrackerState) {
       console.error("Cloud save failed:", error.message);
       if (isNetworkFetchFailure(error)) {
         disableCloudSyncTemporarily();
+        retryCloudSave(roomCode, state);
       } else {
         toast.error(`Cloud save failed: ${error.message}`);
       }
+    } else {
+      clearCloudSyncDisabledFlag();
     }
   } catch (error) {
     console.error("Cloud save failed:", error);
@@ -254,6 +276,7 @@ async function persistCloudState(roomCode: string, state: TrackerState) {
       : normalizeCloudError(error);
     if (isNetworkFetchFailure(error)) {
       disableCloudSyncTemporarily();
+      retryCloudSave(roomCode, state);
     } else {
       toast.error(`Cloud save failed: ${reason}`);
     }
@@ -299,7 +322,7 @@ export function subscribeToRoom(
   roomCode: string,
   onUpdate: (state: TrackerState) => void
 ): { unsubscribe: () => void } {
-  if (!supabase || isCloudSyncTemporarilyDisabled()) {
+  if (!supabase) {
     const snapshotOnly = getLocalRoomSnapshot(roomCode);
     if (snapshotOnly) {
       try {
@@ -372,7 +395,6 @@ export function subscribeToRoom(
 
     const syncFromCloud = async () => {
       if (isCloudSyncTemporarilyDisabled()) {
-        stopCloudSync();
         return;
       }
 
@@ -387,7 +409,6 @@ export function subscribeToRoom(
           console.error(`Cloud sync poll failed for room ${roomCode}:`, error.message);
           if (isNetworkFetchFailure(error)) {
             disableCloudSyncTemporarily();
-            stopCloudSync();
           }
           return;
         }
@@ -405,8 +426,13 @@ export function subscribeToRoom(
         console.error(`Cloud sync poll failed for room ${roomCode}:`, error);
         if (isNetworkFetchFailure(error)) {
           disableCloudSyncTemporarily();
-          stopCloudSync();
         }
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void syncFromCloud();
       }
     };
 
@@ -423,7 +449,7 @@ export function subscribeToRoom(
         (payload) => {
           if (isSaving) return;
 
-          const newRow = payload.new as any;
+          const newRow = payload.new as { data?: unknown; updated_at?: string };
           const newData = newRow?.data ? normalizeTrackerState(newRow.data) : null;
           if (newData) {
             saveRoomStateLocally(roomCode, newData, newRow?.updated_at);
@@ -436,12 +462,14 @@ export function subscribeToRoom(
     pollInterval = window.setInterval(() => {
       void syncFromCloud();
     }, CLOUD_POLL_INTERVAL_MS);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return {
       unsubscribe: () => {
         stopCloudSync();
         window.removeEventListener("storage", handleStorage);
         window.removeEventListener(getRoomEventName(roomCode), handleLocalUpdate);
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
         broadcastChannel?.removeEventListener("message", handleBroadcast);
         broadcastChannel?.close();
       },
