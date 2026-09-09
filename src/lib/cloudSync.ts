@@ -8,6 +8,7 @@ const ROOM_STATE_PREFIX = "gate-tracker-room-state:";
 const ROOM_EVENT_PREFIX = "gate-tracker-room-updated:";
 const CLOUD_SYNC_DISABLED_UNTIL_KEY = "gate-tracker-cloud-sync-disabled-until";
 const CLOUD_SYNC_DISABLED_MS = 15 * 1000;
+const CLOUD_ERROR_NOTICE_COOLDOWN_MS = 5 * 60 * 1000;
 
 let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 let retryTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -103,17 +104,21 @@ function dispatchRoomUpdate(roomCode: string) {
 }
 
 function isNetworkFetchFailure(error: unknown) {
-  if (error instanceof Error) {
-    return /failed to fetch|networkerror|network request failed/i.test(error.message);
-  }
-
-  return false;
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : typeof error === "object" && error !== null && "message" in error
+          ? String((error as { message?: unknown }).message ?? "")
+          : String(error ?? "");
+  return /failed to fetch|networkerror|network request failed|dns|name does not exist|unreachable/i.test(message);
 }
 
 function notifyCloudLoadFailure(roomCode: string, reason: string) {
   const now = Date.now();
   const lastShown = lastCloudErrorAt[roomCode] ?? 0;
-  if (now - lastShown < 10_000) return;
+  if (now - lastShown < CLOUD_ERROR_NOTICE_COOLDOWN_MS) return;
 
   lastCloudErrorAt[roomCode] = now;
   toast.error(`Cloud load failed for room ${roomCode}: ${reason}`);
