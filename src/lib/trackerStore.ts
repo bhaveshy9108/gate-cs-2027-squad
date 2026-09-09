@@ -270,7 +270,7 @@ function normalizeStudyTimer(raw: unknown): StudyTimerState {
   const member = MEMBERS.includes(parsed.member as Member) ? (parsed.member as Member) : base.member;
   const status = parsed.status === "running" || parsed.status === "paused" || parsed.status === "idle" ? parsed.status : "idle";
 
-  return {
+  const normalized = {
     ...base,
     ...parsed,
     member,
@@ -283,12 +283,31 @@ function normalizeStudyTimer(raw: unknown): StudyTimerState {
     breakMs: typeof parsed.breakMs === "number" && Number.isFinite(parsed.breakMs) ? Math.max(0, parsed.breakMs) : 0,
     effectiveMs: typeof parsed.effectiveMs === "number" && Number.isFinite(parsed.effectiveMs) ? Math.max(0, parsed.effectiveMs) : 0,
   };
+
+  const hasValidDate = (value?: string) => Boolean(value && Number.isFinite(new Date(value).getTime()));
+  if (
+    (normalized.status === "running" && (!hasValidDate(normalized.startedAt) || !hasValidDate(normalized.lastStartedAt))) ||
+    (normalized.status === "paused" && (!hasValidDate(normalized.startedAt) || !hasValidDate(normalized.lastPausedAt)))
+  ) {
+    return { ...base, member };
+  }
+
+  if (normalized.status === "idle") {
+    return {
+      ...base,
+      member,
+      subjectId: normalized.subjectId,
+      subjectName: normalized.subjectName,
+    };
+  }
+
+  return normalized;
 }
 
 function normalizeStudySessions(raw: unknown): StudySession[] {
   if (!Array.isArray(raw)) return [];
 
-  return raw.flatMap((session, index) => {
+  const normalized = raw.flatMap((session, index) => {
     const record = typeof session === "object" && session !== null ? (session as Partial<StudySession>) : {};
     const member = MEMBERS.includes(record.member as Member) ? (record.member as Member) : null;
     const startedAt = typeof record.startedAt === "string" ? record.startedAt : "";
@@ -306,8 +325,11 @@ function normalizeStudySessions(raw: unknown): StudySession[] {
 
     if (!member || !startedAt || !endedAt || !dayKey) return [];
 
-    const normalizedSession = {
-      id: typeof record.id === "string" && record.id ? record.id : `study-session-${index}`,
+    const normalizedSession: StudySession = {
+      id:
+        typeof record.id === "string" && record.id
+          ? record.id
+          : `study-session-${member}-${new Date(startedAt).getTime()}-${new Date(endedAt).getTime()}-${index}`,
       member,
       subjectId: typeof record.subjectId === "string" ? record.subjectId : undefined,
       subjectName: typeof record.subjectName === "string" ? record.subjectName : undefined,
@@ -318,27 +340,27 @@ function normalizeStudySessions(raw: unknown): StudySession[] {
       effectiveMs,
     };
 
-    const start = new Date(startedAt);
-    const end = new Date(endedAt);
-    if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || end.getTime() <= start.getTime()) {
-      return [normalizedSession];
-    }
-
-    const spansMidnight = toLocalDateKey(start) !== toLocalDateKey(end);
-    if (!spansMidnight) return [normalizedSession];
-
-    const splitSessions = splitStudySessionAcrossDays({
-      member: normalizedSession.member,
-      subjectId: normalizedSession.subjectId,
-      subjectName: normalizedSession.subjectName,
-      startedAt: normalizedSession.startedAt,
-      endedAt: normalizedSession.endedAt,
-      breakMs: normalizedSession.breakMs,
-      effectiveMs: normalizedSession.effectiveMs,
-    });
-
-    return splitSessions.length > 0 ? splitSessions : [normalizedSession];
+    return [normalizedSession];
   });
+
+  // Previous builds generated a fresh ID when reloading a cross-midnight
+  // session. Keep one semantic copy so historical totals cannot grow on load.
+  const uniqueSessions = new Map<string, StudySession>();
+  for (const session of normalized) {
+    const fingerprint = [
+      session.member,
+      session.subjectId ?? "",
+      session.startedAt,
+      session.endedAt,
+      session.effectiveMs,
+      session.breakMs,
+    ].join("|");
+    if (!uniqueSessions.has(fingerprint)) uniqueSessions.set(fingerprint, session);
+  }
+
+  return [...uniqueSessions.values()].sort(
+    (first, second) => new Date(first.startedAt).getTime() - new Date(second.startedAt).getTime()
+  );
 }
 
 function normalizeMockTests(mockTests: unknown): MockTest[] {
@@ -906,7 +928,7 @@ function splitStudySessionAcrossDays(
     }
 
     return {
-      id: `study-session-${Date.now()}-${index}`,
+      id: `study-session-${session.member}-${new Date(segment.startedAt).getTime()}-${new Date(segment.endedAt).getTime()}-${index}`,
       member: session.member,
       subjectId: session.subjectId,
       subjectName: session.subjectName,
@@ -1061,6 +1083,9 @@ export function stopStudyTimer(state: TrackerState): TrackerState {
     studyTimer: {
       status: "idle",
       member: timer.member,
+      subjectId: timer.subjectId,
+      subjectName: timer.subjectName,
+      startedAt: undefined,
       breakMs: 0,
       effectiveMs: 0,
       lastStartedAt: undefined,
@@ -1075,6 +1100,9 @@ export function resetStudyTimer(state: TrackerState): TrackerState {
     studyTimer: {
       status: "idle",
       member: state.studyTimer.member,
+      subjectId: state.studyTimer.subjectId,
+      subjectName: state.studyTimer.subjectName,
+      startedAt: undefined,
       breakMs: 0,
       effectiveMs: 0,
       lastStartedAt: undefined,
