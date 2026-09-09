@@ -943,6 +943,31 @@ export function getCurrentStudyTimerBreakElapsed(state: TrackerState, now = new 
   return timer.breakMs + Math.max(0, now.getTime() - new Date(timer.lastPausedAt).getTime());
 }
 
+export interface StudyTotals {
+  effectiveMs: number;
+  totalMs: number;
+}
+
+export function getStudyTotals(state: TrackerState, member: Member, now = new Date()): StudyTotals {
+  const saved = state.studySessions
+    .filter((session) => session.member === member)
+    .reduce(
+      (totals, session) => ({
+        effectiveMs: totals.effectiveMs + Math.max(0, session.effectiveMs),
+        totalMs: totals.totalMs + Math.max(0, new Date(session.endedAt).getTime() - new Date(session.startedAt).getTime()),
+      }),
+      { effectiveMs: 0, totalMs: 0 }
+    );
+
+  const timer = state.studyTimer;
+  if (timer.member !== member || timer.status === "idle" || !timer.startedAt) return saved;
+
+  return {
+    effectiveMs: saved.effectiveMs + getCurrentStudyTimerElapsed(state, now),
+    totalMs: saved.totalMs + Math.max(0, now.getTime() - new Date(timer.startedAt).getTime()),
+  };
+}
+
 export function startStudyTimer(state: TrackerState, member: Member, subjectId?: string, subjectName?: string): TrackerState {
   const now = new Date().toISOString();
   return {
@@ -1112,7 +1137,7 @@ export interface StudyDaySummary {
   sessionCount: number;
 }
 
-export function getStudyDaySummaries(state: TrackerState, days = 10): StudyDaySummary[] {
+export function getStudyDaySummaries(state: TrackerState, days = 10, member?: Member): StudyDaySummary[] {
   const today = new Date();
   const buckets = new Map<string, StudyDaySummary>();
 
@@ -1130,6 +1155,7 @@ export function getStudyDaySummaries(state: TrackerState, days = 10): StudyDaySu
   }
 
   for (const session of state.studySessions) {
+    if (member && session.member !== member) continue;
     const sessionStart = new Date(session.startedAt);
     const sessionEnd = new Date(session.endedAt);
     if (!Number.isFinite(sessionStart.getTime()) || !Number.isFinite(sessionEnd.getTime()) || sessionEnd <= sessionStart) continue;
@@ -1151,7 +1177,7 @@ export function getStudyDaySummaries(state: TrackerState, days = 10): StudyDaySu
   }
 
   const timer = state.studyTimer;
-  if (timer.startedAt && timer.status !== "idle") {
+  if (timer.startedAt && timer.status !== "idle" && (!member || timer.member === member)) {
     const liveEnd = timer.status === "paused" ? timer.lastPausedAt ?? undefined : new Date().toISOString();
     const liveEffectiveMs = timer.status === "running" ? getCurrentStudyTimerElapsed(state) : timer.effectiveMs;
     if (liveEnd && liveEffectiveMs > 0) {
@@ -1178,7 +1204,7 @@ export function getStudyDaySummaries(state: TrackerState, days = 10): StudyDaySu
   return Array.from(buckets.values());
 }
 
-export function getStudyDailyTotals(state: TrackerState, days = 10): { date: string; label: string; effectiveMs: number }[] {
+export function getStudyDailyTotals(state: TrackerState, days = 10, member?: Member): { date: string; label: string; effectiveMs: number }[] {
   const today = new Date();
   const buckets = new Map<string, number>();
   for (let offset = days - 1; offset >= 0; offset -= 1) {
@@ -1188,6 +1214,7 @@ export function getStudyDailyTotals(state: TrackerState, days = 10): { date: str
   }
 
   for (const session of state.studySessions) {
+    if (member && session.member !== member) continue;
     const sessionStart = new Date(session.startedAt);
     const sessionEnd = new Date(session.endedAt);
     if (!Number.isFinite(sessionStart.getTime()) || !Number.isFinite(sessionEnd.getTime()) || sessionEnd <= sessionStart) continue;
@@ -1204,7 +1231,7 @@ export function getStudyDailyTotals(state: TrackerState, days = 10): { date: str
   }
 
   const timer = state.studyTimer;
-  if (timer.startedAt && timer.status !== "idle") {
+  if (timer.startedAt && timer.status !== "idle" && (!member || timer.member === member)) {
     const liveEnd = timer.status === "paused" ? timer.lastPausedAt ?? undefined : new Date().toISOString();
     const liveEffectiveMs = timer.status === "running" ? getCurrentStudyTimerElapsed(state) : timer.effectiveMs;
     if (liveEnd && liveEffectiveMs > 0) {

@@ -25,10 +25,10 @@ import { SUBJECTS, type Member } from "@/lib/gateData";
 import {
   deleteStudySession,
   formatStudyDuration,
-  getCurrentStudyTimerBreakElapsed,
   getCurrentStudyTimerElapsed,
   getStudyDaySummaries,
   getStudyDailyTotals,
+  getStudyTotals,
   pauseStudyTimer,
   resetStudyTimer,
   resumeStudyTimer,
@@ -92,21 +92,10 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
 
   const activeSubject = SUBJECTS.find((subject) => subject.id === (timer.subjectId ?? selectedSubjectId)) ?? null;
   const effectiveMs = getCurrentStudyTimerElapsed(state, new Date(now));
-  const liveSessionMs =
-    timer.status === "idle"
-      ? 0
-      : getCurrentStudyTimerElapsed(state, new Date(now)) + getCurrentStudyTimerBreakElapsed(state, new Date(now));
-  const allTimeTotalMs = state.studySessions
-    .filter((session) => session.member === member)
-    .reduce((sum, session) => sum + Math.max(0, new Date(session.endedAt).getTime() - new Date(session.startedAt).getTime()), 0)
-    + liveSessionMs;
-  const allTimeMs = state.studySessions
-    .filter((session) => session.member === member)
-    .reduce((sum, session) => sum + session.effectiveMs, 0)
-    + (timer.status === "idle" ? 0 : getCurrentStudyTimerElapsed(state, new Date(now)));
+  const allTimeTotals = getStudyTotals(state, member, new Date(now));
   const chartData = useMemo(
     () =>
-      getStudyDailyTotals(state, 10).map((entry) => ({
+      getStudyDailyTotals(state, 10, member).map((entry) => ({
         ...entry,
         axisLabel: formatStudyAxisLabel(entry.date),
         tickLabel: (() => {
@@ -115,12 +104,12 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
         })(),
         hours: Number((entry.effectiveMs / 3600000).toFixed(2)),
       })),
-    [state]
+    [state, member]
   );
 
   const weekTotalMs = chartData.reduce((sum, entry) => sum + entry.effectiveMs, 0);
   const todayMs = chartData[chartData.length - 1]?.effectiveMs ?? 0;
-  const daySummaries = getStudyDaySummaries(state, 10);
+  const daySummaries = getStudyDaySummaries(state, 10, member);
   const recentSessions = [...state.studySessions]
     .filter((session) => session.member === member)
     .sort((a, b) => new Date(b.endedAt).getTime() - new Date(a.endedAt).getTime())
@@ -208,9 +197,9 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
           </div>
           <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
             <p className="text-[11px] uppercase tracking-[0.25em] text-muted-foreground">All time</p>
-            <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">{formatStudyDuration(allTimeMs)}</p>
+            <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">{formatStudyDuration(allTimeTotals.effectiveMs)}</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Total effective study sessions from {formatStudyDuration(allTimeTotalMs)} total hours sat
+              Total effective study sessions from {formatStudyDuration(allTimeTotals.totalMs)} total hours sat
             </p>
           </div>
         </div>
