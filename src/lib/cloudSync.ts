@@ -422,13 +422,19 @@ export function subscribeToRoom(
         const cloudUpdatedAt = data.updated_at ?? new Date(0).toISOString();
         const cloudState = normalizeTrackerState(data.data);
         const localSnapshot = getLocalRoomSnapshot(roomCode);
+        if (localSnapshot && localSnapshot.updatedAt >= cloudUpdatedAt) {
+          if (localSnapshot.updatedAt > cloudUpdatedAt) {
+            void persistCloudState(roomCode, localSnapshot.state);
+          }
+          return;
+        }
         const mergedState = localSnapshot ? mergeTrackerStates(localSnapshot.state, cloudState) : cloudState;
         const changedLocally = !localSnapshot || JSON.stringify(mergedState) !== JSON.stringify(localSnapshot.state);
         if (JSON.stringify(mergedState) !== JSON.stringify(cloudState)) {
           void persistCloudState(roomCode, mergedState);
         }
         if (changedLocally) {
-          saveRoomStateLocally(roomCode, mergedState, mergedState.lastUpdatedAt ?? cloudUpdatedAt, false);
+          saveRoomStateLocally(roomCode, mergedState, cloudUpdatedAt, false);
           onUpdate(mergedState);
         }
       } catch (error) {
@@ -462,13 +468,14 @@ export function subscribeToRoom(
           const newData = newRow?.data ? normalizeTrackerState(newRow.data) : null;
           if (newData) {
             const localSnapshot = getLocalRoomSnapshot(roomCode);
+            if (localSnapshot && newRow.updated_at && localSnapshot.updatedAt >= newRow.updated_at) return;
             const mergedState = localSnapshot ? mergeTrackerStates(localSnapshot.state, newData) : newData;
             const changedLocally = !localSnapshot || JSON.stringify(mergedState) !== JSON.stringify(localSnapshot.state);
             if (JSON.stringify(mergedState) !== JSON.stringify(newData)) {
               void persistCloudState(roomCode, mergedState);
             }
             if (changedLocally) {
-              saveRoomStateLocally(roomCode, mergedState, mergedState.lastUpdatedAt ?? newRow?.updated_at, false);
+              saveRoomStateLocally(roomCode, mergedState, newRow?.updated_at, false);
               onUpdate(mergedState);
             }
           }
