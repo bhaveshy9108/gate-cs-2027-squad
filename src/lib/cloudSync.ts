@@ -84,13 +84,18 @@ function createRoomChannel(roomCode: string): BroadcastChannel | null {
   return new BroadcastChannel(`gate-tracker-room:${roomCode}`);
 }
 
-function saveRoomStateLocally(roomCode: string, state: TrackerState, updatedAt = new Date().toISOString()) {
+function saveRoomStateLocally(
+  roomCode: string,
+  state: TrackerState,
+  updatedAt = new Date().toISOString(),
+  notify = true
+) {
   const snapshot: LocalRoomSnapshot = {
     state: cloneState(state),
     updatedAt,
   };
   localStorage.setItem(getRoomStateKey(roomCode), JSON.stringify(snapshot));
-  dispatchRoomUpdate(roomCode);
+  if (notify) dispatchRoomUpdate(roomCode);
 }
 
 function dispatchRoomUpdate(roomCode: string) {
@@ -158,7 +163,7 @@ export function getSavedRoomState(roomCode: string): TrackerState | null {
 
 export function publishRoomState(roomCode: string, state: TrackerState) {
   const updatedAt = new Date().toISOString();
-  saveRoomStateLocally(roomCode, state, updatedAt);
+  saveRoomStateLocally(roomCode, state, updatedAt, false);
 
   const channel = createRoomChannel(roomCode);
   channel?.postMessage({
@@ -218,11 +223,12 @@ export async function loadCloudState(roomCode: string): Promise<TrackerState | n
 
       const mergedState = localSnapshot ? mergeTrackerStates(localSnapshot.state, cloudState) : cloudState;
       const mergedUpdatedAt = mergedState.lastUpdatedAt ?? cloudUpdatedAt;
+      const changedLocally = !localSnapshot || JSON.stringify(mergedState) !== JSON.stringify(localSnapshot.state);
       if (JSON.stringify(mergedState) !== JSON.stringify(cloudState)) {
         void persistCloudState(roomCode, mergedState);
       }
 
-      saveRoomStateLocally(roomCode, mergedState, mergedUpdatedAt);
+      if (changedLocally) saveRoomStateLocally(roomCode, mergedState, mergedUpdatedAt, false);
       clearCloudSyncDisabledFlag();
       return mergedState;
     } catch (error) {
@@ -417,11 +423,14 @@ export function subscribeToRoom(
         const cloudState = normalizeTrackerState(data.data);
         const localSnapshot = getLocalRoomSnapshot(roomCode);
         const mergedState = localSnapshot ? mergeTrackerStates(localSnapshot.state, cloudState) : cloudState;
+        const changedLocally = !localSnapshot || JSON.stringify(mergedState) !== JSON.stringify(localSnapshot.state);
         if (JSON.stringify(mergedState) !== JSON.stringify(cloudState)) {
           void persistCloudState(roomCode, mergedState);
         }
-        saveRoomStateLocally(roomCode, mergedState, mergedState.lastUpdatedAt ?? cloudUpdatedAt);
-        onUpdate(mergedState);
+        if (changedLocally) {
+          saveRoomStateLocally(roomCode, mergedState, mergedState.lastUpdatedAt ?? cloudUpdatedAt, false);
+          onUpdate(mergedState);
+        }
       } catch (error) {
         console.error(`Cloud sync poll failed for room ${roomCode}:`, error);
         if (isNetworkFetchFailure(error)) {
@@ -454,11 +463,14 @@ export function subscribeToRoom(
           if (newData) {
             const localSnapshot = getLocalRoomSnapshot(roomCode);
             const mergedState = localSnapshot ? mergeTrackerStates(localSnapshot.state, newData) : newData;
+            const changedLocally = !localSnapshot || JSON.stringify(mergedState) !== JSON.stringify(localSnapshot.state);
             if (JSON.stringify(mergedState) !== JSON.stringify(newData)) {
               void persistCloudState(roomCode, mergedState);
             }
-            saveRoomStateLocally(roomCode, mergedState, mergedState.lastUpdatedAt ?? newRow?.updated_at);
-            onUpdate(mergedState);
+            if (changedLocally) {
+              saveRoomStateLocally(roomCode, mergedState, mergedState.lastUpdatedAt ?? newRow?.updated_at, false);
+              onUpdate(mergedState);
+            }
           }
         }
       )
