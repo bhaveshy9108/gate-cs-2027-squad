@@ -960,7 +960,8 @@ export function getStudyTotals(state: TrackerState, member: Member, now = new Da
     );
 
   const timer = state.studyTimer;
-  if (!includeLive || timer.member !== member || timer.status === "idle" || !timer.startedAt) return saved;
+  if (timer.member !== member || timer.status === "idle" || !timer.startedAt) return saved;
+  if (!includeLive && timer.status === "running") return saved;
 
   return {
     effectiveMs: saved.effectiveMs + getCurrentStudyTimerElapsed(state, now),
@@ -1177,7 +1178,7 @@ export function getStudyDaySummaries(state: TrackerState, days = 10, member?: Me
   }
 
   const timer = state.studyTimer;
-  if (includeLive && timer.startedAt && timer.status !== "idle" && (!member || timer.member === member)) {
+  if (timer.startedAt && timer.status !== "idle" && (includeLive || timer.status === "paused") && (!member || timer.member === member)) {
     const liveEnd = timer.status === "paused" ? timer.lastPausedAt ?? undefined : new Date().toISOString();
     const liveEffectiveMs = timer.status === "running" ? getCurrentStudyTimerElapsed(state) : timer.effectiveMs;
     if (liveEnd && liveEffectiveMs > 0) {
@@ -1236,7 +1237,7 @@ export function getStudyDailyTotals(
   }
 
   const timer = state.studyTimer;
-  if (includeLive && timer.startedAt && timer.status !== "idle" && (!member || timer.member === member)) {
+  if (timer.startedAt && timer.status !== "idle" && (includeLive || timer.status === "paused") && (!member || timer.member === member)) {
     const liveEnd = timer.status === "paused" ? timer.lastPausedAt ?? undefined : new Date().toISOString();
     const liveEffectiveMs = timer.status === "running" ? getCurrentStudyTimerElapsed(state) : timer.effectiveMs;
     if (liveEnd && liveEffectiveMs > 0) {
