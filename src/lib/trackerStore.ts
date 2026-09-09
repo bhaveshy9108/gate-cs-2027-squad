@@ -671,6 +671,127 @@ export function normalizeTrackerState(raw: unknown): TrackerState {
   return removeDeletedTestsFromActiveState(restoreKnownLostTestData(seedScheduledTests(normalizedState)));
 }
 
+function timestampValue(value?: string) {
+  const timestamp = value ? new Date(value).getTime() : 0;
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function latestValue<T>(first: T, second: T, firstUpdatedAt?: string, secondUpdatedAt?: string) {
+  return timestampValue(secondUpdatedAt) > timestampValue(firstUpdatedAt) ? second : first;
+}
+
+function mergeById<T extends { id: string }>(
+  first: T[],
+  second: T[],
+  getUpdatedAt: (value: T) => string | undefined
+) {
+  const merged = new Map(first.map((value) => [value.id, value]));
+  for (const value of second) {
+    const existing = merged.get(value.id);
+    merged.set(value.id, existing ? latestValue(existing, value, getUpdatedAt(existing), getUpdatedAt(value)) : value);
+  }
+  return [...merged.values()];
+}
+
+/**
+ * Combines independent updates made on different devices. Test edits retain
+ * their latest version, while completed study sessions and checklist work are
+ * additive so one device cannot erase the other device's history.
+ */
+export function mergeTrackerStates(firstRaw: TrackerState, secondRaw: TrackerState): TrackerState {
+  const first = normalizeTrackerState(firstRaw);
+  const second = normalizeTrackerState(secondRaw);
+  const secondIsNewer = timestampValue(second.lastUpdatedAt) > timestampValue(first.lastUpdatedAt);
+  const newer = secondIsNewer ? second : first;
+  const older = secondIsNewer ? first : second;
+
+  const checklist: ChecklistData = { ...older.checklist };
+  for (const [key, entry] of Object.entries(newer.checklist)) {
+    const existing = checklist[key];
+    checklist[key] = !existing
+      ? entry
+      : entry.completed || existing.completed
+        ? latestValue(existing, entry, existing.completedAt, entry.completedAt)
+        : entry;
+  }
+
+  const mergeTopicArrays = (primary: Record<string, Topic[]>, secondary: Record<string, Topic[]>) => {
+    const merged: Record<string, Topic[]> = { ...primary };
+    for (const [key, topics] of Object.entries(secondary)) {
+      const existing = merged[key] ?? [];
+      merged[key] = Array.from(new Map([...existing, ...topics].map((topic) => [topic.id, topic])).values());
+    }
+    return merged;
+  };
+
+  const mergeStringArrays = (primary: Record<string, string[]>, secondary: Record<string, string[]>) => {
+    const merged: Record<string, string[]> = { ...primary };
+    for (const [key, values] of Object.entries(secondary)) {
+      merged[key] = Array.from(new Set([...(merged[key] ?? []), ...values]));
+    }
+    return merged;
+  };
+
+  const mergePlanItems = (primary: Record<string, WeeklyPyqPlanItem[]>, secondary: Record<string, WeeklyPyqPlanItem[]>) => {
+    const merged: Record<string, WeeklyPyqPlanItem[]> = { ...primary };
+    for (const [key, values] of Object.entries(secondary)) {
+      const existing = merged[key] ?? [];
+      merged[key] = Array.from(
+        new Map([...existing, ...values].map((item) => [`${item.subjectId}|${item.topicId}|${item.addedAt}`, item])).values()
+      );
+    }
+    return merged;
+  };
+
+  const mergedState: TrackerState = {
+    ...newer,
+    checklist,
+    customTopics: mergeTopicArrays(older.customTopics, newer.customTopics),
+    deletedTopics: mergeStringArrays(older.deletedTopics, newer.deletedTopics),
+    weeklyPyqPlan: mergePlanItems(older.weeklyPyqPlan, newer.weeklyPyqPlan),
+    mockTests: mergeById(older.mockTests, newer.mockTests, (test) => test.updatedAt),
+    weeklyTests: mergeById(older.weeklyTests, newer.weeklyTests, (test) => test.updatedAt),
+    studySessions: mergeById(older.studySessions, newer.studySessions, (session) => session.endedAt),
+    testSeries: mergeById(older.testSeries, newer.testSeries, () => undefined),
+    testRecycleBin: {
+      weeklyTests: Array.from(
+        new Map(
+          [...older.testRecycleBin.weeklyTests, ...newer.testRecycleBin.weeklyTests].map((entry) => [entry.test.id, entry])
+        ).values()
+      ),
+      mockTests: Array.from(
+        new Map(
+          [...older.testRecycleBin.mockTests, ...newer.testRecycleBin.mockTests].map((entry) => [entry.test.id, entry])
+        ).values()
+      ),
+      permanentlyDeletedIds: Array.from(new Set([
+        ...older.testRecycleBin.permanentlyDeletedIds,
+        ...newer.testRecycleBin.permanentlyDeletedIds,
+      ])),
+    },
+    testAnalysisChecklist: Object.fromEntries(
+      Array.from(new Set([
+        ...Object.keys(older.testAnalysisChecklist),
+        ...Object.keys(newer.testAnalysisChecklist),
+      ])).map((key) => {
+        const firstChecklist = older.testAnalysisChecklist[key] ?? DEFAULT_TEST_ANALYSIS_CHECKLIST;
+        const secondChecklist = newer.testAnalysisChecklist[key] ?? DEFAULT_TEST_ANALYSIS_CHECKLIST;
+        return [key, {
+          reviewed: firstChecklist.reviewed || secondChecklist.reviewed,
+          mistakes: firstChecklist.mistakes || secondChecklist.mistakes,
+          revised: firstChecklist.revised || secondChecklist.revised,
+          notesUpdated: firstChecklist.notesUpdated || secondChecklist.notesUpdated,
+        }];
+      })
+    ),
+    topicNotes: { ...older.topicNotes, ...newer.topicNotes },
+    topicDifficulty: { ...older.topicDifficulty, ...newer.topicDifficulty },
+    lastUpdatedAt: newer.lastUpdatedAt ?? older.lastUpdatedAt,
+  };
+
+  return normalizeTrackerState(mergedState);
+}
+
 // Notes helpers
 export function getTopicNote(state: TrackerState, subjectId: string, topicId: string): TopicNote {
   return state.topicNotes[`${subjectId}|${topicId}`] || { text: "", links: [] };
@@ -1118,7 +1239,9 @@ export function loadState(): TrackerState {
     if (raw) {
       return normalizeTrackerState(JSON.parse(raw));
     }
-  } catch {}
+  } catch {
+    return defaultState();
+  }
   return defaultState();
 }
 

@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
-import { normalizeTrackerState, type TrackerState } from "./trackerStore";
+import { mergeTrackerStates, normalizeTrackerState, type TrackerState } from "./trackerStore";
 import { toast } from "sonner";
 
 const ROOM_CODE_KEY = "gate-tracker-room-code";
@@ -216,14 +216,15 @@ export async function loadCloudState(roomCode: string): Promise<TrackerState | n
       const cloudState = normalizeTrackerState(data.data);
       const cloudUpdatedAt = data.updated_at ?? new Date(0).toISOString();
 
-      if (localSnapshot && localSnapshot.updatedAt > cloudUpdatedAt) {
-        void persistCloudState(roomCode, localSnapshot.state);
-        return localSnapshot.state;
+      const mergedState = localSnapshot ? mergeTrackerStates(localSnapshot.state, cloudState) : cloudState;
+      const mergedUpdatedAt = mergedState.lastUpdatedAt ?? cloudUpdatedAt;
+      if (JSON.stringify(mergedState) !== JSON.stringify(cloudState)) {
+        void persistCloudState(roomCode, mergedState);
       }
 
-      saveRoomStateLocally(roomCode, cloudState, cloudUpdatedAt);
+      saveRoomStateLocally(roomCode, mergedState, mergedUpdatedAt);
       clearCloudSyncDisabledFlag();
-      return cloudState;
+      return mergedState;
     } catch (error) {
       const reason = isNetworkFetchFailure(error)
         ? "Supabase is unreachable from this browser session. Check your live deployment env vars and network access."
@@ -368,12 +369,9 @@ export function subscribeToRoom(
     }
 
     const localSnapshot = getLocalRoomSnapshot(roomCode);
-    if (localSnapshot && localSnapshot.updatedAt >= message.updatedAt) {
-      return;
-    }
-
-    saveRoomStateLocally(roomCode, message.state, message.updatedAt);
-    onUpdate(message.state);
+    const mergedState = localSnapshot ? mergeTrackerStates(localSnapshot.state, message.state) : message.state;
+    saveRoomStateLocally(roomCode, mergedState, mergedState.lastUpdatedAt ?? message.updatedAt);
+    onUpdate(mergedState);
   };
 
   window.addEventListener("storage", handleStorage);
@@ -415,13 +413,15 @@ export function subscribeToRoom(
 
         if (!data) return;
 
-        const localSnapshot = getLocalRoomSnapshot(roomCode);
         const cloudUpdatedAt = data.updated_at ?? new Date(0).toISOString();
-        if (localSnapshot && localSnapshot.updatedAt >= cloudUpdatedAt) return;
-
         const cloudState = normalizeTrackerState(data.data);
-        saveRoomStateLocally(roomCode, cloudState, cloudUpdatedAt);
-        onUpdate(cloudState);
+        const localSnapshot = getLocalRoomSnapshot(roomCode);
+        const mergedState = localSnapshot ? mergeTrackerStates(localSnapshot.state, cloudState) : cloudState;
+        if (JSON.stringify(mergedState) !== JSON.stringify(cloudState)) {
+          void persistCloudState(roomCode, mergedState);
+        }
+        saveRoomStateLocally(roomCode, mergedState, mergedState.lastUpdatedAt ?? cloudUpdatedAt);
+        onUpdate(mergedState);
       } catch (error) {
         console.error(`Cloud sync poll failed for room ${roomCode}:`, error);
         if (isNetworkFetchFailure(error)) {
@@ -452,8 +452,13 @@ export function subscribeToRoom(
           const newRow = payload.new as { data?: unknown; updated_at?: string };
           const newData = newRow?.data ? normalizeTrackerState(newRow.data) : null;
           if (newData) {
-            saveRoomStateLocally(roomCode, newData, newRow?.updated_at);
-            onUpdate(newData);
+            const localSnapshot = getLocalRoomSnapshot(roomCode);
+            const mergedState = localSnapshot ? mergeTrackerStates(localSnapshot.state, newData) : newData;
+            if (JSON.stringify(mergedState) !== JSON.stringify(newData)) {
+              void persistCloudState(roomCode, mergedState);
+            }
+            saveRoomStateLocally(roomCode, mergedState, mergedState.lastUpdatedAt ?? newRow?.updated_at);
+            onUpdate(mergedState);
           }
         }
       )
