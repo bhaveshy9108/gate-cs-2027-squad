@@ -375,8 +375,11 @@ export function subscribeToRoom(
     }
 
     const localSnapshot = getLocalRoomSnapshot(roomCode);
+    if (localSnapshot && localSnapshot.updatedAt >= message.updatedAt) {
+      return;
+    }
     const mergedState = localSnapshot ? mergeTrackerStates(localSnapshot.state, message.state) : message.state;
-    saveRoomStateLocally(roomCode, mergedState, mergedState.lastUpdatedAt ?? message.updatedAt);
+    saveRoomStateLocally(roomCode, mergedState, message.updatedAt, false);
     onUpdate(mergedState);
   };
 
