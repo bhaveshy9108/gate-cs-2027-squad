@@ -963,9 +963,14 @@ export function getStudyTotals(state: TrackerState, member: Member, now = new Da
   if (timer.member !== member || timer.status === "idle" || !timer.startedAt) return saved;
   if (!includeLive && timer.status === "running") return saved;
 
+  const sessionEnd =
+    timer.status === "paused" && timer.lastPausedAt
+      ? new Date(timer.lastPausedAt)
+      : now;
+
   return {
     effectiveMs: saved.effectiveMs + getCurrentStudyTimerElapsed(state, now),
-    totalMs: saved.totalMs + Math.max(0, now.getTime() - new Date(timer.startedAt).getTime()),
+    totalMs: saved.totalMs + Math.max(0, sessionEnd.getTime() - new Date(timer.startedAt).getTime()),
   };
 }
 
@@ -1024,16 +1029,15 @@ export function stopStudyTimer(state: TrackerState): TrackerState {
   const timer = state.studyTimer;
   if (timer.status === "idle") return state;
   const now = new Date().toISOString();
+  // A paused session is frozen at the pause point; time after pausing is not
+  // silently added when the user later chooses to end it.
+  const endedAt = timer.status === "paused" ? timer.lastPausedAt ?? now : now;
   const runningMs =
     timer.status === "running" && timer.lastStartedAt
       ? Math.max(0, new Date(now).getTime() - new Date(timer.lastStartedAt).getTime())
       : 0;
   const effectiveMs = timer.effectiveMs + runningMs;
-  const breakMs =
-    timer.breakMs +
-    (timer.status === "paused" && timer.lastPausedAt
-      ? Math.max(0, new Date(now).getTime() - new Date(timer.lastPausedAt).getTime())
-      : 0);
+  const breakMs = timer.breakMs;
 
   const nextSessions =
     effectiveMs > 0 && timer.startedAt
@@ -1044,7 +1048,7 @@ export function stopStudyTimer(state: TrackerState): TrackerState {
             subjectId: timer.subjectId,
             subjectName: timer.subjectName,
             startedAt: timer.startedAt,
-            endedAt: now,
+            endedAt,
             breakMs,
             effectiveMs,
           }),
