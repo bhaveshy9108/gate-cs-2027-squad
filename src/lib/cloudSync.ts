@@ -15,7 +15,6 @@ let retryTimeout: ReturnType<typeof setTimeout> | null = null;
 let isSaving = false;
 const lastCloudErrorAt: Record<string, number> = {};
 const CLOUD_SAVE_DELAY_MS = 300;
-const CLOUD_POLL_INTERVAL_MS = 1000;
 
 export function hasCloudSync() {
   // Configuration determines cloud availability. A transient network issue
@@ -383,9 +382,8 @@ export function subscribeToRoom(
     if (localSnapshot && localSnapshot.updatedAt >= message.updatedAt) {
       return;
     }
-    const mergedState = localSnapshot ? mergeTrackerStates(localSnapshot.state, message.state) : message.state;
-    saveRoomStateLocally(roomCode, mergedState, message.updatedAt, false);
-    onUpdate(mergedState);
+    saveRoomStateLocally(roomCode, message.state, message.updatedAt, false);
+    onUpdate(message.state);
   };
 
   window.addEventListener("storage", handleStorage);
@@ -393,14 +391,9 @@ export function subscribeToRoom(
   broadcastChannel?.addEventListener("message", handleBroadcast);
 
   if (supabase) {
-    let pollInterval: number | null = null;
     let channel: { unsubscribe: () => void } | null = null;
 
     const stopCloudSync = () => {
-      if (pollInterval) {
-        window.clearInterval(pollInterval);
-        pollInterval = null;
-      }
       channel?.unsubscribe();
       channel = null;
     };
@@ -436,15 +429,8 @@ export function subscribeToRoom(
           }
           return;
         }
-        const mergedState = localSnapshot ? mergeTrackerStates(localSnapshot.state, cloudState) : cloudState;
-        const changedLocally = !localSnapshot || JSON.stringify(mergedState) !== JSON.stringify(localSnapshot.state);
-        if (JSON.stringify(mergedState) !== JSON.stringify(cloudState)) {
-          void persistCloudState(roomCode, mergedState);
-        }
-        if (changedLocally) {
-          saveRoomStateLocally(roomCode, mergedState, cloudUpdatedAt, false);
-          onUpdate(mergedState);
-        }
+        saveRoomStateLocally(roomCode, cloudState, cloudUpdatedAt, false);
+        onUpdate(cloudState);
       } catch (error) {
         console.error(`Cloud sync poll failed for room ${roomCode}:`, error);
         if (isNetworkFetchFailure(error)) {
@@ -477,23 +463,13 @@ export function subscribeToRoom(
           if (newData) {
             const localSnapshot = getLocalRoomSnapshot(roomCode);
             if (localSnapshot && newRow.updated_at && localSnapshot.updatedAt >= newRow.updated_at) return;
-            const mergedState = localSnapshot ? mergeTrackerStates(localSnapshot.state, newData) : newData;
-            const changedLocally = !localSnapshot || JSON.stringify(mergedState) !== JSON.stringify(localSnapshot.state);
-            if (JSON.stringify(mergedState) !== JSON.stringify(newData)) {
-              void persistCloudState(roomCode, mergedState);
-            }
-            if (changedLocally) {
-              saveRoomStateLocally(roomCode, mergedState, newRow?.updated_at, false);
-              onUpdate(mergedState);
-            }
+            saveRoomStateLocally(roomCode, newData, newRow?.updated_at, false);
+            onUpdate(newData);
           }
         }
       )
       .subscribe();
 
-    pollInterval = window.setInterval(() => {
-      void syncFromCloud();
-    }, CLOUD_POLL_INTERVAL_MS);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return {
