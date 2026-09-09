@@ -948,7 +948,7 @@ export interface StudyTotals {
   totalMs: number;
 }
 
-export function getStudyTotals(state: TrackerState, member: Member, now = new Date()): StudyTotals {
+export function getStudyTotals(state: TrackerState, member: Member, now = new Date(), includeLive = true): StudyTotals {
   const saved = state.studySessions
     .filter((session) => session.member === member)
     .reduce(
@@ -960,7 +960,7 @@ export function getStudyTotals(state: TrackerState, member: Member, now = new Da
     );
 
   const timer = state.studyTimer;
-  if (timer.member !== member || timer.status === "idle" || !timer.startedAt) return saved;
+  if (!includeLive || timer.member !== member || timer.status === "idle" || !timer.startedAt) return saved;
 
   return {
     effectiveMs: saved.effectiveMs + getCurrentStudyTimerElapsed(state, now),
@@ -1137,7 +1137,7 @@ export interface StudyDaySummary {
   sessionCount: number;
 }
 
-export function getStudyDaySummaries(state: TrackerState, days = 10, member?: Member): StudyDaySummary[] {
+export function getStudyDaySummaries(state: TrackerState, days = 10, member?: Member, includeLive = true): StudyDaySummary[] {
   const today = new Date();
   const buckets = new Map<string, StudyDaySummary>();
 
@@ -1177,7 +1177,7 @@ export function getStudyDaySummaries(state: TrackerState, days = 10, member?: Me
   }
 
   const timer = state.studyTimer;
-  if (timer.startedAt && timer.status !== "idle" && (!member || timer.member === member)) {
+  if (includeLive && timer.startedAt && timer.status !== "idle" && (!member || timer.member === member)) {
     const liveEnd = timer.status === "paused" ? timer.lastPausedAt ?? undefined : new Date().toISOString();
     const liveEffectiveMs = timer.status === "running" ? getCurrentStudyTimerElapsed(state) : timer.effectiveMs;
     if (liveEnd && liveEffectiveMs > 0) {
@@ -1204,7 +1204,12 @@ export function getStudyDaySummaries(state: TrackerState, days = 10, member?: Me
   return Array.from(buckets.values());
 }
 
-export function getStudyDailyTotals(state: TrackerState, days = 10, member?: Member): { date: string; label: string; effectiveMs: number }[] {
+export function getStudyDailyTotals(
+  state: TrackerState,
+  days = 10,
+  member?: Member,
+  includeLive = true
+): { date: string; label: string; effectiveMs: number }[] {
   const today = new Date();
   const buckets = new Map<string, number>();
   for (let offset = days - 1; offset >= 0; offset -= 1) {
@@ -1231,7 +1236,7 @@ export function getStudyDailyTotals(state: TrackerState, days = 10, member?: Mem
   }
 
   const timer = state.studyTimer;
-  if (timer.startedAt && timer.status !== "idle" && (!member || timer.member === member)) {
+  if (includeLive && timer.startedAt && timer.status !== "idle" && (!member || timer.member === member)) {
     const liveEnd = timer.status === "paused" ? timer.lastPausedAt ?? undefined : new Date().toISOString();
     const liveEffectiveMs = timer.status === "running" ? getCurrentStudyTimerElapsed(state) : timer.effectiveMs;
     if (liveEnd && liveEffectiveMs > 0) {

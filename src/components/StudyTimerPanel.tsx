@@ -92,10 +92,10 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
 
   const activeSubject = SUBJECTS.find((subject) => subject.id === (timer.subjectId ?? selectedSubjectId)) ?? null;
   const effectiveMs = getCurrentStudyTimerElapsed(state, new Date(now));
-  const allTimeTotals = getStudyTotals(state, member, new Date(now));
+  const allTimeTotals = getStudyTotals(state, member, new Date(now), false);
   const chartData = useMemo(
     () =>
-      getStudyDailyTotals(state, 10, member).map((entry) => ({
+      getStudyDailyTotals(state, 10, member, false).map((entry) => ({
         ...entry,
         axisLabel: formatStudyAxisLabel(entry.date),
         tickLabel: (() => {
@@ -109,7 +109,7 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
 
   const weekTotalMs = chartData.reduce((sum, entry) => sum + entry.effectiveMs, 0);
   const todayMs = chartData[chartData.length - 1]?.effectiveMs ?? 0;
-  const daySummaries = getStudyDaySummaries(state, 10, member);
+  const daySummaries = getStudyDaySummaries(state, 10, member, false);
   const recentSessions = [...state.studySessions]
     .filter((session) => session.member === member)
     .sort((a, b) => new Date(b.endedAt).getTime() - new Date(a.endedAt).getTime())
