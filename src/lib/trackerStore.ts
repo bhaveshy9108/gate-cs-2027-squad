@@ -970,9 +970,37 @@ export interface StudyTotals {
   totalMs: number;
 }
 
-export function getStudyTotals(state: TrackerState, member: Member, now = new Date(), includeLive = true): StudyTotals {
-  const saved = state.studySessions
+export function getCanonicalStudySessions(state: TrackerState, member: Member): StudySession[] {
+  const candidates = state.studySessions
     .filter((session) => session.member === member)
+    .filter((session) => {
+      const start = new Date(session.startedAt).getTime();
+      const end = new Date(session.endedAt).getTime();
+      return Number.isFinite(start) && Number.isFinite(end) && end > start;
+    })
+    .sort((first, second) => {
+      const firstDuration = new Date(first.endedAt).getTime() - new Date(first.startedAt).getTime();
+      const secondDuration = new Date(second.endedAt).getTime() - new Date(second.startedAt).getTime();
+      return secondDuration - firstDuration || new Date(first.startedAt).getTime() - new Date(second.startedAt).getTime();
+    });
+
+  const unique: StudySession[] = [];
+  for (const session of candidates) {
+    const start = new Date(session.startedAt).getTime();
+    const end = new Date(session.endedAt).getTime();
+    const isContainedBySavedSession = unique.some((saved) => {
+      const savedStart = new Date(saved.startedAt).getTime();
+      const savedEnd = new Date(saved.endedAt).getTime();
+      return savedStart <= start && savedEnd >= end;
+    });
+    if (!isContainedBySavedSession) unique.push(session);
+  }
+
+  return unique.sort((first, second) => new Date(first.startedAt).getTime() - new Date(second.startedAt).getTime());
+}
+
+export function getStudyTotals(state: TrackerState, member: Member, now = new Date(), includeLive = true): StudyTotals {
+  const saved = getCanonicalStudySessions(state, member)
     .reduce(
       (totals, session) => ({
         effectiveMs: totals.effectiveMs + Math.max(0, session.effectiveMs),
@@ -1187,8 +1215,8 @@ export function getStudyDaySummaries(state: TrackerState, days = 10, member?: Me
     });
   }
 
-  for (const session of state.studySessions) {
-    if (member && session.member !== member) continue;
+  const sessions = member ? getCanonicalStudySessions(state, member) : state.studySessions;
+  for (const session of sessions) {
     const sessionStart = new Date(session.startedAt);
     const sessionEnd = new Date(session.endedAt);
     if (!Number.isFinite(sessionStart.getTime()) || !Number.isFinite(sessionEnd.getTime()) || sessionEnd <= sessionStart) continue;
@@ -1251,8 +1279,8 @@ export function getStudyDailyTotals(
     buckets.set(key, 0);
   }
 
-  for (const session of state.studySessions) {
-    if (member && session.member !== member) continue;
+  const sessions = member ? getCanonicalStudySessions(state, member) : state.studySessions;
+  for (const session of sessions) {
     const sessionStart = new Date(session.startedAt);
     const sessionEnd = new Date(session.endedAt);
     if (!Number.isFinite(sessionStart.getTime()) || !Number.isFinite(sessionEnd.getTime()) || sessionEnd <= sessionStart) continue;

@@ -29,6 +29,7 @@ import {
   getStudyDaySummaries,
   getStudyDailyTotals,
   getStudyTotals,
+  getCanonicalStudySessions,
   pauseStudyTimer,
   resetStudyTimer,
   resumeStudyTimer,
@@ -79,10 +80,10 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
   const [showRecentSessions, setShowRecentSessions] = useState(false);
 
   useEffect(() => {
-    if (timer.subjectId && timer.subjectId !== selectedSubjectId) {
+    if (timer.status !== "idle" && timer.subjectId && timer.subjectId !== selectedSubjectId) {
       setSelectedSubjectId(timer.subjectId);
     }
-  }, [selectedSubjectId, timer.subjectId]);
+  }, [selectedSubjectId, timer.status, timer.subjectId]);
 
   useEffect(() => {
     if (timer.status !== "running") return;
@@ -90,7 +91,8 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
     return () => window.clearInterval(id);
   }, [timer.status, timer.lastStartedAt]);
 
-  const activeSubject = SUBJECTS.find((subject) => subject.id === (timer.subjectId ?? selectedSubjectId)) ?? null;
+  const activeSubjectId = timer.status === "idle" ? selectedSubjectId : timer.subjectId ?? selectedSubjectId;
+  const activeSubject = SUBJECTS.find((subject) => subject.id === activeSubjectId) ?? null;
   const effectiveMs = getCurrentStudyTimerElapsed(state, new Date(now));
   const allTimeTotals = getStudyTotals(state, member, new Date(now), false);
   const chartData = useMemo(
@@ -110,8 +112,8 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
   const weekTotalMs = chartData.reduce((sum, entry) => sum + entry.effectiveMs, 0);
   const todayMs = chartData[chartData.length - 1]?.effectiveMs ?? 0;
   const daySummaries = getStudyDaySummaries(state, 10, member, false);
-  const recentSessions = [...state.studySessions]
-    .filter((session) => session.member === member)
+  const savedSessions = getCanonicalStudySessions(state, member);
+  const recentSessions = [...savedSessions]
     .sort((a, b) => new Date(b.endedAt).getTime() - new Date(a.endedAt).getTime())
     .slice(0, 5);
 
@@ -173,7 +175,9 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
           <div className="rounded-2xl border border-border/70 bg-background/70 px-4 py-3 text-right">
             <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-muted-foreground">Status</p>
             <p className="mt-1 text-lg font-semibold text-foreground">{statusLabel}</p>
-            <p className="text-xs text-muted-foreground">{timer.subjectName ?? activeSubject?.name ?? "No subject selected"}</p>
+            <p className="text-xs text-muted-foreground">
+              {timer.status === "idle" ? activeSubject?.name ?? "No subject selected" : timer.subjectName ?? activeSubject?.name ?? "No subject selected"}
+            </p>
           </div>
         </div>
 
@@ -193,7 +197,7 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
           <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
             <p className="text-[11px] uppercase tracking-[0.25em] text-muted-foreground">Last 10 days</p>
             <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">{formatStudyDuration(weekTotalMs)}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{state.studySessions.length} sessions saved</p>
+            <p className="mt-1 text-xs text-muted-foreground">{savedSessions.length} sessions saved</p>
           </div>
           <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
             <p className="text-[11px] uppercase tracking-[0.25em] text-muted-foreground">All time</p>
@@ -278,7 +282,9 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
 
             <div className="rounded-2xl border border-border/70 bg-background/70 p-4 text-sm text-muted-foreground">
               <p className="font-medium text-foreground">Current selection</p>
-              <p className="mt-1">{timer.subjectName ?? activeSubject?.name ?? "No subject selected yet"}</p>
+              <p className="mt-1">
+                {timer.status === "idle" ? activeSubject?.name ?? "No subject selected yet" : timer.subjectName ?? activeSubject?.name ?? "No subject selected yet"}
+              </p>
               <p className="mt-1">Started at {formatShortClock(timer.startedAt)}</p>
             </div>
           </div>
