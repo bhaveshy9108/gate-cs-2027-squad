@@ -49,6 +49,9 @@ interface Props {
   onUpdate: (s: TrackerState) => void;
 }
 
+// Test time is study time, but it should not become a syllabus subject.
+const STUDY_SUBJECTS = [...SUBJECTS, { id: "test", name: "Test" }];
+
 function formatShortClock(iso?: string) {
   if (!iso) return "--";
   return new Date(iso).toLocaleTimeString("en-IN", {
@@ -75,7 +78,7 @@ function formatStudyAxisTick(dateKey: string) {
 
 export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
   const timer = state.studyTimer;
-  const [selectedSubjectId, setSelectedSubjectId] = useState(timer.subjectId ?? SUBJECTS[0]?.id ?? "");
+  const [selectedSubjectId, setSelectedSubjectId] = useState(timer.subjectId ?? STUDY_SUBJECTS[0]?.id ?? "");
   const [now, setNow] = useState(() => Date.now());
   const [showRecentSessions, setShowRecentSessions] = useState(false);
 
@@ -92,7 +95,7 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
   }, [timer.status, timer.lastStartedAt]);
 
   const activeSubjectId = timer.status === "idle" ? selectedSubjectId : timer.subjectId ?? selectedSubjectId;
-  const activeSubject = SUBJECTS.find((subject) => subject.id === activeSubjectId) ?? null;
+  const activeSubject = STUDY_SUBJECTS.find((subject) => subject.id === activeSubjectId) ?? null;
   const effectiveMs = getCurrentStudyTimerElapsed(state, new Date(now));
   const allTimeTotals = getStudyTotals(state, member, new Date(now), false);
   const chartData = useMemo(
@@ -127,7 +130,7 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
   };
 
   const start = async () => {
-    const subject = SUBJECTS.find((entry) => entry.id === selectedSubjectId) ?? SUBJECTS[0];
+    const subject = STUDY_SUBJECTS.find((entry) => entry.id === selectedSubjectId) ?? STUDY_SUBJECTS[0];
     onUpdate(startStudyTimer(state, member, subject?.id, subject?.name));
     await enableNotificationControls();
   };
@@ -149,7 +152,7 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
   };
 
   const changeSessionSubject = (sessionId: string, nextSubjectId: string) => {
-    const nextSubject = SUBJECTS.find((subject) => subject.id === nextSubjectId);
+    const nextSubject = STUDY_SUBJECTS.find((subject) => subject.id === nextSubjectId);
     onUpdate(updateStudySessionSubject(state, sessionId, nextSubject?.id, nextSubject?.name));
   };
 
@@ -217,14 +220,14 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
                 onChange={(event) => {
                   const nextSubjectId = event.target.value;
                   setSelectedSubjectId(nextSubjectId);
-                  const nextSubject = SUBJECTS.find((subject) => subject.id === nextSubjectId);
+                  const nextSubject = STUDY_SUBJECTS.find((subject) => subject.id === nextSubjectId);
                   if (timer.status !== "idle") {
                     onUpdate(updateStudyTimerSubject(state, nextSubject?.id, nextSubject?.name));
                   }
                 }}
                 className="mt-2 w-full rounded-2xl border border-border/70 bg-card px-4 py-3 text-sm font-medium text-foreground outline-none transition-all focus:border-primary/40 focus:ring-2 focus:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {SUBJECTS.map((subject) => (
+                {STUDY_SUBJECTS.map((subject) => (
                   <option key={subject.id} value={subject.id}>
                     {subject.name}
                   </option>
@@ -425,7 +428,7 @@ export default function StudyTimerPanel({ state, member, onUpdate }: Props) {
                           className="min-w-0 rounded-full border border-border/70 bg-card px-3 py-1.5 text-sm font-semibold text-foreground outline-none transition-colors focus:border-primary/40 focus:ring-2 focus:ring-primary/10 sm:max-w-[260px]"
                         >
                           <option value="">Study session</option>
-                          {SUBJECTS.map((subject) => (
+                          {STUDY_SUBJECTS.map((subject) => (
                             <option key={subject.id} value={subject.id}>
                               {subject.name}
                             </option>
